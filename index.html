@@ -132,7 +132,7 @@
             align-items: center;
         }
         .tab-btn {
-            padding: 12px 20px;
+            padding: 8px 16px;
             background: none;
             border: none;
             border-bottom: 3px solid transparent;
@@ -142,11 +142,53 @@
             white-space: nowrap;
             transition: all 0.2s;
             display: inline-flex;
+            flex-direction: column;
             align-items: center;
-            gap: 6px;
+            gap: 2px;
         }
         .tab-btn:hover { color: var(--primary); }
         .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        .tab-title-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tab-move-arrows {
+            display: flex;
+            gap: 6px;
+            opacity: 0.4;
+            transition: opacity 0.2s;
+            margin-top: 2px;
+            align-items: center;
+            justify-content: center;
+        }
+        .tab-btn:hover .tab-move-arrows {
+            opacity: 1;
+        }
+        .arrow-btn {
+            cursor: pointer;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 14px;
+            font-size: 0.65rem;
+            line-height: 1;
+            border-radius: 2px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+        }
+        .arrow-btn:hover {
+            color: var(--primary);
+            background: #e2e8f0;
+        }
+        .arrow-btn.disabled {
+            visibility: hidden;
+            pointer-events: none;
+        }
 
         .tab-content { display: none; background: var(--surface); padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .tab-content.active { display: block; }
@@ -201,6 +243,30 @@
             flex-shrink: 0;
         }
         .delete-btn-icon:hover { background: var(--danger-hover); }
+
+        .lock-btn-icon {
+            background: #f1f5f9;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            margin-right: 4px;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .lock-btn-icon:hover {
+            background: #e2e8f0;
+        }
+        .lock-btn-icon.locked {
+            background: #fef3c7;
+            border-color: #f59e0b;
+        }
 
         .edit-btn-icon {
             background: #f1f5f9;
@@ -296,6 +362,12 @@
             font-size: 0.85rem;
             white-space: nowrap;
         }
+        input:disabled, select:disabled {
+            background-color: #f1f5f9;
+            color: var(--text-muted);
+            cursor: not-allowed;
+            border-color: #cbd5e1;
+        }
         input[type="number"] { width: 100%; text-align: center; }
         .checkbox-container { display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
         .checkbox-container input[type="checkbox"] { width: auto; cursor: pointer; }
@@ -376,14 +448,14 @@
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
         .modal-card.modal-sm {
-            max-width: 550px;
+            max-width: 580px;
         }
 
         .modal-header {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             border-bottom: 1px solid var(--border);
             padding-bottom: 12px;
         }
@@ -396,8 +468,15 @@
             text-align: center;
             color: var(--primary);
             font-size: 1.3rem;
-            margin-bottom: 16px;
+            margin-bottom: 4px;
             font-weight: bold;
+        }
+        .pdf-subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+            font-weight: 600;
         }
 
         .settings-add-form {
@@ -429,6 +508,36 @@
             align-items: center;
             gap: 4px;
         }
+
+        /* Styles Recherche EPLE */
+        .eple-selected-card {
+            background: var(--success-bg);
+            border: 1px solid var(--success);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .eple-search-results {
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-top: 8px;
+            background: white;
+        }
+        .eple-result-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .eple-result-item:last-child { border-bottom: none; }
+        .eple-result-item:hover { background: #eff6ff; }
+        .eple-result-title { font-weight: 700; color: var(--text); font-size: 0.9rem; }
+        .eple-result-sub { font-size: 0.78rem; color: var(--text-muted); }
 
         .level-discipline-card {
             background: #f8fafc;
@@ -525,7 +634,7 @@
                 background: transparent !important;
                 box-shadow: none !important;
             }
-            .pdf-title {
+            .pdf-title, .pdf-subtitle {
                 margin-top: 0 !important;
                 padding-top: 0 !important;
             }
@@ -550,7 +659,7 @@
 
     <div class="header">
         <div>
-            <h1>VectisDHG Autonomie</h1>
+            <h1 id="appMainTitle">VectisDHG Autonomie</h1>
             <p>Outil d'aide à la ventilation de la Dotation Horaire Globale</p>
         </div>
         <div class="header-actions">
@@ -580,7 +689,6 @@
     <div id="trmdModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header">
-                <h2>Tableau de Répartition des Moyens Détaillé (TRMD)</h2>
                 <div class="modal-actions">
                     <button class="btn-header" onclick="exportTrmdToPdf()">📄 Export PDF</button>
                     <button class="modal-close" onclick="closeTrmdModal()">&times;</button>
@@ -622,21 +730,39 @@
     <!-- Modale Paramètres -->
     <div id="settingsModal" class="modal-overlay">
         <div class="modal-card modal-sm">
-            <div class="modal-header">
+            <div class="modal-header" style="justify-content: space-between;">
                 <h2>⚙️ Paramètres de l'application</h2>
                 <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
             </div>
             <div class="mode-selector">
-                <button id="btnSettingsLevels" class="mode-btn active" onclick="switchSettingsTab('levels')">Niveaux</button>
+                <button id="btnSettingsEple" class="mode-btn active" onclick="switchSettingsTab('eple')">Identité EPLE</button>
+                <button id="btnSettingsLevels" class="mode-btn" onclick="switchSettingsTab('levels')">Niveaux</button>
                 <button id="btnSettingsDisc" class="mode-btn" onclick="switchSettingsTab('disciplines')">Disciplines</button>
             </div>
-            <div id="settingsLevelsTab" class="tab-content active" style="padding: 0; box-shadow: none; background: transparent;">
+
+            <!-- Onglet Identité EPLE -->
+            <div id="settingsEpleTab" class="tab-content active" style="padding: 0; box-shadow: none; background: transparent;">
+                <div id="selectedEpleContainer"></div>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+                    Recherchez votre établissement sur le portail Open Data de l'Éducation nationale :
+                </p>
+                <div class="settings-add-form">
+                    <input type="text" id="epleSearchInput" placeholder="Nom, ville ou code UAI (ex: Odilon Redon, Bordeaux, 0332744D)..." onkeypress="if(event.key==='Enter') searchEpleOpenData()">
+                    <button class="btn-secondary" onclick="searchEpleOpenData()" style="white-space: nowrap;">🔍 Rechercher</button>
+                </div>
+                <div id="epleSearchResults" class="eple-search-results" style="display: none;"></div>
+            </div>
+
+            <!-- Onglet Niveaux -->
+            <div id="settingsLevelsTab" class="tab-content" style="padding: 0; box-shadow: none; background: transparent;">
                 <div class="settings-add-form">
                     <input type="text" id="newLevelInput" placeholder="Nouveau niveau (ex: BTS 1)...">
                     <button class="btn-secondary" onclick="addLevel()" style="white-space: nowrap;">➕ Ajouter</button>
                 </div>
                 <ul id="levelsList" class="settings-list"></ul>
             </div>
+
+            <!-- Onglet Disciplines -->
             <div id="settingsDisciplinesTab" class="tab-content" style="padding: 0; box-shadow: none; background: transparent;">
                 <div class="settings-add-form">
                     <input type="text" id="newDisciplineInput" placeholder="Nouvelle discipline (ex: Physique-Chimie)...">
@@ -648,6 +774,12 @@
     </div>
 
     <script>
+        let epleIdentity = {
+            name: "",
+            uai: "",
+            commune: ""
+        };
+
         let dotationGlobal = {
             hp: 0,
             hsa: 0
@@ -657,7 +789,7 @@
         let currentAutonomieTabLevelIndex = 0;
         let currentAutonomieTabDiscIndex = 0;
         let currentAutonomieTabDisciplinesIndex = 0;
-        let settingsActiveTab = 'levels';
+        let settingsActiveTab = 'eple';
 
         let levels = ["6ème", "5ème", "4ème", "3ème", "2nde", "1ère", "Terminale"];
         let autonomieMode = 'level';
@@ -670,8 +802,8 @@
                 teachers: ["DU PONT Pierre", "MARTIN Sophie"],
                 apports: { "DU PONT Pierre": 18, "MARTIN Sophie": 18 },
                 services: [
-                    { level: "6ème", name: "Maths 6è", classes: 4, hours: 4.5, ponderationActive: false, ponderationFactor: 1.1, allocations: { "DU PONT Pierre": 9, "MARTIN Sophie": 9 } },
-                    { level: "Terminale", name: "Maths Tle", classes: 2, hours: 6.0, ponderationActive: true, ponderationFactor: 1.1, allocations: { "DU PONT Pierre": 6, "MARTIN Sophie": 6 } }
+                    { level: "6ème", name: "Maths 6è", classes: 4, hours: 4.5, ponderationActive: false, ponderationFactor: 1.1, locked: false, allocations: { "DU PONT Pierre": 9, "MARTIN Sophie": 9 } },
+                    { level: "Terminale", name: "Maths Tle", classes: 2, hours: 6.0, ponderationActive: true, ponderationFactor: 1.1, locked: false, allocations: { "DU PONT Pierre": 6, "MARTIN Sophie": 6 } }
                 ]
             },
             "Lettres modernes": {
@@ -681,7 +813,7 @@
                 teachers: ["BERNARD Julie"],
                 apports: { "BERNARD Julie": 18 },
                 services: [
-                    { level: "1ère", name: "Français 1ère", classes: 3, hours: 4.5, ponderationActive: true, ponderationFactor: 1.1, allocations: { "BERNARD Julie": 13.5 } }
+                    { level: "1ère", name: "Français 1ère", classes: 3, hours: 4.5, ponderationActive: true, ponderationFactor: 1.1, locked: false, allocations: { "BERNARD Julie": 13.5 } }
                 ]
             }
         };
@@ -694,6 +826,116 @@
             document.getElementById('excelFileInput').addEventListener('change', handleFileUpload);
             document.getElementById('jsonFileInput').addEventListener('change', handleJsonLoad);
         });
+
+        function updateAppTitle() {
+            const mainTitleEl = document.getElementById('appMainTitle');
+            if (epleIdentity && epleIdentity.name && epleIdentity.name.trim() !== '') {
+                mainTitleEl.textContent = `VectisDHG Autonomie - ${epleIdentity.name}`;
+            } else {
+                mainTitleEl.textContent = "VectisDHG Autonomie";
+            }
+        }
+
+        // 🏛️ RECHERCHE EPLE SUR OPEN DATA ÉDUCATION NATIONALE
+        async function searchEpleOpenData() {
+            const input = document.getElementById('epleSearchInput');
+            const query = input.value.trim();
+            const resultsContainer = document.getElementById('epleSearchResults');
+
+            if (!query) {
+                alert("Veuillez saisir un nom d'établissement, une ville ou un code UAI.");
+                return;
+            }
+
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Recherche en cours dans l\'annuaire Open Data...</div>';
+
+            try {
+                const url = `https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records?where=search(nom_etablissement%2C%20"${encodeURIComponent(query)}")%20OR%20search(nom_commune%2C%20"${encodeURIComponent(query)}")%20OR%20identifiant_de_l_etablissement%3D"${encodeURIComponent(query)}"&limit=15`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!data.results || data.results.length === 0) {
+                    resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Aucun établissement trouvé. Vérifiez l\'orthographe ou essayez le nom de la commune.</div>';
+                    return;
+                }
+
+                let html = '';
+                data.results.forEach(item => {
+                    const name = item.nom_etablissement || "Établissement";
+                    const commune = item.nom_commune || "";
+                    const uai = item.identifiant_de_l_etablissement || "";
+                    const type = item.type_etablissement || "EPLE";
+
+                    html += `
+                        <div class="eple-result-item" onclick="selectEple('${name.replace(/'/g, "\\'")}', '${commune.replace(/'/g, "\\'")}', '${uai}')">
+                            <div class="eple-result-title">${name}</div>
+                            <div class="eple-result-sub">${type} • ${commune} (${uai})</div>
+                        </div>
+                    `;
+                });
+
+                resultsContainer.innerHTML = html;
+            } catch (err) {
+                resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--danger); font-size: 0.85rem;">Erreur de connexion à l\'API Open Data. Vérifiez votre connexion Internet.</div>';
+            }
+        }
+
+        function selectEple(name, commune, uai) {
+            epleIdentity = { name, commune, uai };
+            document.getElementById('epleSearchResults').style.display = 'none';
+            document.getElementById('epleSearchInput').value = '';
+            renderEpleSelectedCard();
+            updateAppTitle();
+        }
+
+        function clearEpleSelection() {
+            epleIdentity = { name: "", commune: "", uai: "" };
+            renderEpleSelectedCard();
+            updateAppTitle();
+        }
+
+        function renderEpleSelectedCard() {
+            const container = document.getElementById('selectedEpleContainer');
+            if (epleIdentity && epleIdentity.name) {
+                container.innerHTML = `
+                    <div class="eple-selected-card">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--success); font-weight: 700; text-transform: uppercase;">Établissement sélectionné :</div>
+                            <div style="font-weight: 700; font-size: 1rem; color: var(--text);">${epleIdentity.name}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">${epleIdentity.commune} (${epleIdentity.uai})</div>
+                        </div>
+                        <button class="delete-btn-icon" title="Effacer l'établissement" onclick="clearEpleSelection()">✕</button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '';
+            }
+        }
+
+        // Déplacement de l'ordre des disciplines
+        function moveDiscipline(index, direction, event) {
+            event.stopPropagation();
+            const keys = Object.keys(dataStore);
+            const targetIndex = index + direction;
+
+            if (targetIndex < 0 || targetIndex >= keys.length) return;
+
+            const entries = Object.entries(dataStore);
+            const temp = entries[index];
+            entries[index] = entries[targetIndex];
+            entries[targetIndex] = temp;
+
+            dataStore = Object.fromEntries(entries);
+
+            if (currentActiveTabIndex === index) {
+                currentActiveTabIndex = targetIndex;
+            } else if (currentActiveTabIndex === targetIndex) {
+                currentActiveTabIndex = index;
+            }
+
+            renderApp();
+        }
 
         // 🏛️ MODALE AUTONOMIE EPLE
         function openAutonomieModal() {
@@ -1226,7 +1468,7 @@
             document.querySelectorAll('#levelContentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
         }
 
-        // ⚙️ GESTION DES PARAMÈTRES (NIVEAUX ET DISCIPLINES)
+        // ⚙️ GESTION DES PARAMÈTRES (EPLE, NIVEAUX ET DISCIPLINES)
         function openSettingsModal() {
             renderSettingsModal();
             document.getElementById('settingsModal').classList.add('active');
@@ -1238,15 +1480,21 @@
 
         function switchSettingsTab(tab) {
             settingsActiveTab = tab;
+            document.getElementById('btnSettingsEple').classList.toggle('active', tab === 'eple');
             document.getElementById('btnSettingsLevels').classList.toggle('active', tab === 'levels');
             document.getElementById('btnSettingsDisc').classList.toggle('active', tab === 'disciplines');
+            
+            document.getElementById('settingsEpleTab').classList.toggle('active', tab === 'eple');
             document.getElementById('settingsLevelsTab').classList.toggle('active', tab === 'levels');
             document.getElementById('settingsDisciplinesTab').classList.toggle('active', tab === 'disciplines');
+            
             renderSettingsModal();
         }
 
         function renderSettingsModal() {
-            if (settingsActiveTab === 'levels') {
+            if (settingsActiveTab === 'eple') {
+                renderEpleSelectedCard();
+            } else if (settingsActiveTab === 'levels') {
                 renderLevelsList();
             } else {
                 renderDisciplinesList();
@@ -1403,6 +1651,7 @@
         // 💾 SAUVEGARDE DE LA SAISIE (JSON)
         function saveState() {
             const exportObject = {
+                epleIdentity: epleIdentity,
                 dotation: dotationGlobal,
                 levels: levels,
                 baseHoursStore: baseHoursStore,
@@ -1434,6 +1683,9 @@
                             if (!dataStore[disc].apports) {
                                 dataStore[disc].apports = {};
                             }
+                            dataStore[disc].services.forEach(s => {
+                                if (s.locked === undefined) s.locked = false;
+                            });
                         });
                         dotationGlobal = loadedData.dotation || { hp: 0, hsa: 0 };
                         if (Array.isArray(loadedData.levels)) {
@@ -1442,6 +1694,9 @@
                         if (loadedData.baseHoursStore) {
                             baseHoursStore = loadedData.baseHoursStore;
                         }
+                        if (loadedData.epleIdentity) {
+                            epleIdentity = loadedData.epleIdentity;
+                        }
                     } else if (typeof loadedData === 'object' && loadedData !== null) {
                         dataStore = loadedData;
                     }
@@ -1449,6 +1704,7 @@
                     currentAutonomieTabLevelIndex = 0;
                     currentAutonomieTabDiscIndex = 0;
                     currentAutonomieTabDisciplinesIndex = 0;
+                    updateAppTitle();
                     renderApp();
                 } catch (err) {
                     alert("Erreur lors de la lecture du fichier JSON.");
@@ -1507,6 +1763,7 @@
         }
 
         function renderApp() {
+            updateAppTitle();
             const tabsContainer = document.getElementById('tabsContainer');
             const contentsContainer = document.getElementById('contentsContainer');
             
@@ -1535,7 +1792,18 @@
                     ? `<span class="delete-btn-icon" title="Supprimer la discipline ${disc}" onclick="event.stopPropagation(); deleteDiscipline('${disc.replace(/'/g, "\\'")}')">✕</span>` 
                     : '';
 
-                tabBtn.innerHTML = `${deleteIconHtml} <span>${disc}</span>`;
+                const isFirst = index === 0;
+                const isLast = index === disciplines.length - 1;
+
+                tabBtn.innerHTML = `
+                    <div class="tab-title-row">
+                        ${deleteIconHtml} <span>${disc}</span>
+                    </div>
+                    <div class="tab-move-arrows">
+                        <span class="arrow-btn ${isFirst ? 'disabled' : ''}" title="Déplacer à gauche" onclick="moveDiscipline(${index}, -1, event)">◀</span>
+                        <span class="arrow-btn ${isLast ? 'disabled' : ''}" title="Déplacer à droite" onclick="moveDiscipline(${index}, 1, event)">▶</span>
+                    </div>
+                `;
                 tabBtn.onclick = () => switchTab(index);
                 tabsContainer.appendChild(tabBtn);
 
@@ -1572,6 +1840,7 @@
                     hours: 1,
                     ponderationActive: false,
                     ponderationFactor: 1.1,
+                    locked: false,
                     allocations: {}
                 });
                 renderApp();
@@ -1701,7 +1970,29 @@
             }
         }
 
-        // Mise à jour ciblée du service (Nbr C. ou Vol. C.) dans la table
+        function toggleLockService(disc, sIndex, buttonEl) {
+            const service = dataStore[disc].services[sIndex];
+            service.locked = !service.locked;
+
+            const isLocked = service.locked;
+            buttonEl.className = `lock-btn-icon ${isLocked ? 'locked' : ''}`;
+            buttonEl.textContent = isLocked ? '🔒' : '🔓';
+            buttonEl.title = isLocked ? "Saisie verrouillée (cliquer pour déverrouiller)" : "Saisie libre (cliquer pour verrouiller)";
+
+            const tr = buttonEl.closest('tr');
+            if (tr) {
+                const levelSelect = tr.querySelector('.level-select');
+                const nameInput = tr.querySelector('.name-input');
+                const classesInput = tr.querySelector('.classes-input');
+                const hoursInput = tr.querySelector('.hours-input');
+
+                if (levelSelect) levelSelect.disabled = isLocked;
+                if (nameInput) nameInput.disabled = isLocked;
+                if (classesInput) classesInput.disabled = isLocked;
+                if (hoursInput) hoursInput.disabled = isLocked;
+            }
+        }
+
         function updateService(disc, sIndex, key, value, inputEl) {
             dataStore[disc].services[sIndex][key] = value;
 
@@ -1900,6 +2191,7 @@
                 const targetVolume = baseVolume;
                 let currentAllocated = 0;
 
+                const isLocked = service.locked || false;
                 const rawLineSurplus = service.ponderationActive ? baseVolume * (factor - 1) : 0;
 
                 data.teachers.forEach(t => {
@@ -1928,20 +2220,25 @@
                         <td>
                             <div style="display: flex; align-items: center;">
                                 ${deleteRowBtn}
-                                <select onchange="updateService('${disc}', ${sIndex}, 'level', this.value, null)">
+                                <button class="lock-btn-icon ${isLocked ? 'locked' : ''}" 
+                                    title="${isLocked ? 'Saisie verrouillée (cliquer pour déverrouiller)' : 'Saisie libre (cliquer pour verrouiller)'}" 
+                                    onclick="toggleLockService('${disc}', ${sIndex}, this)">
+                                    ${isLocked ? '🔒' : '🔓'}
+                                </button>
+                                <select class="level-select" ${isLocked ? 'disabled' : ''} onchange="updateService('${disc}', ${sIndex}, 'level', this.value, null)">
                                     ${levels.map(l => `<option value="${l}" ${service.level === l ? 'selected' : ''}>${l}</option>`).join('')}
                                 </select>
                             </div>
                         </td>
                         <td>
-                            <input type="text" value="${service.name}" onchange="updateService('${disc}', ${sIndex}, 'name', this.value, null)">
+                            <input type="text" class="name-input" value="${service.name}" ${isLocked ? 'disabled' : ''} onchange="updateService('${disc}', ${sIndex}, 'name', this.value, null)">
                         </td>
                         <td>
-                            <input type="number" class="classes-input" min="0" step="1" value="${service.classes}" 
+                            <input type="number" class="classes-input" min="0" step="1" value="${service.classes}" ${isLocked ? 'disabled' : ''} 
                                 oninput="updateService('${disc}', ${sIndex}, 'classes', parseFloat(this.value)||0, this)">
                         </td>
                         <td>
-                            <input type="number" class="hours-input" min="0" step="0.5" value="${service.hours}" 
+                            <input type="number" class="hours-input" min="0" step="0.5" value="${service.hours}" ${isLocked ? 'disabled' : ''} 
                                 oninput="updateService('${disc}', ${sIndex}, 'hours', parseFloat(this.value)||0, this)">
                         </td>
                         <td>
@@ -2077,8 +2374,13 @@
             const norvegien = totalDgh - grandEpleTotalGeneral;
             const norvegienClass = norvegien >= 0 ? 'success' : 'danger';
 
+            const epleSubtitleHtml = epleIdentity && epleIdentity.name 
+                ? `<div class="pdf-subtitle">${epleIdentity.name} ${epleIdentity.commune ? '— ' + epleIdentity.commune : ''} ${epleIdentity.uai ? '(' + epleIdentity.uai + ')' : ''}</div>`
+                : `<div class="pdf-subtitle" style="font-style: italic; color: #94a3b8;">Aucun établissement sélectionné</div>`;
+
             let html = `
                 <div class="pdf-title">Tableau de Répartition des Moyens Détaillé (TRMD)</div>
+                ${epleSubtitleHtml}
                 
                 <div class="dotation-panel">
                     <div class="dotation-field">
