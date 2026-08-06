@@ -1701,6 +1701,129 @@
             }
         }
 
+        // Mise à jour ciblée du service (Nbr C. ou Vol. C.) dans la table
+        function updateService(disc, sIndex, key, value, inputEl) {
+            dataStore[disc].services[sIndex][key] = value;
+
+            if (inputEl) {
+                const tr = inputEl.closest('tr');
+                if (tr) {
+                    const classesInput = tr.querySelector('.classes-input');
+                    const hoursInput = tr.querySelector('.hours-input');
+
+                    const classes = parseFloat(classesInput ? classesInput.value : 0) || 0;
+                    const hours = parseFloat(hoursInput ? hoursInput.value : 0) || 0;
+                    const targetVolume = classes * hours;
+
+                    const targetCellBadge = tr.querySelector('.service-target-badge');
+                    if (targetCellBadge) {
+                        targetCellBadge.textContent = `${targetVolume.toFixed(1)} h`;
+
+                        const service = dataStore[disc].services[sIndex];
+                        let currentAllocated = 0;
+                        dataStore[disc].teachers.forEach(t => {
+                            currentAllocated += parseFloat(service.allocations[t]) || 0;
+                        });
+
+                        const isBalanced = Math.abs(currentAllocated - targetVolume) < 0.01 && targetVolume > 0;
+                        targetCellBadge.className = `badge service-target-badge ${isBalanced ? 'success' : 'danger'}`;
+                    }
+                }
+            } else {
+                renderApp();
+            }
+        }
+
+        function updateAllocation(disc, sIndex, teacher, value, inputEl) {
+            const val = value === '' ? 0 : parseFloat(value);
+            dataStore[disc].services[sIndex].allocations[teacher] = val;
+
+            const table = inputEl.closest('table');
+            if (!table) return;
+
+            const data = dataStore[disc];
+
+            const tr = inputEl.closest('tr');
+            if (tr) {
+                const classesInput = tr.querySelector('.classes-input');
+                const hoursInput = tr.querySelector('.hours-input');
+                const classes = parseFloat(classesInput ? classesInput.value : 0) || 0;
+                const hours = parseFloat(hoursInput ? hoursInput.value : 0) || 0;
+                const targetVolume = classes * hours;
+
+                let currentAllocated = 0;
+
+                data.teachers.forEach(t => {
+                    currentAllocated += parseFloat(data.services[sIndex].allocations[t]) || 0;
+                });
+
+                const targetCellBadge = tr.querySelector('.service-target-badge');
+                if (targetCellBadge) {
+                    const isBalanced = Math.abs(currentAllocated - targetVolume) < 0.01 && targetVolume > 0;
+                    targetCellBadge.className = `badge service-target-badge ${isBalanced ? 'success' : 'danger'}`;
+                }
+            }
+
+            const teacherTotalsRaw = {};
+            const teacherTotalsPond = {};
+            const teacher11RawSums = {};
+
+            data.teachers.forEach(t => {
+                teacherTotalsRaw[t] = 0;
+                teacherTotalsPond[t] = 0;
+                teacher11RawSums[t] = 0;
+            });
+
+            data.services.forEach(s => {
+                const baseVolume = (s.classes || 0) * (s.hours || 0);
+                const factor = s.ponderationActive ? (s.ponderationFactor || 1.1) : 1;
+
+                data.teachers.forEach(t => {
+                    const tVal = parseFloat(s.allocations[t]) || 0;
+                    teacherTotalsRaw[t] += tVal;
+
+                    if (s.ponderationActive && tVal > 0) {
+                        if (Math.abs(factor - 1.1) < 0.01) {
+                            teacher11RawSums[t] += tVal * 0.1;
+                        } else {
+                            teacherTotalsPond[t] += tVal * (factor - 1);
+                        }
+                    }
+                });
+            });
+
+            data.teachers.forEach(t => {
+                teacherTotalsPond[t] += Math.min(teacher11RawSums[t], 1.0);
+            });
+
+            data.teachers.forEach(t => {
+                const rawCell = table.querySelector(`.raw-total-cell[data-teacher="${t}"]`);
+                if (rawCell) {
+                    rawCell.textContent = `${teacherTotalsRaw[t].toFixed(1)} h`;
+                }
+
+                const pondCell = table.querySelector(`.pond-total-cell[data-teacher="${t}"]`);
+                if (pondCell) {
+                    pondCell.textContent = `+${teacherTotalsPond[t].toFixed(2)} h`;
+                }
+
+                const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t];
+                const grandTotalCell = table.querySelector(`.grand-total-cell[data-teacher="${t}"]`);
+                if (grandTotalCell) {
+                    grandTotalCell.dataset.grandtotal = grandTotal;
+                    grandTotalCell.textContent = `${grandTotal.toFixed(2)} h`;
+                }
+
+                const hsaCell = table.querySelector(`.hsa-cell[data-teacher="${t}"]`);
+                if (hsaCell) {
+                    const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
+                    const hsaVal = grandTotal - apportVal;
+                    const badgeClass = hsaVal >= 0 ? 'success' : 'danger';
+                    hsaCell.innerHTML = `<span class="badge ${badgeClass}">${hsaVal > 0 ? '+' : ''}${hsaVal.toFixed(2)} h</span>`;
+                }
+            });
+        }
+
         function createTable(disc) {
             const data = dataStore[disc];
             if (!data.apports) data.apports = {};
@@ -1805,32 +1928,34 @@
                         <td>
                             <div style="display: flex; align-items: center;">
                                 ${deleteRowBtn}
-                                <select onchange="updateService('${disc}', ${sIndex}, 'level', this.value)">
+                                <select onchange="updateService('${disc}', ${sIndex}, 'level', this.value, null)">
                                     ${levels.map(l => `<option value="${l}" ${service.level === l ? 'selected' : ''}>${l}</option>`).join('')}
                                 </select>
                             </div>
                         </td>
                         <td>
-                            <input type="text" value="${service.name}" onchange="updateService('${disc}', ${sIndex}, 'name', this.value)">
+                            <input type="text" value="${service.name}" onchange="updateService('${disc}', ${sIndex}, 'name', this.value, null)">
                         </td>
                         <td>
-                            <input type="number" min="0" step="1" value="${service.classes}" onchange="updateService('${disc}', ${sIndex}, 'classes', parseFloat(this.value)||0)">
+                            <input type="number" class="classes-input" min="0" step="1" value="${service.classes}" 
+                                oninput="updateService('${disc}', ${sIndex}, 'classes', parseFloat(this.value)||0, this)">
                         </td>
                         <td>
-                            <input type="number" min="0" step="0.5" value="${service.hours}" onchange="updateService('${disc}', ${sIndex}, 'hours', parseFloat(this.value)||0)">
+                            <input type="number" class="hours-input" min="0" step="0.5" value="${service.hours}" 
+                                oninput="updateService('${disc}', ${sIndex}, 'hours', parseFloat(this.value)||0, this)">
                         </td>
                         <td>
                             <div class="checkbox-container">
                                 <input type="checkbox" ${service.ponderationActive ? 'checked' : ''} 
-                                    onchange="updateService('${disc}', ${sIndex}, 'ponderationActive', this.checked)">
+                                    onchange="updateService('${disc}', ${sIndex}, 'ponderationActive', this.checked, null)">
                                 <input type="number" step="0.05" min="1" value="${service.ponderationFactor || 1.1}" 
                                     style="width: 60px;" ${!service.ponderationActive ? 'disabled' : ''}
-                                    onchange="updateService('${disc}', ${sIndex}, 'ponderationFactor', parseFloat(this.value)||1)">
+                                    onchange="updateService('${disc}', ${sIndex}, 'ponderationFactor', parseFloat(this.value)||1, null)">
                             </div>
                             ${service.ponderationActive ? `<div class="ponderation-box">+${rawLineSurplus.toFixed(2)}h pond.</div>` : ''}
                         </td>
                         <td style="text-align: center;">
-                            <span class="badge ${badgeClass}">${targetVolume.toFixed(1)} h</span>
+                            <span class="badge service-target-badge ${badgeClass}">${targetVolume.toFixed(1)} h</span>
                         </td>
                 `;
 
@@ -1839,7 +1964,7 @@
                     tbodyHtml += `
                         <td class="teacher-cell">
                             <input type="number" min="0" step="0.5" value="${val}" 
-                                oninput="updateAllocation('${disc}', ${sIndex}, '${t}', this.value)">
+                                oninput="updateAllocation('${disc}', ${sIndex}, '${t.replace(/'/g, "\\'")}', this.value, this)">
                         </td>
                     `;
                 });
@@ -1855,13 +1980,13 @@
             
             tfootHtml += '<tr class="totals-row"><td colspan="6">Total des heures attribuées</td>';
             data.teachers.forEach(t => {
-                tfootHtml += `<td>${teacherTotalsRaw[t].toFixed(1)} h</td>`;
+                tfootHtml += `<td class="raw-total-cell" data-teacher="${t}">${teacherTotalsRaw[t].toFixed(1)} h</td>`;
             });
             tfootHtml += '</tr>';
 
             tfootHtml += '<tr class="totals-row"><td colspan="6">Pondérations (plafonné à 1h max pour pondér. 1.1)</td>';
             data.teachers.forEach(t => {
-                tfootHtml += `<td>+${teacherTotalsPond[t].toFixed(2)} h</td>`;
+                tfootHtml += `<td class="pond-total-cell" data-teacher="${t}">+${teacherTotalsPond[t].toFixed(2)} h</td>`;
             });
             tfootHtml += '</tr>';
 
@@ -2112,17 +2237,6 @@
                 });
                 renderApp();
             }
-        }
-
-        function updateService(disc, sIndex, key, value) {
-            dataStore[disc].services[sIndex][key] = value;
-            renderApp();
-        }
-
-        function updateAllocation(disc, sIndex, teacher, value) {
-            const val = value === '' ? 0 : parseFloat(value);
-            dataStore[disc].services[sIndex].allocations[teacher] = val;
-            renderApp();
         }
     </script>
 </body>
