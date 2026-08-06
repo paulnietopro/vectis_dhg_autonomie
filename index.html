@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VectisDHG Autonomie - Ventilation DHG EPLE</title>
+    <!-- SheetJS pour la lecture des fichiers Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-main: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --danger-hover: #dc2626;
+            --success: #10b981;
+            --success-bg: #ecfdf5;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text); padding: 24px; }
+        
+        .header {
+            background: var(--surface);
+            padding: 20px 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header h1 { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+        .header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-header {
+            background: #f1f5f9;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        .btn-header:hover { background: #e2e8f0; }
+
+        .tooltip-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .file-upload-btn {
+            background: var(--primary);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .file-upload-btn:hover { background: var(--primary-hover); }
+        input[type="file"] { display: none; }
+
+        .tooltip-wrapper .tooltip-text {
+            visibility: hidden;
+            width: 310px;
+            background-color: #0f172a;
+            color: #ffffff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 6px 10px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            font-size: 0.8rem;
+            font-weight: 500;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .tooltip-wrapper .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #0f172a transparent transparent transparent;
+        }
+
+        .tooltip-wrapper:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .tabs-nav {
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 20px;
+            overflow-x: auto;
+            align-items: center;
+        }
+        .tab-btn {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tab-btn:hover { color: var(--primary); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        .tab-content { display: none; background: var(--surface); padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .tab-content.active { display: block; }
+
+        .action-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .btn-secondary {
+            background: #f1f5f9;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-secondary:hover { background: #e2e8f0; }
+
+        .btn-danger-mode {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-danger-mode:hover, .btn-danger-mode.active {
+            background: var(--danger);
+            color: white;
+        }
+
+        .delete-btn-icon {
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 22px;
+            height: 22px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            margin-right: 2px;
+            flex-shrink: 0;
+        }
+        .delete-btn-icon:hover { background: var(--danger-hover); }
+
+        .edit-btn-icon {
+            background: #f1f5f9;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            width: 22px;
+            height: 22px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+        .edit-btn-icon:hover { background: #e2e8f0; }
+
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; table-layout: auto; }
+        th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; white-space: nowrap; }
+        th { background: #f8fafc; font-weight: 600; color: var(--text-muted); }
+
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        th.sortable:hover {
+            background-color: #e2e8f0;
+            color: var(--text);
+        }
+        .sort-icon {
+            font-size: 0.75rem;
+            margin-left: 4px;
+            opacity: 0.4;
+        }
+        th.sortable.sorted .sort-icon {
+            opacity: 1;
+            color: var(--primary);
+        }
+
+        th.draggable-teacher {
+            cursor: grab;
+            user-select: none;
+            transition: background 0.2s, border 0.2s;
+        }
+        th.draggable-teacher:active {
+            cursor: grabbing;
+        }
+        th.draggable-teacher.drag-over {
+            border-left: 3px solid var(--primary) !important;
+            background-color: #eff6ff !important;
+        }
+
+        .teacher-header-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .teacher-header-title {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 700;
+        }
+        .apport-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .apport-input-wrapper input {
+            width: 65px;
+            padding: 2px 4px;
+            font-size: 0.8rem;
+            text-align: center;
+            font-weight: 600;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        input[type="number"] { width: 100%; text-align: center; }
+        .checkbox-container { display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
+        .checkbox-container input[type="checkbox"] { width: auto; cursor: pointer; }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-align: center;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+        .badge.danger { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+        .badge.success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+
+        .teacher-cell { background: #fafafa; text-align: center; }
+        .totals-row td { font-weight: 600; background: #f8fafc; text-align: center; }
+        .totals-row.grand-total td { font-weight: 800; background: #e2e8f0; color: var(--primary); font-size: 0.95rem; }
+        .totals-row.hsa-row td { font-weight: 800; background: #f1f5f9; font-size: 0.95rem; }
+        .totals-row td:first-child { text-align: left; }
+        .empty-state { padding: 40px; text-align: center; color: var(--text-muted); }
+        .ponderation-box { font-size: 0.75rem; color: #475569; text-align: center; margin-top: 2px; white-space: nowrap; }
+
+        .dotation-panel {
+            display: flex;
+            gap: 16px;
+            background: #f1f5f9;
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .dotation-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .dotation-field input {
+            width: 90px;
+            background: white;
+            font-weight: 700;
+        }
+        .dotation-summary-item {
+            background: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-card {
+            background: var(--surface);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 980px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .modal-card.modal-sm {
+            max-width: 550px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+        .modal-header h2 { font-size: 1.25rem; color: var(--primary); }
+        .modal-actions { display: flex; align-items: center; gap: 12px; }
+        .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
+        .modal-close:hover { color: var(--text); }
+
+        .pdf-title {
+            text-align: center;
+            color: var(--primary);
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            font-weight: bold;
+        }
+
+        .settings-add-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .settings-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        .settings-item-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .level-discipline-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .level-discipline-card h3 {
+            color: var(--primary);
+            font-size: 1.05rem;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            background: #f1f5f9;
+            padding: 6px;
+            border-radius: 8px;
+            width: fit-content;
+        }
+        .mode-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            background: var(--surface);
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 10mm;
+            }
+            html, body {
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+                display: block !important;
+            }
+            body * {
+                visibility: hidden;
+            }
+            #trmdModal, #trmdModal * {
+                visibility: visible;
+            }
+            #trmdModal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: none !important;
+                display: block !important;
+                align-items: flex-start !important;
+                justify-content: flex-start !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .modal-card {
+                position: relative !important;
+                top: 0 !important;
+                left: 0 !important;
+                box-shadow: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                max-height: none !important;
+                overflow: visible !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
+            }
+            .modal-header button {
+                display: none !important;
+            }
+            .dotation-panel input {
+                border: none !important;
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+            .pdf-title {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            table {
+                page-break-inside: auto;
+                table-layout: auto !important;
+            }
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            thead {
+                display: table-header-group;
+            }
+            tfoot {
+                display: table-footer-group;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h1>VectisDHG Autonomie</h1>
+            <p>Outil d'aide à la ventilation de la Dotation Horaire Globale</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn-header" onclick="openTrmdModal()">📊 TRMD</button>
+            <button class="btn-header" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
+            <button class="btn-header" onclick="openAutonomieModal()">🏛️ Autonomie EPLE</button>
+            <button class="btn-header" onclick="saveState()">💾 Sauvegarder</button>
+            <label class="btn-header">
+                📂 Charger une saisie
+                <input type="file" id="jsonFileInput" accept=".json">
+            </label>
+            <button class="btn-header" onclick="openSettingsModal()">⚙️ Paramètres</button>
+            <div class="tooltip-wrapper">
+                <label class="file-upload-btn">
+                    📊 Importer
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv">
+                </label>
+                <span class="tooltip-text">Format : Nom Prénom Discipline Apport</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="tabsContainer" class="tabs-nav"></div>
+    <div id="contentsContainer"></div>
+
+    <!-- Modale TRMD -->
+    <div id="trmdModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>Tableau de Répartition des Moyens Détaillé (TRMD)</h2>
+                <div class="modal-actions">
+                    <button class="btn-header" onclick="exportTrmdToPdf()">📄 Export PDF</button>
+                    <button class="modal-close" onclick="closeTrmdModal()">&times;</button>
+                </div>
+            </div>
+            <div id="trmdContent"></div>
+        </div>
+    </div>
+
+    <!-- Modale Ventilation / Niveau -->
+    <div id="levelVentilationModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>🔀 Ventilation des services par niveau</h2>
+                <button class="modal-close" onclick="closeLevelVentilationModal()">&times;</button>
+            </div>
+            <div id="levelTabsContainer" class="tabs-nav"></div>
+            <div id="levelContentsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Modale Autonomie EPLE -->
+    <div id="autonomieModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>🏛️ Autonomie EPLE</h2>
+                <button class="modal-close" onclick="closeAutonomieModal()">&times;</button>
+            </div>
+            <div class="mode-selector">
+                <button id="btnModeLevel" class="mode-btn active" onclick="switchAutonomieMode('level')">Autonomie par niveau</button>
+                <button id="btnModeDisc" class="mode-btn" onclick="switchAutonomieMode('disc')">Autonomie par matière</button>
+                <button id="btnModeDisciplines" class="mode-btn" onclick="switchAutonomieMode('disciplines')">Autonomie par discipline</button>
+            </div>
+            <div id="autonomieTabsContainer" class="tabs-nav"></div>
+            <div id="autonomieContentsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Modale Paramètres -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-card modal-sm">
+            <div class="modal-header">
+                <h2>⚙️ Paramètres de l'application</h2>
+                <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            <div class="mode-selector">
+                <button id="btnSettingsLevels" class="mode-btn active" onclick="switchSettingsTab('levels')">Niveaux</button>
+                <button id="btnSettingsDisc" class="mode-btn" onclick="switchSettingsTab('disciplines')">Disciplines</button>
+            </div>
+            <div id="settingsLevelsTab" class="tab-content active" style="padding: 0; box-shadow: none; background: transparent;">
+                <div class="settings-add-form">
+                    <input type="text" id="newLevelInput" placeholder="Nouveau niveau (ex: BTS 1)...">
+                    <button class="btn-secondary" onclick="addLevel()" style="white-space: nowrap;">➕ Ajouter</button>
+                </div>
+                <ul id="levelsList" class="settings-list"></ul>
+            </div>
+            <div id="settingsDisciplinesTab" class="tab-content" style="padding: 0; box-shadow: none; background: transparent;">
+                <div class="settings-add-form">
+                    <input type="text" id="newDisciplineInput" placeholder="Nouvelle discipline (ex: Physique-Chimie)...">
+                    <button class="btn-secondary" onclick="addDisciplineFromSettings()" style="white-space: nowrap;">➕ Ajouter</button>
+                </div>
+                <ul id="disciplinesList" class="settings-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dotationGlobal = {
+            hp: 0,
+            hsa: 0
+        };
+
+        let currentActiveTabIndex = 0;
+        let currentAutonomieTabLevelIndex = 0;
+        let currentAutonomieTabDiscIndex = 0;
+        let currentAutonomieTabDisciplinesIndex = 0;
+        let settingsActiveTab = 'levels';
+
+        let levels = ["6ème", "5ème", "4ème", "3ème", "2nde", "1ère", "Terminale"];
+        let autonomieMode = 'level';
+
+        let dataStore = {
+            "Mathématiques": {
+                deleteMode: false,
+                sortCol: null,
+                sortAsc: true,
+                teachers: ["DU PONT Pierre", "MARTIN Sophie"],
+                apports: { "DU PONT Pierre": 18, "MARTIN Sophie": 18 },
+                services: [
+                    { level: "6ème", name: "Maths 6è", classes: 4, hours: 4.5, ponderationActive: false, ponderationFactor: 1.1, allocations: { "DU PONT Pierre": 9, "MARTIN Sophie": 9 } },
+                    { level: "Terminale", name: "Maths Tle", classes: 2, hours: 6.0, ponderationActive: true, ponderationFactor: 1.1, allocations: { "DU PONT Pierre": 6, "MARTIN Sophie": 6 } }
+                ]
+            },
+            "Lettres modernes": {
+                deleteMode: false,
+                sortCol: null,
+                sortAsc: true,
+                teachers: ["BERNARD Julie"],
+                apports: { "BERNARD Julie": 18 },
+                services: [
+                    { level: "1ère", name: "Français 1ère", classes: 3, hours: 4.5, ponderationActive: true, ponderationFactor: 1.1, allocations: { "BERNARD Julie": 13.5 } }
+                ]
+            }
+        };
+
+        let baseHoursStore = {};
+        let draggedTeacherIdx = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            renderApp();
+            document.getElementById('excelFileInput').addEventListener('change', handleFileUpload);
+            document.getElementById('jsonFileInput').addEventListener('change', handleJsonLoad);
+        });
+
+        // 🏛️ MODALE AUTONOMIE EPLE
+        function openAutonomieModal() {
+            renderAutonomieContent();
+            document.getElementById('autonomieModal').classList.add('active');
+        }
+
+        function closeAutonomieModal() {
+            document.getElementById('autonomieModal').classList.remove('active');
+        }
+
+        function switchAutonomieMode(mode) {
+            autonomieMode = mode;
+            document.getElementById('btnModeLevel').classList.toggle('active', mode === 'level');
+            document.getElementById('btnModeDisc').classList.toggle('active', mode === 'disc');
+            document.getElementById('btnModeDisciplines').classList.toggle('active', mode === 'disciplines');
+            renderAutonomieContent();
+        }
+
+        function getBaseHourKey(level, serviceName) {
+            return `${level}_${serviceName}`;
+        }
+
+        function updateBaseHour(level, serviceName, inputEl) {
+            const key = getBaseHourKey(level, serviceName);
+            const val = parseFloat(inputEl.value) || 0;
+            baseHoursStore[key] = val;
+
+            const row = inputEl.closest('tr');
+            if (row) {
+                const volHours = parseFloat(row.dataset.volhours) || 0;
+                const classes = parseInt(row.dataset.classes, 10) || 0;
+                const autonomieVal = classes * (volHours - val);
+
+                const badge = row.querySelector('.autonomie-badge');
+                if (badge) {
+                    badge.className = `badge autonomie-badge ${autonomieVal >= 0 ? 'success' : 'danger'}`;
+                    badge.textContent = `${autonomieVal > 0 ? '+' : ''}${autonomieVal.toFixed(1)} h`;
+                }
+
+                const table = row.closest('table');
+                if (table) {
+                    let totalAutonomie = 0;
+                    table.querySelectorAll('tbody tr').forEach(r => {
+                        const rInput = r.querySelector('input[type="number"]');
+                        const rVal = parseFloat(rInput ? rInput.value : 0) || 0;
+                        const rVolHours = parseFloat(r.dataset.volhours) || 0;
+                        const rClasses = parseInt(r.dataset.classes, 10) || 0;
+                        totalAutonomie += rClasses * (rVolHours - rVal);
+                    });
+
+                    const grandBadge = table.querySelector('.grand-total-badge');
+                    if (grandBadge) {
+                        grandBadge.className = `badge grand-total-badge ${totalAutonomie >= 0 ? 'success' : 'danger'}`;
+                        grandBadge.textContent = `${totalAutonomie > 0 ? '+' : ''}${totalAutonomie.toFixed(1)} h`;
+                    }
+                }
+            }
+        }
+
+        function getAllUniqueServiceNames() {
+            const namesSet = new Set();
+            Object.keys(dataStore).forEach(disc => {
+                dataStore[disc].services.forEach(s => {
+                    if (s.name && s.name.trim() !== '') {
+                        namesSet.add(s.name.trim());
+                    }
+                });
+            });
+            return Array.from(namesSet).sort();
+        }
+
+        function renderAutonomieContent() {
+            const tabsContainer = document.getElementById('autonomieTabsContainer');
+            const contentsContainer = document.getElementById('autonomieContentsContainer');
+
+            tabsContainer.innerHTML = '';
+            contentsContainer.innerHTML = '';
+
+            const uniqueServiceNames = getAllUniqueServiceNames();
+            const disciplines = Object.keys(dataStore);
+
+            if (autonomieMode === 'level') {
+                if (levels.length === 0) {
+                    contentsContainer.innerHTML = '<p class="empty-state">Aucun niveau configuré.</p>';
+                    return;
+                }
+
+                if (currentAutonomieTabLevelIndex >= levels.length) {
+                    currentAutonomieTabLevelIndex = 0;
+                }
+
+                levels.forEach((lvl, idx) => {
+                    const isActive = idx === currentAutonomieTabLevelIndex;
+                    const btn = document.createElement('button');
+                    btn.className = `tab-btn ${isActive ? 'active' : ''}`;
+                    btn.textContent = lvl;
+                    btn.onclick = () => switchAutonomieTab(idx);
+                    tabsContainer.appendChild(btn);
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
+                    contentDiv.id = `autonomie-tab-${idx}`;
+
+                    const servicesByIntitule = {};
+
+                    Object.keys(dataStore).forEach(disc => {
+                        dataStore[disc].services.forEach(s => {
+                            if (s.level === lvl && s.name && s.name.trim() !== '') {
+                                const intitule = s.name.trim();
+                                if (!servicesByIntitule[intitule]) {
+                                    servicesByIntitule[intitule] = { classes: 0, hours: 0 };
+                                }
+                                servicesByIntitule[intitule].classes += (s.classes || 0);
+                                servicesByIntitule[intitule].hours = (s.hours || 0);
+                            }
+                        });
+                    });
+
+                    const intitulesList = Object.keys(servicesByIntitule).sort();
+
+                    if (intitulesList.length === 0) {
+                        contentDiv.innerHTML = `<p class="empty-state">Aucun service défini pour le niveau <strong>${lvl}</strong>.</p>`;
+                    } else {
+                        let tableHtml = `
+                            <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Intitulé Service / Matière</th>
+                                        <th style="text-align: center; width: 140px;">Horaire plancher (h)</th>
+                                        <th style="text-align: center;">Volume classe (h)</th>
+                                        <th style="text-align: center;">Nombre de classes</th>
+                                        <th style="text-align: center;">Autonomie (h)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        `;
+
+                        let grandTotalAutonomie = 0;
+
+                        intitulesList.forEach(intitule => {
+                            const serviceData = servicesByIntitule[intitule];
+                            const key = getBaseHourKey(lvl, intitule);
+                            const baseHourVal = baseHoursStore[key] !== undefined ? baseHoursStore[key] : '';
+                            const baseHourNum = parseFloat(baseHourVal) || 0;
+
+                            const autonomieVal = serviceData.classes * (serviceData.hours - baseHourNum);
+                            grandTotalAutonomie += autonomieVal;
+
+                            const badgeClass = autonomieVal >= 0 ? 'success' : 'danger';
+
+                            tableHtml += `
+                                <tr data-volhours="${serviceData.hours}" data-classes="${serviceData.classes}">
+                                    <td><strong>${intitule}</strong></td>
+                                    <td style="text-align: center;">
+                                        <input type="number" min="0" step="0.5" value="${baseHourVal}" 
+                                            placeholder="0" oninput="updateBaseHour('${lvl}', '${intitule.replace(/'/g, "\\'")}', this)">
+                                    </td>
+                                    <td style="text-align: center;">${serviceData.hours.toFixed(1)} h</td>
+                                    <td style="text-align: center;">${serviceData.classes}</td>
+                                    <td style="text-align: center;">
+                                        <span class="badge autonomie-badge ${badgeClass}">${autonomieVal > 0 ? '+' : ''}${autonomieVal.toFixed(1)} h</span>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+
+                        const grandBadgeClass = grandTotalAutonomie >= 0 ? 'success' : 'danger';
+                        tableHtml += `
+                            </tbody>
+                            <tfoot>
+                                <tr class="totals-row grand-total">
+                                    <td colspan="4" style="text-align: right;">Total Autonomie pour ${lvl} :</td>
+                                    <td style="text-align: center;">
+                                        <span class="badge grand-total-badge ${grandBadgeClass}">${grandTotalAutonomie > 0 ? '+' : ''}${grandTotalAutonomie.toFixed(1)} h</span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                            </table>
+                            </div>
+                        `;
+
+                        contentDiv.innerHTML = tableHtml;
+                    }
+
+                    contentsContainer.appendChild(contentDiv);
+                });
+
+            } else if (autonomieMode === 'disc') {
+                if (uniqueServiceNames.length === 0) {
+                    contentsContainer.innerHTML = '<p class="empty-state">Aucun intitulé de service enregistré.</p>';
+                    return;
+                }
+
+                if (currentAutonomieTabDiscIndex >= uniqueServiceNames.length) {
+                    currentAutonomieTabDiscIndex = 0;
+                }
+
+                uniqueServiceNames.forEach((intitule, idx) => {
+                    const isActive = idx === currentAutonomieTabDiscIndex;
+                    const btn = document.createElement('button');
+                    btn.className = `tab-btn ${isActive ? 'active' : ''}`;
+                    btn.textContent = intitule;
+                    btn.onclick = () => switchAutonomieTab(idx);
+                    tabsContainer.appendChild(btn);
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
+                    contentDiv.id = `autonomie-tab-${idx}`;
+
+                    let tableRowsHtml = '';
+                    let grandTotalAutonomie = 0;
+                    let visibleRowsCount = 0;
+
+                    levels.forEach(lvl => {
+                        let totalClasses = 0;
+                        let volumeHours = 0;
+
+                        Object.keys(dataStore).forEach(disc => {
+                            dataStore[disc].services.forEach(s => {
+                                if (s.level === lvl && s.name && s.name.trim() === intitule) {
+                                    totalClasses += (s.classes || 0);
+                                    volumeHours = (s.hours || 0);
+                                }
+                            });
+                        });
+
+                        if (volumeHours > 0) {
+                            visibleRowsCount++;
+                            const key = getBaseHourKey(lvl, intitule);
+                            const baseHourVal = baseHoursStore[key] !== undefined ? baseHoursStore[key] : '';
+                            const baseHourNum = parseFloat(baseHourVal) || 0;
+
+                            const autonomieVal = totalClasses * (volumeHours - baseHourNum);
+                            grandTotalAutonomie += autonomieVal;
+
+                            const badgeClass = autonomieVal >= 0 ? 'success' : 'danger';
+
+                            tableRowsHtml += `
+                                <tr data-volhours="${volumeHours}" data-classes="${totalClasses}">
+                                    <td><strong>${lvl}</strong></td>
+                                    <td style="text-align: center;">
+                                        <input type="number" min="0" step="0.5" value="${baseHourVal}" 
+                                            placeholder="0" oninput="updateBaseHour('${lvl}', '${intitule.replace(/'/g, "\\'")}', this)">
+                                    </td>
+                                    <td style="text-align: center;">${volumeHours.toFixed(1)} h</td>
+                                    <td style="text-align: center;">${totalClasses}</td>
+                                    <td style="text-align: center;">
+                                        <span class="badge autonomie-badge ${badgeClass}">${autonomieVal > 0 ? '+' : ''}${autonomieVal.toFixed(1)} h</span>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    });
+
+                    if (visibleRowsCount === 0) {
+                        contentDiv.innerHTML = `<p class="empty-state">Aucun niveau renseigné avec un volume horaire pour l'intitulé <strong>${intitule}</strong>.</p>`;
+                    } else {
+                        const grandBadgeClass = grandTotalAutonomie >= 0 ? 'success' : 'danger';
+                        let tableHtml = `
+                            <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Niveau</th>
+                                        <th style="text-align: center; width: 140px;">Horaire plancher (h)</th>
+                                        <th style="text-align: center;">Volume classe (h)</th>
+                                        <th style="text-align: center;">Nombre de classes</th>
+                                        <th style="text-align: center;">Autonomie (h)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRowsHtml}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="totals-row grand-total">
+                                        <td colspan="4" style="text-align: right;">Total Autonomie pour ${intitule} :</td>
+                                        <td style="text-align: center;">
+                                            <span class="badge grand-total-badge ${grandBadgeClass}">${grandTotalAutonomie > 0 ? '+' : ''}${grandTotalAutonomie.toFixed(1)} h</span>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                            </div>
+                        `;
+                        contentDiv.innerHTML = tableHtml;
+                    }
+
+                    contentsContainer.appendChild(contentDiv);
+                });
+            } else {
+                if (disciplines.length === 0) {
+                    contentsContainer.innerHTML = '<p class="empty-state">Aucune discipline enregistrée.</p>';
+                    return;
+                }
+
+                if (currentAutonomieTabDisciplinesIndex >= disciplines.length) {
+                    currentAutonomieTabDisciplinesIndex = 0;
+                }
+
+                disciplines.forEach((disc, idx) => {
+                    const isActive = idx === currentAutonomieTabDisciplinesIndex;
+                    const btn = document.createElement('button');
+                    btn.className = `tab-btn ${isActive ? 'active' : ''}`;
+                    btn.textContent = disc;
+                    btn.onclick = () => switchAutonomieTab(idx);
+                    tabsContainer.appendChild(btn);
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
+                    contentDiv.id = `autonomie-tab-${idx}`;
+
+                    const data = dataStore[disc];
+
+                    const serviceMap = {};
+                    data.services.forEach(s => {
+                        if (s.name && s.name.trim() !== '') {
+                            const keyName = s.name.trim();
+                            const levelKey = s.level || 'Non défini';
+                            if (!serviceMap[keyName]) {
+                                serviceMap[keyName] = [];
+                            }
+                            serviceMap[keyName].push({
+                                level: levelKey,
+                                classes: s.classes || 0,
+                                hours: s.hours || 0
+                            });
+                        }
+                    });
+
+                    const serviceNames = Object.keys(serviceMap).sort();
+
+                    if (serviceNames.length === 0) {
+                        contentDiv.innerHTML = `<p class="empty-state">Aucun service créé dans la discipline <strong>${disc}</strong>.</p>`;
+                    } else {
+                        let tableRowsHtml = '';
+                        let grandTotalAutonomie = 0;
+
+                        serviceNames.forEach(intitule => {
+                            serviceMap[intitule].forEach(item => {
+                                const key = getBaseHourKey(item.level, intitule);
+                                const baseHourVal = baseHoursStore[key] !== undefined ? baseHoursStore[key] : '';
+                                const baseHourNum = parseFloat(baseHourVal) || 0;
+
+                                const autonomieVal = item.classes * (item.hours - baseHourNum);
+                                grandTotalAutonomie += autonomieVal;
+
+                                const badgeClass = autonomieVal >= 0 ? 'success' : 'danger';
+
+                                tableRowsHtml += `
+                                    <tr data-volhours="${item.hours}" data-classes="${item.classes}">
+                                        <td><strong>${intitule} (${item.level})</strong></td>
+                                        <td style="text-align: center;">
+                                            <input type="number" min="0" step="0.5" value="${baseHourVal}" 
+                                                placeholder="0" oninput="updateBaseHour('${item.level}', '${intitule.replace(/'/g, "\\'")}', this)">
+                                        </td>
+                                        <td style="text-align: center;">${item.hours.toFixed(1)} h</td>
+                                        <td style="text-align: center;">${item.classes}</td>
+                                        <td style="text-align: center;">
+                                            <span class="badge autonomie-badge ${badgeClass}">${autonomieVal > 0 ? '+' : ''}${autonomieVal.toFixed(1)} h</span>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                        });
+
+                        const grandBadgeClass = grandTotalAutonomie >= 0 ? 'success' : 'danger';
+                        let tableHtml = `
+                            <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Intitulé Service / Matière</th>
+                                        <th style="text-align: center; width: 140px;">Horaire plancher (h)</th>
+                                        <th style="text-align: center;">Volume classe (h)</th>
+                                        <th style="text-align: center;">Nombre de classes</th>
+                                        <th style="text-align: center;">Autonomie (h)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRowsHtml}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="totals-row grand-total">
+                                        <td colspan="4" style="text-align: right;">Total Autonomie pour ${disc} :</td>
+                                        <td style="text-align: center;">
+                                            <span class="badge grand-total-badge ${grandBadgeClass}">${grandTotalAutonomie > 0 ? '+' : ''}${grandTotalAutonomie.toFixed(1)} h</span>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                            </div>
+                        `;
+                        contentDiv.innerHTML = tableHtml;
+                    }
+
+                    contentsContainer.appendChild(contentDiv);
+                });
+            }
+        }
+
+        function switchAutonomieTab(activeIndex) {
+            if (autonomieMode === 'level') {
+                currentAutonomieTabLevelIndex = activeIndex;
+            } else if (autonomieMode === 'disc') {
+                currentAutonomieTabDiscIndex = activeIndex;
+            } else {
+                currentAutonomieTabDisciplinesIndex = activeIndex;
+            }
+            document.querySelectorAll('#autonomieTabsContainer .tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
+            document.querySelectorAll('#autonomieContentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
+        }
+
+        // 🔀 MODALE VENTILATION PAR NIVEAU
+        function openLevelVentilationModal() {
+            renderLevelVentilationContent();
+            document.getElementById('levelVentilationModal').classList.add('active');
+        }
+
+        function closeLevelVentilationModal() {
+            document.getElementById('levelVentilationModal').classList.remove('active');
+        }
+
+        function renderLevelVentilationContent() {
+            const tabsContainer = document.getElementById('levelTabsContainer');
+            const contentsContainer = document.getElementById('levelContentsContainer');
+
+            tabsContainer.innerHTML = '';
+            contentsContainer.innerHTML = '';
+
+            if (levels.length === 0) {
+                contentsContainer.innerHTML = '<p class="empty-state">Aucun niveau configuré dans les paramètres.</p>';
+                return;
+            }
+
+            levels.forEach((lvl, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+                btn.textContent = lvl;
+                btn.onclick = () => switchLevelTab(idx);
+                tabsContainer.appendChild(btn);
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = `tab-content ${idx === 0 ? 'active' : ''}`;
+                contentDiv.id = `level-tab-${idx}`;
+
+                let levelHasServices = false;
+
+                Object.keys(dataStore).forEach(disc => {
+                    const data = dataStore[disc];
+                    const levelServices = data.services.filter(s => s.level === lvl);
+
+                    if (levelServices.length > 0) {
+                        levelHasServices = true;
+
+                        const activeTeachers = data.teachers.filter(teacher => {
+                            return levelServices.some(s => (parseFloat(s.allocations[teacher]) || 0) > 0);
+                        });
+
+                        const card = document.createElement('div');
+                        card.className = 'level-discipline-card';
+
+                        let cardHtml = `<h3>${disc}</h3>`;
+
+                        if (activeTeachers.length === 0) {
+                            cardHtml += '<p style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">Services définis mais aucune heure attribuée aux enseignants.</p>';
+                        } else {
+                            cardHtml += `
+                                <div class="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Intitulé Service</th>
+                                            <th style="text-align: center;">Nbr C.</th>
+                                            <th style="text-align: center;">Vol. C.</th>
+                                            <th style="text-align: center;">À ventiler</th>
+                            `;
+
+                            activeTeachers.forEach(t => {
+                                cardHtml += `<th style="text-align: center;">${t}</th>`;
+                            });
+
+                            cardHtml += `</tr></thead><tbody>`;
+
+                            const teacherSums = {};
+                            activeTeachers.forEach(t => teacherSums[t] = 0);
+
+                            levelServices.forEach(s => {
+                                const target = (s.classes || 0) * (s.hours || 0);
+                                cardHtml += `
+                                    <tr>
+                                        <td>${s.name}</td>
+                                        <td style="text-align: center;">${s.classes || 0}</td>
+                                        <td style="text-align: center;">${s.hours || 0} h</td>
+                                        <td style="text-align: center;"><strong>${target.toFixed(1)} h</strong></td>
+                                `;
+
+                                activeTeachers.forEach(t => {
+                                    const val = parseFloat(s.allocations[t]) || 0;
+                                    teacherSums[t] += val;
+                                    cardHtml += `<td style="text-align: center;" class="teacher-cell">${val > 0 ? val.toFixed(1) + ' h' : '-'}</td>`;
+                                });
+
+                                cardHtml += `</tr>`;
+                            });
+
+                            cardHtml += `</tbody><tfoot><tr class="totals-row"><td colspan="4" style="text-align: right;"><strong>Total affecté sur ${lvl} :</strong></td>`;
+                            activeTeachers.forEach(t => {
+                                cardHtml += `<td style="text-align: center;"><strong>${teacherSums[t].toFixed(1)} h</strong></td>`;
+                            });
+                            cardHtml += `</tr></tfoot></table></div>`;
+                        }
+
+                        card.innerHTML = cardHtml;
+                        contentDiv.appendChild(card);
+                    }
+                });
+
+                if (!levelHasServices) {
+                    contentDiv.innerHTML = `<p class="empty-state">Aucun service n'a été créé pour le niveau <strong>${lvl}</strong>.</p>`;
+                }
+
+                contentsContainer.appendChild(contentDiv);
+            });
+        }
+
+        function switchLevelTab(activeIndex) {
+            document.querySelectorAll('#levelTabsContainer .tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
+            document.querySelectorAll('#levelContentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
+        }
+
+        // ⚙️ GESTION DES PARAMÈTRES (NIVEAUX ET DISCIPLINES)
+        function openSettingsModal() {
+            renderSettingsModal();
+            document.getElementById('settingsModal').classList.add('active');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.remove('active');
+        }
+
+        function switchSettingsTab(tab) {
+            settingsActiveTab = tab;
+            document.getElementById('btnSettingsLevels').classList.toggle('active', tab === 'levels');
+            document.getElementById('btnSettingsDisc').classList.toggle('active', tab === 'disciplines');
+            document.getElementById('settingsLevelsTab').classList.toggle('active', tab === 'levels');
+            document.getElementById('settingsDisciplinesTab').classList.toggle('active', tab === 'disciplines');
+            renderSettingsModal();
+        }
+
+        function renderSettingsModal() {
+            if (settingsActiveTab === 'levels') {
+                renderLevelsList();
+            } else {
+                renderDisciplinesList();
+            }
+        }
+
+        function renderLevelsList() {
+            const listEl = document.getElementById('levelsList');
+            listEl.innerHTML = '';
+            levels.forEach((lvl, idx) => {
+                const li = document.createElement('li');
+                li.className = 'settings-item';
+                li.innerHTML = `
+                    <span>${lvl}</span>
+                    <div class="settings-item-actions">
+                        <button class="edit-btn-icon" title="Modifier le nom de ce niveau" onclick="editLevel(${idx})">✏️</button>
+                        <button class="delete-btn-icon" title="Supprimer ce niveau" onclick="removeLevel(${idx})">✕</button>
+                    </div>
+                `;
+                listEl.appendChild(li);
+            });
+        }
+
+        function addLevel() {
+            const input = document.getElementById('newLevelInput');
+            const val = input.value.trim();
+            if (val) {
+                if (!levels.includes(val)) {
+                    levels.push(val);
+                    input.value = '';
+                    renderLevelsList();
+                    renderApp();
+                } else {
+                    alert("Ce niveau existe déjà.");
+                }
+            }
+        }
+
+        function editLevel(idx) {
+            const oldName = levels[idx];
+            const newName = prompt(`Nouveau nom pour le niveau "${oldName}" :`, oldName);
+            if (newName && newName.trim() && newName.trim() !== oldName) {
+                const trimmed = newName.trim();
+                if (levels.includes(trimmed)) {
+                    alert("Un niveau porte déjà ce nom.");
+                    return;
+                }
+                levels[idx] = trimmed;
+
+                Object.keys(dataStore).forEach(disc => {
+                    dataStore[disc].services.forEach(s => {
+                        if (s.level === oldName) {
+                            s.level = trimmed;
+                        }
+                    });
+                });
+
+                const newBaseHoursStore = {};
+                Object.keys(baseHoursStore).forEach(key => {
+                    if (key.startsWith(`${oldName}_`)) {
+                        const servicePart = key.substring(oldName.length + 1);
+                        newBaseHoursStore[`${trimmed}_${servicePart}`] = baseHoursStore[key];
+                    } else {
+                        newBaseHoursStore[key] = baseHoursStore[key];
+                    }
+                });
+                baseHoursStore = newBaseHoursStore;
+
+                renderLevelsList();
+                renderApp();
+            }
+        }
+
+        function removeLevel(idx) {
+            if (confirm(`Supprimer le niveau "${levels[idx]}" ?`)) {
+                levels.splice(idx, 1);
+                renderLevelsList();
+                renderApp();
+            }
+        }
+
+        function renderDisciplinesList() {
+            const listEl = document.getElementById('disciplinesList');
+            listEl.innerHTML = '';
+            const disciplines = Object.keys(dataStore);
+
+            if (disciplines.length === 0) {
+                listEl.innerHTML = '<li class="empty-state" style="padding: 12px; font-size: 0.85rem;">Aucune discipline configurée.</li>';
+                return;
+            }
+
+            disciplines.forEach(disc => {
+                const li = document.createElement('li');
+                li.className = 'settings-item';
+                li.innerHTML = `
+                    <span>${disc}</span>
+                    <div class="settings-item-actions">
+                        <button class="edit-btn-icon" title="Modifier le nom de cette discipline" onclick="editDisciplineName('${disc.replace(/'/g, "\\'")}')">✏️</button>
+                        <button class="delete-btn-icon" title="Supprimer cette discipline" onclick="deleteDisciplineFromSettings('${disc.replace(/'/g, "\\'")}')">✕</button>
+                    </div>
+                `;
+                listEl.appendChild(li);
+            });
+        }
+
+        function addDisciplineFromSettings() {
+            const input = document.getElementById('newDisciplineInput');
+            const val = input.value.trim();
+            if (val) {
+                if (!dataStore[val]) {
+                    dataStore[val] = {
+                        deleteMode: false,
+                        sortCol: null,
+                        sortAsc: true,
+                        teachers: [],
+                        apports: {},
+                        services: []
+                    };
+                    input.value = '';
+                    renderDisciplinesList();
+                    renderApp();
+                } else {
+                    alert("Cette discipline existe déjà.");
+                }
+            }
+        }
+
+        function editDisciplineName(oldName) {
+            const newName = prompt(`Nouveau nom pour la discipline "${oldName}" :`, oldName);
+            if (newName && newName.trim() && newName.trim() !== oldName) {
+                const trimmed = newName.trim();
+                if (dataStore[trimmed]) {
+                    alert("Une discipline porte déjà ce nom.");
+                    return;
+                }
+
+                dataStore[trimmed] = dataStore[oldName];
+                delete dataStore[oldName];
+
+                renderDisciplinesList();
+                renderApp();
+            }
+        }
+
+        function deleteDisciplineFromSettings(disc) {
+            if (confirm(`Voulez-vous vraiment supprimer la discipline "${disc}" ?`)) {
+                delete dataStore[disc];
+                currentActiveTabIndex = 0;
+                renderDisciplinesList();
+                renderApp();
+            }
+        }
+
+        // 💾 SAUVEGARDE DE LA SAISIE (JSON)
+        function saveState() {
+            const exportObject = {
+                dotation: dotationGlobal,
+                levels: levels,
+                baseHoursStore: baseHoursStore,
+                dataStore: dataStore
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObject, null, 2));
+            const downloadAnchor = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `VectisDHG_sauvegarde_${dateStr}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // 📂 CHARGEMENT DE LA SAISIE SAUVEGARDÉE (JSON)
+        function handleJsonLoad(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const loadedData = JSON.parse(event.target.result);
+                    if (loadedData.dataStore) {
+                        dataStore = loadedData.dataStore;
+                        Object.keys(dataStore).forEach(disc => {
+                            if (!dataStore[disc].apports) {
+                                dataStore[disc].apports = {};
+                            }
+                        });
+                        dotationGlobal = loadedData.dotation || { hp: 0, hsa: 0 };
+                        if (Array.isArray(loadedData.levels)) {
+                            levels = loadedData.levels;
+                        }
+                        if (loadedData.baseHoursStore) {
+                            baseHoursStore = loadedData.baseHoursStore;
+                        }
+                    } else if (typeof loadedData === 'object' && loadedData !== null) {
+                        dataStore = loadedData;
+                    }
+                    currentActiveTabIndex = 0;
+                    currentAutonomieTabLevelIndex = 0;
+                    currentAutonomieTabDiscIndex = 0;
+                    currentAutonomieTabDisciplinesIndex = 0;
+                    renderApp();
+                } catch (err) {
+                    alert("Erreur lors de la lecture du fichier JSON.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 📊 IMPORTER EXCEL
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const workbook = XLSX.read(event.target.result, { type: 'binary' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet);
+
+                if (rows.length === 0 || !rows[0].Discipline || !rows[0].Nom) {
+                    alert("Le fichier doit contenir au minimum les colonnes : 'Nom', 'Prénom', 'Discipline'");
+                    return;
+                }
+
+                dataStore = {};
+                rows.forEach(r => {
+                    const discipline = (r.Discipline || "Non spécifié").trim();
+                    const teacher = `${(r.Nom || "").trim().toUpperCase()} ${(r.Prénom || r.Prenom || "").trim()}`;
+                    const apportVal = parseFloat(r.Apport !== undefined ? r.Apport : (r.apport !== undefined ? r.apport : 18)) || 0;
+                    
+                    if (!dataStore[discipline]) {
+                        dataStore[discipline] = { deleteMode: false, sortCol: null, sortAsc: true, teachers: [], apports: {}, services: [] };
+                    }
+                    if (!dataStore[discipline].teachers.includes(teacher)) {
+                        dataStore[discipline].teachers.push(teacher);
+                        dataStore[discipline].apports[teacher] = apportVal;
+                    }
+                });
+
+                currentActiveTabIndex = 0;
+                currentAutonomieTabLevelIndex = 0;
+                currentAutonomieTabDiscIndex = 0;
+                currentAutonomieTabDisciplinesIndex = 0;
+                renderApp();
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        // Supprimer une discipline complète
+        function deleteDiscipline(disc) {
+            if (confirm(`Voulez-vous vraiment supprimer la discipline "${disc}" et l'ensemble de ses données ?`)) {
+                delete dataStore[disc];
+                currentActiveTabIndex = 0;
+                renderApp();
+            }
+        }
+
+        function renderApp() {
+            const tabsContainer = document.getElementById('tabsContainer');
+            const contentsContainer = document.getElementById('contentsContainer');
+            
+            tabsContainer.innerHTML = '';
+            contentsContainer.innerHTML = '';
+
+            const disciplines = Object.keys(dataStore);
+
+            if (disciplines.length === 0) {
+                contentsContainer.innerHTML = '<div class="empty-state">Aucune discipline chargée. Importez un fichier Excel ou restaurez une sauvegarde pour démarrer.</div>';
+                return;
+            }
+
+            if (currentActiveTabIndex >= disciplines.length) {
+                currentActiveTabIndex = 0;
+            }
+
+            disciplines.forEach((disc, index) => {
+                const isActive = index === currentActiveTabIndex;
+                const isDeleteMode = dataStore[disc].deleteMode;
+
+                const tabBtn = document.createElement('button');
+                tabBtn.className = `tab-btn ${isActive ? 'active' : ''}`;
+                
+                let deleteIconHtml = isDeleteMode 
+                    ? `<span class="delete-btn-icon" title="Supprimer la discipline ${disc}" onclick="event.stopPropagation(); deleteDiscipline('${disc.replace(/'/g, "\\'")}')">✕</span>` 
+                    : '';
+
+                tabBtn.innerHTML = `${deleteIconHtml} <span>${disc}</span>`;
+                tabBtn.onclick = () => switchTab(index);
+                tabsContainer.appendChild(tabBtn);
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
+                contentDiv.id = `tab-${index}`;
+                
+                contentDiv.appendChild(createActionBar(disc));
+                contentDiv.appendChild(createTable(disc));
+                
+                contentsContainer.appendChild(contentDiv);
+            });
+        }
+
+        function switchTab(activeIndex) {
+            currentActiveTabIndex = activeIndex;
+            document.querySelectorAll('#tabsContainer .tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
+            document.querySelectorAll('#contentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
+        }
+
+        function createActionBar(disc) {
+            const bar = document.createElement('div');
+            bar.className = 'action-bar';
+            
+            const addServiceBtn = document.createElement('button');
+            addServiceBtn.className = 'btn-secondary';
+            addServiceBtn.textContent = '➕ Ajouter un service';
+            addServiceBtn.onclick = () => {
+                const defaultLvl = levels.length > 0 ? levels[0] : '';
+                dataStore[disc].services.push({
+                    level: defaultLvl,
+                    name: "Nouveau service",
+                    classes: 1,
+                    hours: 1,
+                    ponderationActive: false,
+                    ponderationFactor: 1.1,
+                    allocations: {}
+                });
+                renderApp();
+            };
+
+            const addTeacherBtn = document.createElement('button');
+            addTeacherBtn.className = 'btn-secondary';
+            addTeacherBtn.textContent = '👤 Ajouter un enseignant';
+            addTeacherBtn.onclick = () => {
+                const name = prompt("Nom et Prénom de l'enseignant :");
+                if (name && name.trim()) {
+                    const trimmed = name.trim();
+                    dataStore[disc].teachers.push(trimmed);
+                    if (!dataStore[disc].apports) dataStore[disc].apports = {};
+                    dataStore[disc].apports[trimmed] = 18;
+                    renderApp();
+                }
+            };
+
+            const deleteToggleBtn = document.createElement('button');
+            const isDeleteMode = dataStore[disc].deleteMode;
+            deleteToggleBtn.className = `btn-danger-mode ${isDeleteMode ? 'active' : ''}`;
+            deleteToggleBtn.textContent = isDeleteMode ? '✖ Masquer la suppression' : '🗑️ Suppression';
+            deleteToggleBtn.onclick = () => {
+                dataStore[disc].deleteMode = !dataStore[disc].deleteMode;
+                renderApp();
+            };
+
+            const deleteDiscBtn = document.createElement('button');
+            deleteDiscBtn.className = 'btn-danger-mode';
+            deleteDiscBtn.textContent = '🗑️ Supprimer cette discipline';
+            deleteDiscBtn.onclick = () => deleteDiscipline(disc);
+
+            bar.appendChild(addServiceBtn);
+            bar.appendChild(addTeacherBtn);
+            bar.appendChild(deleteToggleBtn);
+            if (isDeleteMode) {
+                bar.appendChild(deleteDiscBtn);
+            }
+            return bar;
+        }
+
+        function handleSort(disc, columnKey) {
+            const data = dataStore[disc];
+            if (data.sortCol === columnKey) {
+                data.sortAsc = !data.sortAsc;
+            } else {
+                data.sortCol = columnKey;
+                data.sortAsc = true;
+            }
+
+            data.services.sort((a, b) => {
+                let valA, valB;
+                if (columnKey === 'level') {
+                    valA = levels.indexOf(a.level);
+                    valB = levels.indexOf(b.level);
+                } else if (columnKey === 'name') {
+                    valA = (a.name || '').toLowerCase();
+                    valB = (b.name || '').toLowerCase();
+                } else if (columnKey === 'classes') {
+                    valA = a.classes || 0;
+                    valB = b.classes || 0;
+                } else if (columnKey === 'hours') {
+                    valA = a.hours || 0;
+                    valB = b.hours || 0;
+                } else if (columnKey === 'ponderation') {
+                    valA = a.ponderationActive ? (a.ponderationFactor || 1.1) : 1;
+                    valB = b.ponderationActive ? (b.ponderationFactor || 1.1) : 1;
+                } else if (columnKey === 'target') {
+                    valA = (a.classes || 0) * (a.hours || 0);
+                    valB = (b.classes || 0) * (b.hours || 0);
+                }
+
+                if (valA < valB) return data.sortAsc ? -1 : 1;
+                if (valA > valB) return data.sortAsc ? 1 : -1;
+                return 0;
+            });
+
+            renderApp();
+        }
+
+        function handleDragStart(disc, index, event) {
+            draggedTeacherIdx = index;
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(disc, targetIndex, event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            if (draggedTeacherIdx === null || draggedTeacherIdx === targetIndex) return;
+
+            const teachers = dataStore[disc].teachers;
+            const movedTeacher = teachers.splice(draggedTeacherIdx, 1)[0];
+            teachers.splice(targetIndex, 0, movedTeacher);
+
+            draggedTeacherIdx = null;
+            renderApp();
+        }
+
+        function updateApport(disc, teacher, value, inputEl) {
+            if (!dataStore[disc].apports) dataStore[disc].apports = {};
+            const val = parseFloat(value) || 0;
+            dataStore[disc].apports[teacher] = val;
+
+            const table = inputEl.closest('table');
+            if (table) {
+                const grandTotalCell = table.querySelector(`.grand-total-cell[data-teacher="${teacher}"]`);
+                const hsaCell = table.querySelector(`.hsa-cell[data-teacher="${teacher}"]`);
+
+                if (grandTotalCell && hsaCell) {
+                    const grandTotalVal = parseFloat(grandTotalCell.dataset.grandtotal) || 0;
+                    const hsaVal = grandTotalVal - val;
+
+                    const badgeClass = hsaVal >= 0 ? 'success' : 'danger';
+                    hsaCell.innerHTML = `<span class="badge ${badgeClass}">${hsaVal > 0 ? '+' : ''}${hsaVal.toFixed(2)} h</span>`;
+                }
+            }
+        }
+
+        function createTable(disc) {
+            const data = dataStore[disc];
+            if (!data.apports) data.apports = {};
+
+            const container = document.createElement('div');
+            container.className = 'table-container';
+
+            const table = document.createElement('table');
+
+            const sortCols = [
+                { key: 'level', label: 'Niveau' },
+                { key: 'name', label: 'Intitulé Service / Matière' },
+                { key: 'classes', label: 'Nbr C.' },
+                { key: 'hours', label: 'Vol. C.' },
+                { key: 'ponderation', label: 'Pondération' },
+                { key: 'target', label: 'À ventiler' }
+            ];
+
+            let theadHtml = `<thead><tr>`;
+
+            sortCols.forEach(col => {
+                const isSorted = data.sortCol === col.key;
+                const icon = isSorted ? (data.sortAsc ? '▲' : '▼') : '↕';
+                const sortedClass = isSorted ? 'sorted' : '';
+                theadHtml += `
+                    <th class="sortable ${sortedClass}" onclick="handleSort('${disc}', '${col.key}')">
+                        ${col.label} <span class="sort-icon">${icon}</span>
+                    </th>
+                `;
+            });
+            
+            data.teachers.forEach((t, tIndex) => {
+                const deleteColBtn = data.deleteMode 
+                    ? `<button class="delete-btn-icon" title="Supprimer cet enseignant" onclick="deleteTeacher('${disc}', ${tIndex})">✕</button>` 
+                    : '';
+                const currentApport = data.apports[t] !== undefined ? data.apports[t] : 18;
+
+                theadHtml += `
+                    <th draggable="true" 
+                        ondragstart="handleDragStart('${disc}', ${tIndex}, event)"
+                        ondragover="handleDragOver(event)"
+                        ondragleave="handleDragLeave(event)"
+                        ondrop="handleDrop('${disc}', ${tIndex}, event)"
+                        class="draggable-teacher"
+                        title="Glisser-déposer pour réordonner"
+                        style="text-align: center;">
+                        <div class="teacher-header-box">
+                            <div class="teacher-header-title">${deleteColBtn}⋮ ${t}</div>
+                            <div class="apport-input-wrapper">
+                                <label>Apport :</label>
+                                <input type="number" step="0.5" min="0" value="${currentApport}" 
+                                    oninput="updateApport('${disc}', '${t.replace(/'/g, "\\'")}', this.value, this)">
+                            </div>
+                        </div>
+                    </th>
+                `;
+            });
+            theadHtml += `</tr></thead>`;
+
+            let tbodyHtml = '<tbody>';
+            const teacherTotalsRaw = {};
+            const teacherTotalsPond = {};
+            const teacher11RawSums = {};
+
+            data.teachers.forEach(t => {
+                teacherTotalsRaw[t] = 0;
+                teacherTotalsPond[t] = 0;
+                teacher11RawSums[t] = 0;
+            });
+
+            data.services.forEach((service, sIndex) => {
+                const baseVolume = (service.classes || 0) * (service.hours || 0);
+                const factor = service.ponderationActive ? (service.ponderationFactor || 1.1) : 1;
+                const targetVolume = baseVolume;
+                let currentAllocated = 0;
+
+                const rawLineSurplus = service.ponderationActive ? baseVolume * (factor - 1) : 0;
+
+                data.teachers.forEach(t => {
+                    const val = parseFloat(service.allocations[t]) || 0;
+                    currentAllocated += val;
+                    teacherTotalsRaw[t] += val;
+
+                    if (service.ponderationActive && val > 0) {
+                        if (Math.abs(factor - 1.1) < 0.01) {
+                            teacher11RawSums[t] += val * 0.1;
+                        } else {
+                            teacherTotalsPond[t] += val * (factor - 1);
+                        }
+                    }
+                });
+
+                const isBalanced = Math.abs(currentAllocated - targetVolume) < 0.01 && targetVolume > 0;
+                const badgeClass = isBalanced ? 'success' : 'danger';
+
+                const deleteRowBtn = data.deleteMode 
+                    ? `<button class="delete-btn-icon" title="Supprimer ce service" onclick="deleteService('${disc}', ${sIndex})">✕</button>` 
+                    : '';
+
+                tbodyHtml += `
+                    <tr>
+                        <td>
+                            <div style="display: flex; align-items: center;">
+                                ${deleteRowBtn}
+                                <select onchange="updateService('${disc}', ${sIndex}, 'level', this.value)">
+                                    ${levels.map(l => `<option value="${l}" ${service.level === l ? 'selected' : ''}>${l}</option>`).join('')}
+                                </select>
+                            </div>
+                        </td>
+                        <td>
+                            <input type="text" value="${service.name}" onchange="updateService('${disc}', ${sIndex}, 'name', this.value)">
+                        </td>
+                        <td>
+                            <input type="number" min="0" step="1" value="${service.classes}" onchange="updateService('${disc}', ${sIndex}, 'classes', parseFloat(this.value)||0)">
+                        </td>
+                        <td>
+                            <input type="number" min="0" step="0.5" value="${service.hours}" onchange="updateService('${disc}', ${sIndex}, 'hours', parseFloat(this.value)||0)">
+                        </td>
+                        <td>
+                            <div class="checkbox-container">
+                                <input type="checkbox" ${service.ponderationActive ? 'checked' : ''} 
+                                    onchange="updateService('${disc}', ${sIndex}, 'ponderationActive', this.checked)">
+                                <input type="number" step="0.05" min="1" value="${service.ponderationFactor || 1.1}" 
+                                    style="width: 60px;" ${!service.ponderationActive ? 'disabled' : ''}
+                                    onchange="updateService('${disc}', ${sIndex}, 'ponderationFactor', parseFloat(this.value)||1)">
+                            </div>
+                            ${service.ponderationActive ? `<div class="ponderation-box">+${rawLineSurplus.toFixed(2)}h pond.</div>` : ''}
+                        </td>
+                        <td style="text-align: center;">
+                            <span class="badge ${badgeClass}">${targetVolume.toFixed(1)} h</span>
+                        </td>
+                `;
+
+                data.teachers.forEach(t => {
+                    const val = service.allocations[t] !== undefined ? service.allocations[t] : '';
+                    tbodyHtml += `
+                        <td class="teacher-cell">
+                            <input type="number" min="0" step="0.5" value="${val}" 
+                                oninput="updateAllocation('${disc}', ${sIndex}, '${t}', this.value)">
+                        </td>
+                    `;
+                });
+
+                tbodyHtml += `</tr>`;
+            });
+
+            data.teachers.forEach(t => {
+                teacherTotalsPond[t] += Math.min(teacher11RawSums[t], 1.0);
+            });
+
+            let tfootHtml = '<tfoot>';
+            
+            tfootHtml += '<tr class="totals-row"><td colspan="6">Total des heures attribuées</td>';
+            data.teachers.forEach(t => {
+                tfootHtml += `<td>${teacherTotalsRaw[t].toFixed(1)} h</td>`;
+            });
+            tfootHtml += '</tr>';
+
+            tfootHtml += '<tr class="totals-row"><td colspan="6">Pondérations (plafonné à 1h max pour pondér. 1.1)</td>';
+            data.teachers.forEach(t => {
+                tfootHtml += `<td>+${teacherTotalsPond[t].toFixed(2)} h</td>`;
+            });
+            tfootHtml += '</tr>';
+
+            tfootHtml += '<tr class="totals-row grand-total"><td colspan="6">Total des heures (brut + pondération)</td>';
+            data.teachers.forEach(t => {
+                const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t];
+                tfootHtml += `<td class="grand-total-cell" data-teacher="${t}" data-grandtotal="${grandTotal}">${grandTotal.toFixed(2)} h</td>`;
+            });
+            tfootHtml += '</tr>';
+
+            tfootHtml += '<tr class="totals-row hsa-row"><td colspan="6">HSA (Total général - Apport)</td>';
+            data.teachers.forEach(t => {
+                const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t];
+                const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
+                const hsaVal = grandTotal - apportVal;
+
+                const badgeClass = hsaVal >= 0 ? 'success' : 'danger';
+                tfootHtml += `<td class="hsa-cell" data-teacher="${t}">
+                    <span class="badge ${badgeClass}">${hsaVal > 0 ? '+' : ''}${hsaVal.toFixed(2)} h</span>
+                </td>`;
+            });
+            tfootHtml += '</tr></tfoot>';
+
+            tbodyHtml += '</tbody>';
+            table.innerHTML = theadHtml + tbodyHtml + tfootHtml;
+            container.appendChild(table);
+
+            return container;
+        }
+
+        // Modale TRMD
+        function openTrmdModal() {
+            renderTrmdContent();
+            document.getElementById('trmdModal').classList.add('active');
+        }
+
+        function renderTrmdContent() {
+            const container = document.getElementById('trmdContent');
+            const disciplines = Object.keys(dataStore);
+
+            let grandTarget = 0;
+            let grandRaw = 0;
+            let grandHsa = 0;
+            let grandEpleTotalGeneral = 0;
+            let grandTeachersCount = 0;
+
+            disciplines.forEach(disc => {
+                const data = dataStore[disc];
+                if (!data.apports) data.apports = {};
+                grandTeachersCount += data.teachers.length;
+
+                const teacherPond11Sums = {};
+                const teacherRawTotals = {};
+                data.teachers.forEach(t => {
+                    teacherPond11Sums[t] = 0;
+                    teacherRawTotals[t] = 0;
+                });
+
+                data.services.forEach(service => {
+                    const base = (service.classes || 0) * (service.hours || 0);
+                    grandTarget += base;
+                    const factor = service.ponderationActive ? (service.ponderationFactor || 1.1) : 1;
+
+                    data.teachers.forEach(t => {
+                        const val = parseFloat(service.allocations[t]) || 0;
+                        grandRaw += val;
+                        teacherRawTotals[t] += val;
+
+                        if (service.ponderationActive && val > 0) {
+                            if (Math.abs(factor - 1.1) < 0.01) {
+                                teacherPond11Sums[t] += val * 0.1;
+                            } else {
+                                teacherRawTotals[t] += val * (factor - 1);
+                            }
+                        }
+                    });
+                });
+
+                data.teachers.forEach(t => {
+                    const grandTotalTeacher = teacherRawTotals[t] + Math.min(teacherPond11Sums[t], 1.0);
+                    const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
+                    grandHsa += (grandTotalTeacher - apportVal);
+                    grandEpleTotalGeneral += grandTotalTeacher;
+                });
+            });
+
+            const totalDgh = (dotationGlobal.hp || 0) + (dotationGlobal.hsa || 0);
+            const norvegien = totalDgh - grandEpleTotalGeneral;
+            const norvegienClass = norvegien >= 0 ? 'success' : 'danger';
+
+            let html = `
+                <div class="pdf-title">Tableau de Répartition des Moyens Détaillé (TRMD)</div>
+                
+                <div class="dotation-panel">
+                    <div class="dotation-field">
+                        <label for="inputHP">Heures Poste (HP) :</label>
+                        <input type="number" id="inputHP" step="0.5" min="0" value="${dotationGlobal.hp}" onchange="updateDotation('hp', parseFloat(this.value)||0)">
+                    </div>
+                    <div class="dotation-field">
+                        <label for="inputHSA">HSA :</label>
+                        <input type="number" id="inputHSA" step="0.5" min="0" value="${dotationGlobal.hsa}" onchange="updateDotation('hsa', parseFloat(this.value)||0)">
+                    </div>
+                    <div class="dotation-summary-item">
+                        <strong>DGH totale :</strong> ${totalDgh.toFixed(1)} h
+                    </div>
+                    <div class="dotation-summary-item">
+                        <strong>Norvégien :</strong> 
+                        <span class="badge ${norvegienClass}" style="margin-left: 4px;">${norvegien > 0 ? '+' : ''}${norvegien.toFixed(2)} h</span>
+                    </div>
+                </div>
+            `;
+
+            if (disciplines.length === 0) {
+                html += '<p class="empty-state">Aucune donnée disponible.</p>';
+            } else {
+                html += `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Discipline</th>
+                                <th style="text-align: center;">Nb Ens.</th>
+                                <th style="text-align: center;">Vol. à ventiler</th>
+                                <th style="text-align: center;">Heures attribuées</th>
+                                <th style="text-align: center;">HSA</th>
+                                <th style="text-align: center;">Total général</th>
+                                <th style="text-align: center;">État</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                disciplines.forEach(disc => {
+                    const data = dataStore[disc];
+                    if (!data.apports) data.apports = {};
+                    let targetVol = 0;
+                    let allocatedRaw = 0;
+                    let discHsaTotal = 0;
+                    let discGrandTotal = 0;
+
+                    const teacherPond11Sums = {};
+                    const teacherRawTotals = {};
+                    data.teachers.forEach(t => {
+                        teacherPond11Sums[t] = 0;
+                        teacherRawTotals[t] = 0;
+                    });
+
+                    data.services.forEach(service => {
+                        const base = (service.classes || 0) * (service.hours || 0);
+                        targetVol += base;
+                        const factor = service.ponderationActive ? (service.ponderationFactor || 1.1) : 1;
+
+                        data.teachers.forEach(t => {
+                            const val = parseFloat(service.allocations[t]) || 0;
+                            allocatedRaw += val;
+                            teacherRawTotals[t] += val;
+
+                            if (service.ponderationActive && val > 0) {
+                                if (Math.abs(factor - 1.1) < 0.01) {
+                                    teacherPond11Sums[t] += val * 0.1;
+                                } else {
+                                    teacherRawTotals[t] += val * (factor - 1);
+                                }
+                            }
+                        });
+                    });
+
+                    data.teachers.forEach(t => {
+                        const grandTotalTeacher = teacherRawTotals[t] + Math.min(teacherPond11Sums[t], 1.0);
+                        const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
+                        discHsaTotal += (grandTotalTeacher - apportVal);
+                        discGrandTotal += grandTotalTeacher;
+                    });
+
+                    const isBalanced = Math.abs(allocatedRaw - targetVol) < 0.01 && targetVol > 0;
+                    const badgeClass = isBalanced ? 'success' : 'danger';
+                    const hsaBadgeClass = discHsaTotal >= 0 ? 'success' : 'danger';
+
+                    html += `
+                        <tr>
+                            <td><strong>${disc}</strong></td>
+                            <td style="text-align: center;">${data.teachers.length}</td>
+                            <td style="text-align: center;">${targetVol.toFixed(1)} h</td>
+                            <td style="text-align: center;">${allocatedRaw.toFixed(1)} h</td>
+                            <td style="text-align: center;">
+                                <span class="badge ${hsaBadgeClass}">${discHsaTotal > 0 ? '+' : ''}${discHsaTotal.toFixed(2)} h</span>
+                            </td>
+                            <td style="text-align: center;"><strong>${discGrandTotal.toFixed(2)} h</strong></td>
+                            <td style="text-align: center;">
+                                <span class="badge ${badgeClass}">${isBalanced ? 'Équilibré' : 'Écart'}</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                const grandHsaBadgeClass = grandHsa >= 0 ? 'success' : 'danger';
+
+                html += `
+                    </tbody>
+                    <tfoot>
+                        <tr class="totals-row grand-total">
+                            <td>TOTAL EPLE</td>
+                            <td style="text-align: center;">${grandTeachersCount}</td>
+                            <td style="text-align: center;">${grandTarget.toFixed(1)} h</td>
+                            <td style="text-align: center;">${grandRaw.toFixed(1)} h</td>
+                            <td style="text-align: center;">
+                                <span class="badge ${grandHsaBadgeClass}">${grandHsa > 0 ? '+' : ''}${grandHsa.toFixed(2)} h</span>
+                            </td>
+                            <td style="text-align: center;"><strong>${grandEpleTotalGeneral.toFixed(2)} h</strong></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                    </table>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function updateDotation(key, value) {
+            dotationGlobal[key] = value;
+            renderTrmdContent();
+        }
+
+        function exportTrmdToPdf() {
+            window.print();
+        }
+
+        function closeTrmdModal() {
+            document.getElementById('trmdModal').classList.remove('active');
+        }
+
+        function deleteService(disc, sIndex) {
+            if (confirm("Voulez-vous vraiment supprimer ce service ? Cette action est irréversible.")) {
+                dataStore[disc].services.splice(sIndex, 1);
+                renderApp();
+            }
+        }
+
+        function deleteTeacher(disc, tIndex) {
+            if (confirm("Voulez-vous vraiment supprimer cet enseignant ? Cette action est irréversible.")) {
+                const teacherName = dataStore[disc].teachers[tIndex];
+                dataStore[disc].teachers.splice(tIndex, 1);
+                if (dataStore[disc].apports) {
+                    delete dataStore[disc].apports[teacherName];
+                }
+                dataStore[disc].services.forEach(service => {
+                    delete service.allocations[teacherName];
+                });
+                renderApp();
+            }
+        }
+
+        function updateService(disc, sIndex, key, value) {
+            dataStore[disc].services[sIndex][key] = value;
+            renderApp();
+        }
+
+        function updateAllocation(disc, sIndex, teacher, value) {
+            const val = value === '' ? 0 : parseFloat(value);
+            dataStore[disc].services[sIndex].allocations[teacher] = val;
+            renderApp();
+        }
+    </script>
+</body>
+</html>
