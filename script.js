@@ -34,6 +34,379 @@ let autonomieMode = 'level';
 let synthesisSortCol = 'disc';
 let synthesisSortAsc = true;
 
+const testDataset = {
+    "epleIdentity": {
+        "name": "Lycée Léonard de Vinci",
+        "uai": "0421234A",
+        "commune": "Saint-Étienne",
+        "enableSpecialites": true,
+        "enableOptionnels": true,
+        "enableCoEnseignement": true
+    },
+    "dotation": {
+        "hp": 900,
+        "hsa": 45
+    },
+    "levels": [
+        "6ème",
+        "5ème",
+        "4ème",
+        "3ème",
+        "2nde",
+        "1ère",
+        "Terminale"
+    ],
+    "baseHoursStore": {
+        "6ème_Maths 6ème": 6,
+        "5ème_Latin": 2,
+        "4ème_Latin": 1
+    },
+    "coEnseignementGroups": [
+        {
+            "id": "test-group-1",
+            "name": "Maths 5ème - co-intervention",
+            "members": [
+                {
+                    "disc": "Mathématiques",
+                    "sIndex": 2,
+                    "teacher": "MARTIN Julien"
+                },
+                {
+                    "disc": "Mathématiques",
+                    "sIndex": 2,
+                    "teacher": "BERNARD Sophie"
+                }
+            ]
+        },
+        {
+            "id": "test-group-2",
+            "name": "Projet interdisciplinaire Maths / HG",
+            "members": [
+                {
+                    "disc": "Mathématiques",
+                    "sIndex": 2,
+                    "teacher": "MARTIN Julien"
+                },
+                {
+                    "disc": "Histoire-Géographie",
+                    "sIndex": 1,
+                    "teacher": "RICHARD Paul"
+                }
+            ]
+        }
+    ],
+    "dataStore": {
+        "Mathématiques": {
+            "deleteMode": false,
+            "enableSpecialites": true,
+            "enableOptionnels": false,
+            "enableCoEnseignement": true,
+            "sortCol": null,
+            "sortAsc": true,
+            "teachers": [
+                "DUPONT Marie",
+                "MARTIN Julien",
+                "BERNARD Sophie"
+            ],
+            "apports": {
+                "DUPONT Marie": 18,
+                "MARTIN Julien": 15,
+                "BERNARD Sophie": 18
+            },
+            "services": [
+                {
+                    "level": "6ème",
+                    "levels": [
+                        "6ème"
+                    ],
+                    "name": "Maths 6ème",
+                    "classes": 4,
+                    "hours": 4.5,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": false,
+                    "isCoEnseignement": false,
+                    "locked": false,
+                    "allocations": {
+                        "DUPONT Marie": 9,
+                        "MARTIN Julien": 9
+                    }
+                },
+                {
+                    "level": "Terminale",
+                    "levels": [
+                        "Terminale"
+                    ],
+                    "name": "Maths Expertes Terminale",
+                    "classes": 2,
+                    "hours": 3,
+                    "ponderationActive": true,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": true,
+                    "isOptionnel": false,
+                    "isCoEnseignement": false,
+                    "locked": false,
+                    "allocations": {
+                        "DUPONT Marie": 6
+                    }
+                },
+                {
+                    "level": "5ème",
+                    "levels": [
+                        "5ème"
+                    ],
+                    "name": "Maths 5ème co-intervention",
+                    "classes": 2,
+                    "hours": 4,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": false,
+                    "isCoEnseignement": true,
+                    "locked": false,
+                    "allocations": {
+                        "MARTIN Julien": 4,
+                        "BERNARD Sophie": 4
+                    }
+                },
+                {
+                    "level": "4ème",
+                    "levels": [
+                        "4ème"
+                    ],
+                    "name": "Maths 4ème",
+                    "classes": 3,
+                    "hours": 4,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": false,
+                    "isCoEnseignement": false,
+                    "locked": true,
+                    "allocations": {
+                        "DUPONT Marie": 12
+                    }
+                }
+            ]
+        },
+        "Lettres modernes": {
+            "deleteMode": false,
+            "enableSpecialites": false,
+            "enableOptionnels": true,
+            "enableCoEnseignement": false,
+            "sortCol": null,
+            "sortAsc": true,
+            "teachers": [
+                "PETIT Claire",
+                "ROBERT Antoine"
+            ],
+            "apports": {
+                "PETIT Claire": 18,
+                "ROBERT Antoine": 18
+            },
+            "services": [
+                {
+                    "level": "6ème",
+                    "levels": [
+                        "6ème"
+                    ],
+                    "name": "Français 6ème",
+                    "classes": 4,
+                    "hours": 4.5,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": false,
+                    "isCoEnseignement": false,
+                    "locked": false,
+                    "allocations": {
+                        "PETIT Claire": 9,
+                        "ROBERT Antoine": 9
+                    }
+                },
+                {
+                    "level": "5ème",
+                    "levels": [
+                        "5ème",
+                        "4ème",
+                        "3ème"
+                    ],
+                    "name": "Latin",
+                    "classes": 3,
+                    "hours": 2,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": true,
+                    "isCoEnseignement": false,
+                    "locked": false,
+                    "assignedDisciplines": [
+                        "Lettres modernes"
+                    ],
+                    "assignedTeachers": [],
+                    "optFinancedHours": 2,
+                    "allocations": {
+                        "PETIT Claire": 6
+                    }
+                }
+            ]
+        },
+        "Histoire-Géographie": {
+            "deleteMode": false,
+            "enableSpecialites": false,
+            "enableOptionnels": false,
+            "enableCoEnseignement": true,
+            "sortCol": null,
+            "sortAsc": true,
+            "teachers": [
+                "RICHARD Paul",
+                "DURAND Emma"
+            ],
+            "apports": {
+                "RICHARD Paul": 18,
+                "DURAND Emma": 18
+            },
+            "services": [
+                {
+                    "level": "6ème",
+                    "levels": [
+                        "6ème"
+                    ],
+                    "name": "HG 6ème",
+                    "classes": 4,
+                    "hours": 3,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": false,
+                    "isCoEnseignement": false,
+                    "locked": false,
+                    "allocations": {
+                        "RICHARD Paul": 8,
+                        "DURAND Emma": 4
+                    }
+                },
+                {
+                    "level": "5ème",
+                    "levels": [
+                        "5ème"
+                    ],
+                    "name": "HG-EMC 5ème",
+                    "classes": 1,
+                    "hours": 2,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": false,
+                    "isCoEnseignement": true,
+                    "locked": false,
+                    "allocations": {
+                        "RICHARD Paul": 2,
+                        "DURAND Emma": 2
+                    }
+                }
+            ]
+        },
+        "Anglais": {
+            "deleteMode": false,
+            "enableSpecialites": false,
+            "enableOptionnels": true,
+            "enableCoEnseignement": false,
+            "sortCol": null,
+            "sortAsc": true,
+            "teachers": [
+                "MOREAU Lucas",
+                "SIMON Camille"
+            ],
+            "apports": {
+                "MOREAU Lucas": 18,
+                "SIMON Camille": 18
+            },
+            "services": [
+                {
+                    "level": "6ème",
+                    "levels": [
+                        "6ème"
+                    ],
+                    "name": "Anglais 6ème",
+                    "classes": 4,
+                    "hours": 3,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": false,
+                    "isCoEnseignement": false,
+                    "locked": false,
+                    "allocations": {
+                        "MOREAU Lucas": 6,
+                        "SIMON Camille": 6
+                    }
+                },
+                {
+                    "level": "2nde",
+                    "levels": [
+                        "2nde",
+                        "1ère"
+                    ],
+                    "name": "Section Européenne Anglais",
+                    "classes": 2,
+                    "hours": 2,
+                    "ponderationActive": true,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": true,
+                    "isCoEnseignement": false,
+                    "locked": false,
+                    "assignedDisciplines": [
+                        "Anglais",
+                        "Espagnol"
+                    ],
+                    "assignedTeachers": [],
+                    "optFinancedHours": 1,
+                    "allocations": {
+                        "MOREAU Lucas": 4
+                    }
+                }
+            ]
+        },
+        "Espagnol": {
+            "deleteMode": false,
+            "enableSpecialites": false,
+            "enableOptionnels": true,
+            "enableCoEnseignement": false,
+            "sortCol": null,
+            "sortAsc": true,
+            "teachers": [
+                "LAURENT Nina"
+            ],
+            "apports": {
+                "LAURENT Nina": 18
+            },
+            "services": [
+                {
+                    "level": "5ème",
+                    "levels": [
+                        "5ème"
+                    ],
+                    "name": "Espagnol LV2 5ème",
+                    "classes": 3,
+                    "hours": 2.5,
+                    "ponderationActive": false,
+                    "ponderationFactor": 1.1,
+                    "isSpecialite": false,
+                    "isOptionnel": false,
+                    "isCoEnseignement": false,
+                    "locked": false,
+                    "allocations": {
+                        "LAURENT Nina": 7.5
+                    }
+                }
+            ]
+        }
+    }
+};
+
 let dataStore = {
     "Mathématiques": {
         deleteMode: false,
@@ -2226,6 +2599,61 @@ function saveState() {
     downloadAnchor.remove();
 }
 
+function applyLoadedData(loadedData) {
+    if (loadedData.dataStore) {
+        dataStore = loadedData.dataStore;
+        Object.keys(dataStore).forEach(disc => {
+            if (!dataStore[disc].apports) {
+                dataStore[disc].apports = {};
+            }
+            if (dataStore[disc].enableSpecialites === undefined) {
+                dataStore[disc].enableSpecialites = false;
+            }
+            if (dataStore[disc].enableOptionnels === undefined) {
+                dataStore[disc].enableOptionnels = false;
+            }
+            if (dataStore[disc].enableCoEnseignement === undefined) {
+                dataStore[disc].enableCoEnseignement = false;
+            }
+            dataStore[disc].services.forEach(s => {
+                if (s.locked === undefined) s.locked = false;
+                if (s.isSpecialite === undefined) s.isSpecialite = false;
+                if (s.isOptionnel === undefined) s.isOptionnel = false;
+                if (s.isCoEnseignement === undefined) s.isCoEnseignement = false;
+                if (s.optFinancedHours === undefined) s.optFinancedHours = 0;
+            });
+        });
+        dotationGlobal = loadedData.dotation || { hp: 0, hsa: 0 };
+        if (Array.isArray(loadedData.levels)) {
+            levels = loadedData.levels;
+        }
+        if (loadedData.baseHoursStore) {
+            baseHoursStore = loadedData.baseHoursStore;
+        }
+        coEnseignementGroups = Array.isArray(loadedData.coEnseignementGroups) ? loadedData.coEnseignementGroups : [];
+        if (loadedData.epleIdentity) {
+            epleIdentity = loadedData.epleIdentity;
+            if (epleIdentity.enableSpecialites === undefined) {
+                epleIdentity.enableSpecialites = false;
+            }
+            if (epleIdentity.enableOptionnels === undefined) {
+                epleIdentity.enableOptionnels = false;
+            }
+            if (epleIdentity.enableCoEnseignement === undefined) {
+                epleIdentity.enableCoEnseignement = false;
+            }
+        }
+    } else if (typeof loadedData === 'object' && loadedData !== null) {
+        dataStore = loadedData;
+    }
+    currentActiveTabIndex = 0;
+    currentAutonomieTabLevelIndex = 0;
+    currentAutonomieTabDiscIndex = 0;
+    currentAutonomieTabDisciplinesIndex = 0;
+    updateAppTitle();
+    renderApp();
+}
+
 function handleJsonLoad(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -2234,63 +2662,24 @@ function handleJsonLoad(e) {
     reader.onload = (event) => {
         try {
             const loadedData = JSON.parse(event.target.result);
-            if (loadedData.dataStore) {
-                dataStore = loadedData.dataStore;
-                Object.keys(dataStore).forEach(disc => {
-                    if (!dataStore[disc].apports) {
-                        dataStore[disc].apports = {};
-                    }
-                    if (dataStore[disc].enableSpecialites === undefined) {
-                        dataStore[disc].enableSpecialites = false;
-                    }
-                    if (dataStore[disc].enableOptionnels === undefined) {
-                        dataStore[disc].enableOptionnels = false;
-                    }
-                    if (dataStore[disc].enableCoEnseignement === undefined) {
-                        dataStore[disc].enableCoEnseignement = false;
-                    }
-                    dataStore[disc].services.forEach(s => {
-                        if (s.locked === undefined) s.locked = false;
-                        if (s.isSpecialite === undefined) s.isSpecialite = false;
-                        if (s.isOptionnel === undefined) s.isOptionnel = false;
-                        if (s.isCoEnseignement === undefined) s.isCoEnseignement = false;
-                        if (s.optFinancedHours === undefined) s.optFinancedHours = 0;
-                    });
-                });
-                dotationGlobal = loadedData.dotation || { hp: 0, hsa: 0 };
-                if (Array.isArray(loadedData.levels)) {
-                    levels = loadedData.levels;
-                }
-                if (loadedData.baseHoursStore) {
-                    baseHoursStore = loadedData.baseHoursStore;
-                }
-                coEnseignementGroups = Array.isArray(loadedData.coEnseignementGroups) ? loadedData.coEnseignementGroups : [];
-                if (loadedData.epleIdentity) {
-                    epleIdentity = loadedData.epleIdentity;
-                    if (epleIdentity.enableSpecialites === undefined) {
-                        epleIdentity.enableSpecialites = false;
-                    }
-                    if (epleIdentity.enableOptionnels === undefined) {
-                        epleIdentity.enableOptionnels = false;
-                    }
-                    if (epleIdentity.enableCoEnseignement === undefined) {
-                        epleIdentity.enableCoEnseignement = false;
-                    }
-                }
-            } else if (typeof loadedData === 'object' && loadedData !== null) {
-                dataStore = loadedData;
-            }
-            currentActiveTabIndex = 0;
-            currentAutonomieTabLevelIndex = 0;
-            currentAutonomieTabDiscIndex = 0;
-            currentAutonomieTabDisciplinesIndex = 0;
-            updateAppTitle();
-            renderApp();
+            applyLoadedData(loadedData);
         } catch (err) {
             alert("Erreur lors de la lecture du fichier JSON.");
         }
     };
     reader.readAsText(file);
+}
+
+function loadTestDataset() {
+    if (!confirm("Charger le jeu de données de test ? Cela remplacera toutes les données actuellement saisies dans l'application (pensez à sauvegarder votre travail en cours si besoin).")) {
+        return;
+    }
+    try {
+        const loadedData = JSON.parse(JSON.stringify(testDataset));
+        applyLoadedData(loadedData);
+    } catch (err) {
+        alert("Erreur lors du chargement du jeu de test.");
+    }
 }
 
 function handleFileUpload(e) {
