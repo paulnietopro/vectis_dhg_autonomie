@@ -812,18 +812,27 @@ function renderOptionnelContent() {
 
         const linkedDiscs = item.assignedDisciplines || [];
         let discDropdownHtml;
-        if (optDisciplineManagementEnabled) {
+        if (linkedDiscs.length === 0) {
+            // Aucune discipline rattachée pour l'instant : on doit toujours pouvoir en choisir
+            // une première, que le mode « gestion des disciplines » soit activé ou non.
+            discDropdownHtml = `
+                <select style="font-size: 0.85rem;" onchange="if(this.value) toggleOptDisciplineSelection('${disc.replace(/'/g, "\\'")}', ${sIndex}, this.value)">
+                    <option value="">Choisir...</option>
+                    ${allDisciplines.map(d => `<option value="${d.replace(/"/g, '&quot;')}">${d}</option>`).join('')}
+                </select>
+            `;
+        } else if (optDisciplineManagementEnabled) {
             const availableToAdd = allDisciplines.filter(d => !linkedDiscs.includes(d));
             discDropdownHtml = `
                 <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px;">
-                    ${linkedDiscs.length > 0 ? linkedDiscs.map(d => `
+                    ${linkedDiscs.map(d => `
                         <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--teal-text); background: var(--teal-bg); border: 1px solid var(--teal-border); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">
                             ${d}
                             ${linkedDiscs.length > 1 ? `
                                 <button type="button" title="Retirer cette discipline" onclick="toggleOptDisciplineSelection('${disc.replace(/'/g, "\\'")}', ${sIndex}, '${d.replace(/'/g, "\\'")}')" style="background: none; border: none; cursor: pointer; color: var(--teal-text); font-weight: 700; padding: 0; line-height: 1; font-size: 0.85rem;">✕</button>
                             ` : ''}
                         </span>
-                    `).join('') : '<span style="font-size: 0.8rem; color: var(--text-muted);">Choisir...</span>'}
+                    `).join('')}
                     ${availableToAdd.length > 0 ? `
                         <div class="multi-select-box" style="width: auto; display: inline-block;">
                             <button type="button" class="multi-select-btn" title="Rattacher une discipline supplémentaire" onclick="toggleMultiSelectDropdown(this)" style="width: 24px; height: 24px; padding: 0; justify-content: center; border-radius: 50%; font-weight: 700; font-size: 0.9rem;">+</button>
@@ -837,7 +846,7 @@ function renderOptionnelContent() {
                 </div>
             `;
         } else {
-            discDropdownHtml = `<span style="font-size: 0.85rem;">${linkedDiscs.length > 0 ? linkedDiscs.join(', ') : '—'}</span>`;
+            discDropdownHtml = `<span style="font-size: 0.85rem;">${linkedDiscs.join(', ')}</span>`;
         }
 
         rowsHtml += `
@@ -1240,6 +1249,22 @@ function updateBaseHour(level, serviceName, inputEl) {
             }
         }
     }
+}
+
+// Un service positionné sur plusieurs niveaux n'a qu'une seule case Horaire plancher dans le
+// tableau de discipline (l'horaire plancher est associé au service). Cette valeur unique
+// alimente cependant toutes les cases correspondantes dans Autonomie EPLE, pour chacun des
+// niveaux concernés par ce service.
+function updateServiceBaseHourAllLevels(disc, sIndex, value) {
+    const service = dataStore[disc] && dataStore[disc].services[sIndex];
+    if (!service) return;
+
+    const val = parseFloat(value) || 0;
+    const svcLevels = getServiceLevels(service);
+    svcLevels.forEach(lvl => {
+        const key = getBaseHourKey(lvl, service.name || '');
+        baseHoursStore[key] = val;
+    });
 }
 
 function getAllUniqueServiceNames() {
@@ -2830,28 +2855,13 @@ function createTable(disc) {
         }
 
         const baseHourLevels = getServiceLevels(service);
-        let horairePlancherCellHtml;
-        if (baseHourLevels.length <= 1) {
-            const lvlForBaseHour = baseHourLevels[0] || service.level || '';
-            const bhKey = getBaseHourKey(lvlForBaseHour, service.name || '');
-            const baseHourVal = baseHoursStore[bhKey] !== undefined ? baseHoursStore[bhKey] : '';
-            horairePlancherCellHtml = `
-                <input type="number" min="0" step="0.5" value="${baseHourVal}" placeholder="0" ${isLocked ? 'disabled' : ''}
-                    onchange="updateBaseHour('${lvlForBaseHour.replace(/'/g, "\\'")}', '${(service.name || '').replace(/'/g, "\\'")}', this)">
-            `;
-        } else {
-            horairePlancherCellHtml = baseHourLevels.map(lvlForBaseHour => {
-                const bhKey = getBaseHourKey(lvlForBaseHour, service.name || '');
-                const baseHourVal = baseHoursStore[bhKey] !== undefined ? baseHoursStore[bhKey] : '';
-                return `
-                    <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
-                        <span style="font-size: 0.72rem; color: var(--text-muted); min-width: 42px;">${lvlForBaseHour}</span>
-                        <input type="number" min="0" step="0.5" value="${baseHourVal}" placeholder="0" style="width: 70px;" ${isLocked ? 'disabled' : ''}
-                            onchange="updateBaseHour('${lvlForBaseHour.replace(/'/g, "\\'")}', '${(service.name || '').replace(/'/g, "\\'")}', this)">
-                    </div>
-                `;
-            }).join('');
-        }
+        const firstBaseHourLevel = baseHourLevels[0] || service.level || '';
+        const firstBhKey = getBaseHourKey(firstBaseHourLevel, service.name || '');
+        const baseHourVal = baseHoursStore[firstBhKey] !== undefined ? baseHoursStore[firstBhKey] : '';
+        const horairePlancherCellHtml = `
+            <input type="number" min="0" step="0.5" value="${baseHourVal}" placeholder="0" ${isLocked ? 'disabled' : ''}
+                onchange="updateServiceBaseHourAllLevels('${anchorDisc}', ${sIndex}, this.value)">
+        `;
 
         let rowHtml = `
             <tr>

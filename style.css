@@ -637,6 +637,15 @@ input[type="number"] { width: 100%; text-align: center; }
 .help-step-title { font-weight: 700; color: var(--text); font-size: 1rem; }
 .help-step-content { font-size: 0.9rem; color: #334155; line-height: 1.5; padding-left: 36px; }
 
+.about-tool-card {
+    display: flex; align-items: flex-start; gap: 14px;
+    background: var(--indigo-bg); border: 1px solid var(--indigo-border); border-left: 4px solid var(--indigo-border);
+    border-radius: 8px; padding: 16px;
+}
+.about-tool-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; }
+.about-tool-title { font-weight: 700; color: var(--indigo-text); font-size: 0.95rem; margin-bottom: 4px; }
+.about-tool-desc { font-size: 0.85rem; color: var(--indigo-text); line-height: 1.5; }
+
 .app-footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
 
 .info-icon-badge {
