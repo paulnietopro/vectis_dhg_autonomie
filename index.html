@@ -66,7 +66,7 @@
                 <h2>🎓 Suivi des Spécialités</h2>
                 <button class="modal-close" onclick="closeSpecialiteModal()">&times;</button>
             </div>
-            <div id="speTabsContainer" class="tabs-nav"></div>
+            <div id="speTabsContainer" class="level-tabs-nav"></div>
             <div id="speContentsContainer"></div>
         </div>
     </div>
@@ -283,7 +283,7 @@
                 <h2>🔀 Ventilation des services par niveau</h2>
                 <button class="modal-close" onclick="closeLevelVentilationModal()">&times;</button>
             </div>
-            <div id="levelTabsContainer" class="tabs-nav"></div>
+            <div id="levelTabsContainer" class="level-tabs-nav"></div>
             <div id="levelContentsContainer"></div>
         </div>
     </div>
@@ -292,15 +292,16 @@
     <div id="autonomieModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header">
-                <h2>🏛️ Autonomie EPLE</h2>
+                <h2><span>🏛️</span> <span id="autonomieModalTitle">Autonomie EPLE</span></h2>
                 <button class="modal-close" onclick="closeAutonomieModal()">&times;</button>
             </div>
             <div class="mode-selector">
                 <button id="btnModeLevel" class="mode-btn active" onclick="switchAutonomieMode('level')">Autonomie par niveau</button>
                 <button id="btnModeDisc" class="mode-btn" onclick="switchAutonomieMode('disc')">Autonomie par matière</button>
                 <button id="btnModeDisciplines" class="mode-btn" onclick="switchAutonomieMode('disciplines')">Autonomie par discipline</button>
+                <button id="btnModeSynthese" class="mode-btn" onclick="switchAutonomieMode('synthese')">Synthèse</button>
             </div>
-            <div id="autonomieTabsContainer" class="tabs-nav"></div>
+            <div id="autonomieTabsContainer" class="level-tabs-nav"></div>
             <div id="autonomieContentsContainer"></div>
         </div>
     </div>

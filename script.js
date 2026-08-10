@@ -31,6 +31,8 @@ let optSortAsc = true;
 
 let levels = ["6ème", "5ème", "4ème", "3ème", "2nde", "1ère", "Terminale"];
 let autonomieMode = 'level';
+let synthesisSortCol = 'disc';
+let synthesisSortAsc = true;
 
 let dataStore = {
     "Mathématiques": {
@@ -195,7 +197,7 @@ function renderSpecialiteContent() {
 
     levelsWithSpe.forEach((lvl, idx) => {
         const btn = document.createElement('button');
-        btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+        btn.className = `level-tab-btn ${idx === 0 ? 'active' : ''}`;
         btn.textContent = lvl;
         btn.onclick = () => switchSpeTab(idx);
         tabsContainer.appendChild(btn);
@@ -226,7 +228,7 @@ function renderSpecialiteContent() {
                     <div class="spe-card">
                         <div class="spe-card-title">${s.name} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">(${disc})</span></div>
                         <div class="spe-card-info">
-                            <strong>${s.classes || 0}</strong> classe(s)/groupe(s) • Volume horaire : <strong>${(s.hours || 0).toFixed(1)} h</strong> par classe (Total : <strong>${((s.classes || 0) * (s.hours || 0)).toFixed(1)} h</strong>)
+                            Volume horaire : <strong>${(s.hours || 0).toFixed(1)} h</strong> par classe (Total : <strong>${((s.classes || 0) * (s.hours || 0)).toFixed(1)} h</strong>)
                         </div>
                         <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-top: 6px;">Intervenants :</div>
                         <div class="spe-teachers-list">
@@ -243,7 +245,7 @@ function renderSpecialiteContent() {
 }
 
 function switchSpeTab(activeIndex) {
-    document.querySelectorAll('#speTabsContainer .tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
+    document.querySelectorAll('#speTabsContainer .level-tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
     document.querySelectorAll('#speContentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
 }
 
@@ -1012,17 +1014,24 @@ function closeHelpModal() {
 function updateAppTitle() {
     const mainTitleEl = document.getElementById('appMainTitle');
     const autonomieLabelEl = document.getElementById('autonomieBtnLabel');
+    const autonomieModalTitleEl = document.getElementById('autonomieModalTitle');
     if (epleIdentity && epleIdentity.name && epleIdentity.name.trim() !== '') {
         mainTitleEl.textContent = `VectisDHG Autonomie - ${epleIdentity.name}`;
         if (autonomieLabelEl) {
             autonomieLabelEl.textContent = `Autonomie ${epleIdentity.name}`;
             autonomieLabelEl.title = `Autonomie ${epleIdentity.name}`;
         }
+        if (autonomieModalTitleEl) {
+            autonomieModalTitleEl.textContent = `Autonomie ${epleIdentity.name}`;
+        }
     } else {
         mainTitleEl.textContent = "VectisDHG Autonomie";
         if (autonomieLabelEl) {
             autonomieLabelEl.textContent = 'Autonomie EPLE';
             autonomieLabelEl.title = '';
+        }
+        if (autonomieModalTitleEl) {
+            autonomieModalTitleEl.textContent = 'Autonomie EPLE';
         }
     }
 }
@@ -1159,6 +1168,7 @@ function switchAutonomieMode(mode) {
     document.getElementById('btnModeLevel').classList.toggle('active', mode === 'level');
     document.getElementById('btnModeDisc').classList.toggle('active', mode === 'disc');
     document.getElementById('btnModeDisciplines').classList.toggle('active', mode === 'disciplines');
+    document.getElementById('btnModeSynthese').classList.toggle('active', mode === 'synthese');
     renderAutonomieContent();
 }
 
@@ -1302,7 +1312,7 @@ function renderAutonomieContent() {
         levels.forEach((lvl, idx) => {
             const isActive = idx === currentAutonomieTabLevelIndex;
             const btn = document.createElement('button');
-            btn.className = `tab-btn ${isActive ? 'active' : ''}`;
+            btn.className = `level-tab-btn ${isActive ? 'active' : ''}`;
             btn.textContent = lvl;
             btn.onclick = () => switchAutonomieTab(idx);
             tabsContainer.appendChild(btn);
@@ -1536,7 +1546,7 @@ function renderAutonomieContent() {
 
             contentsContainer.appendChild(contentDiv);
         });
-    } else {
+    } else if (autonomieMode === 'disciplines') {
         if (disciplines.length === 0) {
             contentsContainer.innerHTML = '<p class="empty-state">Aucune discipline enregistrée.</p>';
             return;
@@ -1659,7 +1669,152 @@ function renderAutonomieContent() {
 
             contentsContainer.appendChild(contentDiv);
         });
+    } else if (autonomieMode === 'synthese') {
+        renderAutonomieSyntheseContent(contentsContainer);
     }
+}
+
+// Marge utilisée pour les options : identique au calcul affiché dans la fenêtre
+// Gestion des enseignements optionnels (Total des cours optionnels - volume financé par la DGH).
+function computeMargeUtiliseeOptions() {
+    let grandTotalVol = 0;
+    let grandTotalFinanced = 0;
+
+    Object.keys(dataStore).forEach(disc => {
+        dataStore[disc].services.forEach(s => {
+            if (s.isOptionnel) {
+                const vol = (s.classes || 0) * (s.hours || 0);
+                const financed = s.optFinancedHours !== undefined ? parseFloat(s.optFinancedHours) : 0;
+                grandTotalVol += vol;
+                grandTotalFinanced += financed;
+            }
+        });
+    });
+
+    return grandTotalVol - grandTotalFinanced;
+}
+
+function renderAutonomieSyntheseContent(contentsContainer) {
+    const disciplines = Object.keys(dataStore);
+    const discAutonomie = {};
+
+    disciplines.forEach(disc => {
+        const data = dataStore[disc];
+        let discTotal = 0;
+
+        data.services.forEach(s => {
+            const svcLevels = getServiceLevels(s);
+            // Un service peut être réparti sur plusieurs niveaux : on cumule l'autonomie
+            // obtenue pour chacun de ses niveaux, comme dans les autres onglets.
+            svcLevels.forEach(lvl => {
+                const key = getBaseHourKey(lvl, s.name || '');
+                const baseHourNum = parseFloat(baseHoursStore[key]) || 0;
+                const classes = s.classes || 0;
+                const hours = s.hours || 0;
+
+                const isFloorMatchedOption = s.isOptionnel && Math.abs(baseHourNum - hours) < 0.001;
+
+                if (!isFloorMatchedOption) {
+                    // L'horaire plancher est égal à l'horaire attribué : ce service n'est pas
+                    // comptabilisé dans l'autonomie de la discipline, mais dans la marge
+                    // utilisée pour les options (cf. computeMargeUtiliseeOptions).
+                    const cell = computeAutonomieCell(classes, hours, baseHourNum);
+                    discTotal += cell.clamped;
+                }
+            });
+        });
+
+        discAutonomie[disc] = discTotal;
+    });
+
+    const margeUtiliseeOptions = computeMargeUtiliseeOptions();
+
+    let discRows = disciplines.map(disc => ({ disc, total: discAutonomie[disc] }));
+
+    discRows.sort((a, b) => {
+        let valA, valB;
+        if (synthesisSortCol === 'disc') {
+            valA = a.disc;
+            valB = b.disc;
+            if (valA < valB) return synthesisSortAsc ? -1 : 1;
+            if (valA > valB) return synthesisSortAsc ? 1 : -1;
+            return 0;
+        } else {
+            valA = a.total;
+            valB = b.total;
+            return synthesisSortAsc ? valA - valB : valB - valA;
+        }
+    });
+
+    const sortIcon = (col) => synthesisSortCol === col ? (synthesisSortAsc ? '▲' : '▼') : '↕';
+
+    let tableHtml = `
+        <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="handleSynthesisSort('disc')">Discipline <span class="sort-icon">${sortIcon('disc')}</span></th>
+                    <th class="sortable" style="text-align: center;" onclick="handleSynthesisSort('total')">Autonomie totale (h) <span class="sort-icon">${sortIcon('total')}</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="totals-row">
+                    <td><strong>Marge utilisée pour les options</strong></td>
+                    <td style="text-align: center;">
+                        <span class="badge ${margeUtiliseeOptions >= 0 ? 'success' : 'danger'}">${margeUtiliseeOptions > 0 ? '+' : ''}${margeUtiliseeOptions.toFixed(1)} h</span>
+                    </td>
+                </tr>
+    `;
+
+    if (discRows.length === 0) {
+        tableHtml += `<tr><td colspan="2" class="empty-state">Aucune discipline enregistrée.</td></tr>`;
+    } else {
+        discRows.forEach(row => {
+            const badgeClass = row.total >= 0 ? 'success' : 'danger';
+            tableHtml += `
+                <tr>
+                    <td>${row.disc}</td>
+                    <td style="text-align: center;">
+                        <span class="badge ${badgeClass}">${row.total > 0 ? '+' : ''}${row.total.toFixed(1)} h</span>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    const sumDiscAutonomie = discRows.reduce((sum, row) => sum + row.total, 0);
+    const grandTotalHeures = margeUtiliseeOptions + sumDiscAutonomie;
+    const grandTotalBadgeClass = grandTotalHeures >= 0 ? 'success' : 'danger';
+
+    tableHtml += `
+                <tr class="totals-row grand-total">
+                    <td style="text-align: right;"><strong>Total :</strong></td>
+                    <td style="text-align: center;">
+                        <span class="badge grand-total-badge ${grandTotalBadgeClass}">${grandTotalHeures > 0 ? '+' : ''}${grandTotalHeures.toFixed(1)} h</span>
+                    </td>
+                </tr>
+    `;
+
+    tableHtml += `
+            </tbody>
+        </table>
+        </div>
+        <p class="settings-tab-hint" style="margin-top: 12px;">
+            Lorsque, pour une option, l'horaire plancher est égal à l'horaire attribué, elle n'est pas comptabilisée dans l'autonomie de sa discipline : son volume est alors intégré à la ligne « Marge utilisée pour les options ».
+        </p>
+    `;
+
+    contentsContainer.innerHTML = tableHtml;
+}
+
+function handleSynthesisSort(col) {
+    if (synthesisSortCol === col) {
+        synthesisSortAsc = !synthesisSortAsc;
+    } else {
+        synthesisSortCol = col;
+        synthesisSortAsc = true;
+    }
+    renderAutonomieContent();
 }
 
 function switchAutonomieTab(activeIndex) {
@@ -1670,7 +1825,7 @@ function switchAutonomieTab(activeIndex) {
     } else {
         currentAutonomieTabDisciplinesIndex = activeIndex;
     }
-    document.querySelectorAll('#autonomieTabsContainer .tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
+    document.querySelectorAll('#autonomieTabsContainer .tab-btn, #autonomieTabsContainer .level-tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
     document.querySelectorAll('#autonomieContentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
 }
 
@@ -1697,7 +1852,7 @@ function renderLevelVentilationContent() {
 
     levels.forEach((lvl, idx) => {
         const btn = document.createElement('button');
-        btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+        btn.className = `level-tab-btn ${idx === 0 ? 'active' : ''}`;
         btn.textContent = lvl;
         btn.onclick = () => switchLevelTab(idx);
         tabsContainer.appendChild(btn);
@@ -1811,7 +1966,7 @@ function renderLevelVentilationContent() {
 }
 
 function switchLevelTab(activeIndex) {
-    document.querySelectorAll('#levelTabsContainer .tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
+    document.querySelectorAll('#levelTabsContainer .level-tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
     document.querySelectorAll('#levelContentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
 }
 
@@ -2250,6 +2405,27 @@ function switchTab(activeIndex) {
     document.querySelectorAll('#contentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
 }
 
+// Remet à zéro toutes les heures ventilées aux enseignants pour une discipline, en un clic,
+// sans toucher aux autres éléments (services, niveaux, classes, volumes, pondérations...).
+function clearDisciplineAllocations(disc) {
+    const data = dataStore[disc];
+    if (!data) return;
+
+    if (!confirm(`Voulez-vous vraiment vider toutes les heures ventilées aux enseignants pour la discipline "${disc}" ? Les services, niveaux, classes et volumes horaires seront conservés.`)) {
+        return;
+    }
+
+    data.services.forEach(s => {
+        if (s.allocations) {
+            Object.keys(s.allocations).forEach(t => {
+                s.allocations[t] = 0;
+            });
+        }
+    });
+
+    renderApp();
+}
+
 function createActionBar(disc) {
     const bar = document.createElement('div');
     bar.className = 'action-bar';
@@ -2315,8 +2491,15 @@ function createActionBar(disc) {
         renderApp();
     };
 
+    const clearAllocationsBtn = document.createElement('button');
+    clearAllocationsBtn.className = 'btn-secondary';
+    clearAllocationsBtn.textContent = '🧹 Vider les heures ventilées';
+    clearAllocationsBtn.title = "Remet à zéro les heures ventilées à chaque enseignant pour cette discipline, sans toucher aux autres éléments (services, classes, volumes, niveaux...)";
+    clearAllocationsBtn.onclick = () => clearDisciplineAllocations(disc);
+
     mainRow.appendChild(addServiceBtn);
     mainRow.appendChild(addTeacherBtn);
+    mainRow.appendChild(clearAllocationsBtn);
     mainRow.appendChild(deleteToggleBtn);
 
     if (isDeleteMode) {

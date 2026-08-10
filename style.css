@@ -593,6 +593,33 @@ input[type="number"] { width: 100%; text-align: center; }
 .mode-btn { padding: 8px 16px; border: none; background: transparent; border-radius: 6px; font-weight: 600; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
 .mode-btn.active { background: var(--surface); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
+/* Onglets de niveau (Suivi des Spécialités, Ventilation par niveau, Autonomie EPLE) */
+.level-tabs-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 20px;
+    background: #f1f5f9;
+    padding: 6px;
+    border-radius: 10px;
+    width: fit-content;
+    max-width: 100%;
+}
+.level-tab-btn {
+    padding: 8px 18px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+.level-tab-btn:hover { color: var(--primary); }
+.level-tab-btn.active { background: var(--surface); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
 /* Modale Paramètres : onglets Identité EPLE / Niveaux / Disciplines */
 .settings-add-form { display: flex; gap: 8px; margin-bottom: 14px; }
 .settings-add-form input { flex: 1; }
