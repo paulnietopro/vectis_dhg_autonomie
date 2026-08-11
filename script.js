@@ -439,6 +439,29 @@ let dataStore = {
 
 let baseHoursStore = {};
 let coEnseignementGroups = [];
+
+// Chargement différé de la librairie Excel (SheetJS) : elle ne pèse rien sur le
+// chargement initial de la page et n'est téléchargée que lorsqu'un import ou un
+// export Excel est réellement demandé (import Excel, TRMD, co-enseignement,
+// export au format tableur).
+let xlsxLoadPromise = null;
+function ensureXlsxLoaded() {
+    if (window.XLSX) return Promise.resolve();
+    if (xlsxLoadPromise) return xlsxLoadPromise;
+
+    xlsxLoadPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => {
+            xlsxLoadPromise = null;
+            reject(new Error("Impossible de charger la librairie Excel. Vérifiez votre connexion internet et réessayez."));
+        };
+        document.head.appendChild(script);
+    });
+
+    return xlsxLoadPromise;
+}
 let coEnsHideAssociatedRows = false;
 let draggedTeacherIdx = null;
 let draggedLevelIdx = null;
@@ -877,15 +900,32 @@ function updateCoEnseignementGroupName(groupId, value) {
     }
 }
 
-function printCoEnseignementContent() {
-    window.print();
+// Pont d'impression : utilise le gestionnaire natif iOS (WKWebView) s'il est présent,
+// sinon repli sur l'impression navigateur classique.
+function triggerPrint() {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.printHandler) {
+        window.webkit.messageHandlers.printHandler.postMessage('print');
+    } else {
+        window.print();
+    }
 }
 
-function exportCoEnseignementToExcel() {
+function printCoEnseignementContent() {
+    triggerPrint();
+}
+
+async function exportCoEnseignementToExcel() {
     const allRows = getCoEnseignementTeacherRows();
 
     if (allRows.length === 0) {
         alert("Aucun service en co-enseignement à exporter.");
+        return;
+    }
+
+    try {
+        await ensureXlsxLoaded();
+    } catch (err) {
+        alert(err.message);
         return;
     }
 
@@ -2588,15 +2628,17 @@ function saveState() {
         dataStore: dataStore,
         coEnseignementGroups: coEnseignementGroups
     };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObject, null, 2));
+    const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
+    const blobUrl = URL.createObjectURL(blob);
     const downloadAnchor = document.createElement('a');
     const dateStr = new Date().toISOString().slice(0, 10);
-    
-    downloadAnchor.setAttribute("href", dataStr);
+
+    downloadAnchor.setAttribute("href", blobUrl);
     downloadAnchor.setAttribute("download", `VectisDHG_sauvegarde_${dateStr}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 }
 
 function applyLoadedData(loadedData) {
@@ -2682,9 +2724,16 @@ function loadTestDataset() {
     }
 }
 
-function handleFileUpload(e) {
+async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
+
+    try {
+        await ensureXlsxLoaded();
+    } catch (err) {
+        alert(err.message);
+        return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -3856,7 +3905,14 @@ function buildTrmdSheet() {
     return ws;
 }
 
-function exportTrmdToExcel() {
+async function exportTrmdToExcel() {
+    try {
+        await ensureXlsxLoaded();
+    } catch (err) {
+        alert(err.message);
+        return;
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, buildTrmdSheet(), 'TRMD');
 
@@ -3866,7 +3922,7 @@ function exportTrmdToExcel() {
 }
 
 function exportTrmdToPdf() {
-    window.print();
+    triggerPrint();
 }
 
 // 📊 EXPORT AU FORMAT TABLEUR (multi-disciplines + TRMD, .xlsx / .ods)
@@ -3990,7 +4046,7 @@ function setAllExportDisciplines(checked) {
     });
 }
 
-function performTableExport() {
+async function performTableExport() {
     const format = document.querySelector('input[name="exportFormat"]:checked').value;
     const mode = document.querySelector('input[name="exportMode"]:checked').value;
     const includeTrmd = document.getElementById('exportIncludeTrmd').checked;
@@ -3998,6 +4054,13 @@ function performTableExport() {
 
     if (selectedDiscs.length === 0 && !includeTrmd) {
         alert("Veuillez sélectionner au moins une discipline ou le TRMD à exporter.");
+        return;
+    }
+
+    try {
+        await ensureXlsxLoaded();
+    } catch (err) {
+        alert(err.message);
         return;
     }
 
