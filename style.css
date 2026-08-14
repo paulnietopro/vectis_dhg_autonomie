@@ -542,6 +542,14 @@ input[type="number"] { width: 100%; text-align: center; }
 }
 .disc-coens-toggle-box.active-mode { background: var(--amber-border); color: white; }
 
+.disc-multi-toggle-box {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--indigo-bg); color: var(--indigo-text); border: 1px solid var(--indigo-border);
+    padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    white-space: nowrap; width: fit-content; transition: all 0.2s;
+}
+.disc-multi-toggle-box.active-mode { background: var(--indigo-border); color: white; }
+
 /* Styles pour le titre et le sous-titre de la modale TRMD */
 .pdf-title {
     text-align: center;
@@ -749,11 +757,34 @@ input[type="number"] { width: 100%; text-align: center; }
 @media print {
     @page { size: A4 landscape; margin: 10mm; }
     html, body { height: auto !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; background: white !important; display: block !important; }
-    body * { visibility: hidden; }
-    #trmdModal, #trmdModal *, #coEnseignementModal, #coEnseignementModal * { visibility: visible; }
-    #trmdModal, #coEnseignementModal { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; height: auto !important; background: none !important; display: block !important; align-items: flex-start !important; justify-content: flex-start !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; }
-    .modal-card { position: relative !important; top: 0 !important; left: 0 !important; box-shadow: none !important; width: 100% !important; max-width: 100% !important; max-height: none !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; }
+    /* Important : on n'utilise plus visibility:hidden + position:absolute
+       (left:0/top:0) pour isoler la modale à imprimer. Ce positionnement
+       absolu suppose que le moteur d'impression décale déjà tout le
+       contenu de la marge @page — hypothèse qui ne tient pas de façon
+       fiable selon le navigateur, et qui pouvait coller le titre contre le
+       bord physique de la feuille, dans la zone non imprimable (d'où la
+       coupure constatée aussi bien sous Chrome que sous Safari). On retire
+       à la place tout le reste du flux document (display:none, qui ne
+       réserve aucun espace), pour que la modale à imprimer redevienne le
+       seul contenu, en position normale (static) : c'est le navigateur qui
+       se charge alors, nativement, de la caler après la marge @page. */
+    body > *:not(#trmdModal):not(#coEnseignementModal) { display: none !important; }
+    #trmdModal:not(.active), #coEnseignementModal:not(.active) { display: none !important; }
+    #trmdModal, #coEnseignementModal {
+        position: static !important; display: block !important; width: auto !important; height: auto !important;
+        background: none !important; backdrop-filter: none !important; overflow: visible !important;
+        margin: 0 !important; padding: 0 !important;
+    }
+    .modal-card { position: static !important; box-shadow: none !important; width: 100% !important; max-width: 100% !important; max-height: none !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; }
     .modal-header button { display: none !important; }
+    /* Safari (WebKit) gère mal le recalcul de Flexbox spécifiquement en mode
+       impression, et ne respecte pas toujours @page { size: landscape }. Pour
+       ne dépendre d'aucun des deux, l'en-tête bascule en simple bloc à
+       l'impression : le titre redevient un bloc de texte ordinaire, qui
+       passe naturellement à la ligne quelle que soit la largeur de page
+       réellement utilisée par le moteur d'impression. */
+    .modal-header { display: block !important; }
+    .modal-header h2 { display: block !important; width: 100% !important; max-width: 100% !important; overflow-wrap: break-word !important; word-break: break-word !important; font-size: 1.05rem !important; }
     .dotation-panel input { border: none !important; background: transparent !important; box-shadow: none !important; }
     .pdf-title, .pdf-subtitle { margin-top: 0 !important; padding-top: 0 !important; }
     table { page-break-inside: auto; table-layout: auto !important; }
@@ -762,6 +793,7 @@ input[type="number"] { width: 100%; text-align: center; }
     tfoot { display: table-footer-group; }
     .app-footer { display: none !important; }
     .coens-select-row { display: none !important; }
+    .coens-fusionne-badge, .coens-dissociate-btn { display: none !important; }
     #coEnseignementModal .action-bar,
     #coEnseignementModal .settings-tab-hint { display: none !important; }
     #coEnseignementModal tbody tr:not(.coens-group-row) { display: none !important; }

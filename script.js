@@ -10,7 +10,8 @@ let epleIdentity = {
     commune: "",
     enableSpecialites: false,
     enableOptionnels: false,
-    enableCoEnseignement: false
+    enableCoEnseignement: false,
+    enableMultiNiveau: false
 };
 
 let dotationGlobal = {
@@ -504,6 +505,11 @@ function toggleCoEnseignementGlobal(enabled) {
     renderApp();
 }
 
+function toggleMultiNiveauGlobal(enabled) {
+    epleIdentity.enableMultiNiveau = enabled;
+    renderApp();
+}
+
 function toggleDisciplineSpecialite(disc, enabled) {
     if (dataStore[disc]) {
         dataStore[disc].enableSpecialites = enabled;
@@ -521,6 +527,13 @@ function toggleDisciplineOptionnel(disc, enabled) {
 function toggleDisciplineCoEnseignement(disc, enabled) {
     if (dataStore[disc]) {
         dataStore[disc].enableCoEnseignement = enabled;
+        renderApp();
+    }
+}
+
+function toggleDisciplineMultiNiveau(disc, enabled) {
+    if (dataStore[disc]) {
+        dataStore[disc].enableMultiNiveau = enabled;
         renderApp();
     }
 }
@@ -775,8 +788,8 @@ function renderCoEnseignementContent() {
                 <td>
                     <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                         <input type="text" value="${nameValue}" style="min-width: 160px;" placeholder="Intitulé du co-enseignement" onchange="updateCoEnseignementGroupName('${group.id}', this.value)">
-                        <span style="font-size: 0.75rem; font-weight: 600; color: var(--amber-text); background: var(--amber-bg); border: 1px solid var(--amber-border); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">🔗 Fusionné</span>
-                        <button type="button" class="delete-btn-icon" title="Dissocier ce groupe" onclick="dissociateCoEnseignementGroup('${group.id}')">✕</button>
+                        <span class="coens-fusionne-badge" style="font-size: 0.75rem; font-weight: 600; color: var(--amber-text); background: var(--amber-bg); border: 1px solid var(--amber-border); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">🔗 Fusionné</span>
+                        <button type="button" class="delete-btn-icon coens-dissociate-btn" title="Dissocier ce groupe" onclick="dissociateCoEnseignementGroup('${group.id}')">✕</button>
                     </div>
                 </td>
                 <td>${paired.levelHtml}</td>
@@ -1541,6 +1554,11 @@ function renderEpleSelectedCard() {
     const toggleCoEnsInput = document.getElementById('toggleCoEnseignementInput');
     if (toggleCoEnsInput) {
         toggleCoEnsInput.checked = epleIdentity.enableCoEnseignement || false;
+    }
+
+    const toggleMultiNiveauInput = document.getElementById('toggleMultiNiveauInput');
+    if (toggleMultiNiveauInput) {
+        toggleMultiNiveauInput.checked = epleIdentity.enableMultiNiveau || false;
     }
 }
 
@@ -2578,6 +2596,7 @@ function addDisciplineFromSettings() {
                 enableSpecialites: false,
                 enableOptionnels: false,
                 enableCoEnseignement: false,
+                enableMultiNiveau: false,
                 sortCol: null,
                 sortAsc: true,
                 teachers: [],
@@ -2657,11 +2676,15 @@ function applyLoadedData(loadedData) {
             if (dataStore[disc].enableCoEnseignement === undefined) {
                 dataStore[disc].enableCoEnseignement = false;
             }
+            if (dataStore[disc].enableMultiNiveau === undefined) {
+                dataStore[disc].enableMultiNiveau = false;
+            }
             dataStore[disc].services.forEach(s => {
                 if (s.locked === undefined) s.locked = false;
                 if (s.isSpecialite === undefined) s.isSpecialite = false;
                 if (s.isOptionnel === undefined) s.isOptionnel = false;
                 if (s.isCoEnseignement === undefined) s.isCoEnseignement = false;
+                if (s.isMultiNiveau === undefined) s.isMultiNiveau = false;
                 if (s.optFinancedHours === undefined) s.optFinancedHours = 0;
             });
         });
@@ -2683,6 +2706,9 @@ function applyLoadedData(loadedData) {
             }
             if (epleIdentity.enableCoEnseignement === undefined) {
                 epleIdentity.enableCoEnseignement = false;
+            }
+            if (epleIdentity.enableMultiNiveau === undefined) {
+                epleIdentity.enableMultiNiveau = false;
             }
         }
     } else if (typeof loadedData === 'object' && loadedData !== null) {
@@ -2753,7 +2779,7 @@ async function handleFileUpload(e) {
             const apportVal = parseFloat(r.Apport !== undefined ? r.Apport : (r.apport !== undefined ? r.apport : 18)) || 0;
             
             if (!dataStore[discipline]) {
-                dataStore[discipline] = { deleteMode: false, enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, sortCol: null, sortAsc: true, teachers: [], apports: {}, services: [] };
+                dataStore[discipline] = { deleteMode: false, enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false, sortCol: null, sortAsc: true, teachers: [], apports: {}, services: [] };
             }
             if (!dataStore[discipline].teachers.includes(teacher)) {
                 dataStore[discipline].teachers.push(teacher);
@@ -2900,6 +2926,7 @@ function createActionBar(disc) {
             isSpecialite: false,
             isOptionnel: false,
             isCoEnseignement: false,
+            isMultiNiveau: false,
             locked: false,
             allocations: {}
         });
@@ -2988,6 +3015,17 @@ function createActionBar(disc) {
             ${discCoEnsChecked ? 'Masquer la gestion du co-enseignement' : 'Activer la gestion du co-enseignement'}
         `;
         togglesRow.appendChild(discCoEnsToggleBox);
+    }
+
+    if (epleIdentity.enableMultiNiveau) {
+        const discMultiChecked = dataStore[disc].enableMultiNiveau || false;
+        const discMultiToggleBox = document.createElement('label');
+        discMultiToggleBox.className = `disc-multi-toggle-box ${discMultiChecked ? 'active-mode' : ''}`;
+        discMultiToggleBox.innerHTML = `
+            <input type="checkbox" ${discMultiChecked ? 'checked' : ''} onchange="toggleDisciplineMultiNiveau('${disc.replace(/'/g, "\\'")}', this.checked)">
+            ${discMultiChecked ? 'Masquer la gestion des services multi-niveau' : 'Activer la gestion des services multi-niveau'}
+        `;
+        togglesRow.appendChild(discMultiToggleBox);
     }
 
     if (togglesRow.children.length > 0) {
@@ -3345,6 +3383,9 @@ function createTable(disc) {
     const globalCoEnsEnabled = epleIdentity.enableCoEnseignement || false;
     const discCoEnsEnabled = data.enableCoEnseignement || false;
 
+    const globalMultiEnabled = epleIdentity.enableMultiNiveau || false;
+    const discMultiEnabled = data.enableMultiNiveau || false;
+
     const buildServiceRow = (service, anchorDisc, sIndex, crossListed) => {
         const baseVolume = (service.classes || 0) * (service.hours || 0);
         const factor = service.ponderationActive ? (service.ponderationFactor || 1.1) : 1;
@@ -3435,6 +3476,25 @@ function createTable(disc) {
             }
         }
 
+        const isMulti = service.isMultiNiveau || false;
+        let multiTagHtml = '';
+        if (globalMultiEnabled) {
+            if (discMultiEnabled) {
+                multiTagHtml = `
+                    <label class="checkbox-container" title="Cocher pour rattacher ce service à plusieurs niveaux à la fois" style="font-size: 0.75rem; font-weight: 600; color: var(--indigo-text); background: var(--indigo-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--indigo-border);">
+                        <input type="checkbox" class="multi-checkbox" ${isMulti ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onchange="updateService('${anchorDisc}', ${sIndex}, 'isMultiNiveau', this.checked, null)">
+                        Multi
+                    </label>
+                `;
+            } else if (isMulti) {
+                multiTagHtml = `
+                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--indigo-text); background: var(--indigo-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--indigo-border);">
+                        Multi
+                    </span>
+                `;
+            }
+        }
+
         let linkedDiscBadgeHtml = '';
         if (isOpt && Array.isArray(service.assignedDisciplines) && service.assignedDisciplines.length > 1) {
             const otherDiscs = service.assignedDisciplines.filter(d => d !== disc);
@@ -3448,7 +3508,7 @@ function createTable(disc) {
         }
 
         let levelCellHtml;
-        if (isOpt) {
+        if (isOpt || isMulti) {
             if (!service.levels) service.levels = service.level ? [service.level] : [];
             const levelsDisplay = service.levels.length > 0 ? service.levels.join(', ') : 'Choisir...';
             levelCellHtml = `
@@ -3503,6 +3563,7 @@ function createTable(disc) {
                         ${speTagHtml}
                         ${optTagHtml}
                         ${coEnsTagHtml}
+                        ${multiTagHtml}
                         ${linkedDiscBadgeHtml}
                     </div>
                 </td>
