@@ -2714,6 +2714,7 @@ function applyLoadedData(loadedData) {
     } else if (typeof loadedData === 'object' && loadedData !== null) {
         dataStore = loadedData;
     }
+
     currentActiveTabIndex = 0;
     currentAutonomieTabLevelIndex = 0;
     currentAutonomieTabDiscIndex = 0;
@@ -4170,6 +4171,558 @@ async function performTableExport() {
 
 function closeTrmdModal() {
     document.getElementById('trmdModal').classList.remove('active');
+}
+
+// ------------------------------------------------------------------
+// Horaires réglementaires — bouton + fenêtre à trois onglets (CLG / LGT /
+// LP). Contenu à intégrer ensuite, tableau par tableau.
+// ------------------------------------------------------------------
+
+let currentHorairesRegTab = 'clg';
+let currentHorairesRegNiveau = null;
+let currentHorairesRegFiliere = null;
+
+const HORAIRES_REG_TAB_LABELS = {
+    clg: 'Collège (CLG)',
+    lgt: 'Lycée (LGT)',
+    lp: 'Lycée Professionnel (LP)'
+};
+
+// Tableaux de référence fournis, affichés tels quels. Chaque voie peut
+// contenir plusieurs tableaux (un par niveau/filière), avec un titre et une
+// note optionnelle affichée en italique sous le tableau.
+const HORAIRES_REG_TABLES = {
+    clg: [
+        {
+            title: '6e',
+            headers: ['Enseignements', 'Horaires hebdomadaires'],
+            rows: [
+                ['Français', '4h30'],
+                ['Mathématiques', '4h30'],
+                ['Histoire-géographie / Enseignement moral et civique', '3h'],
+                ['Langue vivante', '4h'],
+                ['Sciences de la vie et de la Terre / Physique-chimie', '3h'],
+                ['Éducation physique et sportive', '4h'],
+                ['Enseignements artistiques (arts plastiques + éducation musicale)', '1h + 1h'],
+                ['Soutien ou approfondissement (français ou maths)', '1h'],
+                ['Total', '26 heures']
+            ],
+            note: "Note : Sur ces 26 heures, 3 heures hebdomadaires sont consacrées aux enseignements complémentaires (accompagnement personnalisé et/ou enseignements pratiques interdisciplinaires). S'y ajoutent au moins 10 heures annuelles de vie de classe."
+        },
+        {
+            title: 'Cycle 4 (5e, 4e, 3e)',
+            headers: ['Enseignements', 'Cinquième', 'Quatrième', 'Troisième'],
+            rows: [
+                ['Français', '4h30', '4h30', '4h'],
+                ['Mathématiques', '3h30', '3h30', '3h30'],
+                ['Histoire-géographie / Enseignement moral et civique', '3h', '3h', '3h30'],
+                ['Langue vivante 1', '3h', '3h', '3h'],
+                ['Langue vivante 2', '2h30', '2h30', '2h30'],
+                ['Sciences de la vie et de la Terre', '1h30', '1h30', '1h30'],
+                ['Physique-chimie', '1h30', '1h30', '1h30'],
+                ['Technologie', '1h30', '1h30', '1h30'],
+                ['Éducation physique et sportive', '3h', '3h', '3h'],
+                ['Enseignements artistiques (arts plastiques + éducation musicale)', '1h + 1h', '1h + 1h', '1h + 1h'],
+                ['Total', '26h', '26h', '26h']
+            ],
+            note: "Note : Sur ces 26 heures, 4 heures hebdomadaires sont consacrées aux enseignements complémentaires (accompagnement personnalisé et/ou enseignements pratiques interdisciplinaires). S'y ajoutent au moins 10 heures annuelles de vie de classe par niveau."
+        }
+    ],
+    lgt: {
+        '2nd': {
+            '2nd GT': [
+                {
+                    title: '2de générale et technologique',
+                    footnotes: [
+                        '(a) La langue vivante B ou C peut être étrangère ou régionale.',
+                        '(b) Enseignement auquel peut s\'ajouter une heure avec un assistant de langue.',
+                        '(c) Volume horaire déterminé selon les besoins des élèves.',
+                        '(d) 54 heures, à titre indicatif, selon les besoins des élèves et les modalités de l\'accompagnement à l\'orientation mises en place dans l\'établissement.',
+                        '(e) Les enseignements optionnels de LCA latin et grec peuvent être choisis en plus des enseignements optionnels suivis par ailleurs.',
+                        '(f) Enseignements assurés uniquement dans les lycées d\'enseignement général et technologique agricole.',
+                        '(g) Enseignements pouvant être suivis par les élèves inscrits au sein d\'un établissement d\'enseignement artistique classé ou reconnu par l\'Etat et sous réserve d\'une convention signée entre l\'établissement où est scolarisé l\'élève et cet établissement d\'enseignement artistique.',
+                    ],
+            headers: ['Enseignements', 'Horaire élève'],
+            rows: [
+                { section: 'ENSEIGNEMENTS COMMUNS' },
+                ['Français', '4 heures'],
+                ['Histoire-Géographie', '3 heures'],
+                ['LVA et LVB (enveloppe globalisée) (a) (b)', '5 h 30'],
+                ['Sciences économiques et sociales', '1 h 30'],
+                ['Mathématiques', '4 heures'],
+                ['Physique-chimie', '3 heures'],
+                ['Sciences de la vie et de la Terre', '1 h 30'],
+                ['Education physique et sportive', '2 heures'],
+                ['Enseignement moral et civique', '18 heures annuelles'],
+                ['Sciences numériques et technologie', '1 h 30'],
+                ['Séquence d\'observation en milieu professionnel', '2 semaines'],
+                ['Accompagnement personnalisé (c)', ''],
+                ['Accompagnement au choix de l\'orientation (d)', ''],
+                ['Heures de vie de classe', ''],
+                { section: 'ENSEIGNEMENTS OPTIONNELS' },
+                { subsection: '1 enseignement général au choix parmi' },
+                ['Langues et cultures de l\'Antiquité : latin (e)', '3 heures'],
+                ['Langues et cultures de l\'Antiquité : grec (e)', '3 heures'],
+                ['Langue vivante C (a) (b)', '3 heures'],
+                ['Langue des signes française', '3 heures'],
+                ['Arts : au choix parmi arts plastiques ou cinéma-audiovisuel ou danse ou histoire des arts ou musique ou théâtre', '3 heures'],
+                ['Education physique et sportive', '3 heures'],
+                ['Arts du cirque', '6 heures'],
+                ['Ecologie-agronomie-territoires-développement durable (f)', '3 heures'],
+                { subsection: '1 enseignement technologique au choix parmi' },
+                ['Management et gestion', '1 h 30'],
+                ['Santé et social', '1 h 30'],
+                ['Biotechnologies', '1 h 30'],
+                ['Sciences et laboratoire', '1 h 30'],
+                ['Sciences de l\'ingénieur', '1 h 30'],
+                ['Création et innovation technologiques', '1 h 30'],
+                ['Création et culture - design', '6 heures'],
+                ['Hippologie et équitation ou autres pratiques sportives (f)', '3 heures'],
+                ['Pratiques sociales et culturelles (f)', '3 heures'],
+                ['Pratiques professionnelles (f)', '3 heures'],
+                ['Culture et pratique de la danse/ ou de la musique/ ou du théâtre (g)', '6 heures'],
+                ['Atelier artistique', '72 heures annuelles'],
+            ]
+                }
+            ],
+            '2nd GT STHR': [
+                {
+                    title: 'STHR - Sciences et technologies de l\'hôtellerie et de la restauration',
+                    headers: ['Enseignements', 'Horaire élève'],
+                    rows: [
+                        { section: 'Enseignements communs' },
+                        ['Mathématiques', '3 heures'],
+                        ['Français', '4 heures'],
+                        ['Histoire-géographie', '3 heures'],
+                        ['LVA + LVB (a)', '5 heures'],
+                        ['Education physique et sportive', '2 heures'],
+                        ['Sciences', '3 heures'],
+                        ['Enseignement moral et civique', '18 heures annuelles'],
+                        ['Economie et gestion hôtelière', '2 heures'],
+                        ['Sciences et technologies des services', '4 heures'],
+                        ['Sciences et technologies culinaires', '4 heures'],
+                        ['Stages d\'initiation ou d\'application en milieu professionnel', '4 semaines'],
+                        ['Accompagnement personnalisé (b)', ''],
+                        ['Accompagnement au choix de l\'orientation (c)', ''],
+                        ['Heures de vie de classe', ''],
+                        { section: 'Enseignements optionnels : 2 au plus parmi les suivants' },
+                        ['Langue vivante C (étrangère ou régionale)', '3 heures'],
+                        ['Langue des signes française', '3 heures'],
+                        ['Education physique et sportive', '3 heures'],
+                        ['Arts (arts plastiques ou cinéma-audiovisuel ou histoire des arts ou musique ou théâtre ou danse)', '3 heures'],
+                        ['Atelier artistique', '72 heures annuelles'],
+                        ['Séquence d\'observation en milieu professionnel (d)', '2 semaines'],
+                    ],
+                    footnotes: [
+                        '(a) L\'une des deux langues vivantes doit être obligatoirement l\'anglais.',
+                        '(b) Volume horaire déterminé selon les besoins des élèves.',
+                        '(c) 54 heures, à titre indicatif, selon les besoins des élèves et les modalités de l\'accompagnement à l\'orientation mises en place dans l\'établissement.',
+                        '(d) La séquence d\'observation en milieu professionnel peut être réalisée quel que soit le nombre d\'enseignements optionnels suivis par ailleurs.',
+                    ]
+                }
+            ]
+        },
+        'Cycle terminal de la voie générale': [
+            {
+                title: 'Horaires des enseignements communs',
+                headers: ['Enseignements', 'Horaire 1re', 'Horaire terminale'],
+                rows: [
+                    ['Français', '4 h', ''],
+                    ['Philosophie', '', '4 h'],
+                    ['Histoire-géographie', '3 h', '3 h'],
+                    ['LVA et LVB (enveloppe globalisée) (a) (b)', '4 h 30', '4 h'],
+                    ['Enseignement scientifique (c)', '2 h ou 3h30', '2 h'],
+                    ['Éducation physique et sportive', '2 h', '2 h'],
+                    ['Enseignement moral et civique', '18 h annuelles', '18 h annuelles'],
+                    ['Accompagnement personnalisé (d)', '', ''],
+                    ['Accompagnement au choix de l\'orientation (e)', '', ''],
+                    ['Heures de vie de classe', '', ''],
+                ]
+            },
+            {
+                title: 'Horaires des enseignements de spécialité',
+                headers: ['Enseignements', 'Horaire 1re (3 au choix)', 'Horaire terminale (2 au choix)'],
+                rows: [
+                    ['Arts (f)', '4 h', '6 h'],
+                    ['Biologie-écologie (g)', '4 h', '6 h'],
+                    ['Éducation physique, pratiques et culture sportives (h)', '4 h', '6 h'],
+                    ['Histoire-géographie, géopolitique et sciences politiques', '4 h', '6 h'],
+                    ['Humanités, littérature et philosophie', '4 h', '6 h'],
+                    ['Langues, littératures et cultures étrangères et régionales (i)', '4 h', '6 h'],
+                    ['Littératures et langues et cultures de l\'Antiquité (j)', '4 h', '6 h'],
+                    ['Mathématiques', '4 h', '6 h'],
+                    ['Numérique et sciences informatiques', '4 h', '6 h'],
+                    ['Physique-chimie', '4 h', '6 h'],
+                    ['Sciences de la vie et de la Terre', '4 h', '6 h'],
+                    ['Sciences de l\'ingénieur (k)', '4 h', '6 h'],
+                    ['Sciences économiques et sociales', '4 h', '6 h'],
+                ]
+            },
+            {
+                title: 'Horaires des enseignements optionnels',
+                headers: ['Enseignements', 'Horaire 1re', 'Horaire terminale'],
+                rows: [
+                    { subsection: 'a) 1 enseignement en terminale parmi' },
+                    ['Mathématiques complémentaires (l)', '', '3 h'],
+                    ['Mathématiques expertes (m)', '', '3 h'],
+                    ['Droits et grands enjeux du monde contemporain', '', '3 h'],
+                    { subsection: 'b) 1 enseignement en 1e et/ou en terminale parmi' },
+                    ['Langue vivante C (a) (b)', '3 h', '3 h'],
+                    ['LCA : latin (n)', '3 h', '3 h'],
+                    ['LCA : grec (n)', '3 h', '3 h'],
+                    ['Éducation physique et sportive', '3 h', '3 h'],
+                    ['Arts (f)', '3 h', '3 h'],
+                    ['Langue des signes française', '3 h', '3 h'],
+                    ['Hippologie et équitation (g)', '3 h', '3 h'],
+                    ['Agronomie, économie, territoires (g)', '3 h', '3 h'],
+                    ['Pratiques sociales et culturelles (g)', '3 h', '3 h'],
+                ],
+                footnotes: [
+                    '(a) La langue vivante B ou C peut être étrangère ou régionale.',
+                    '(b) Enseignement auquel peut s\'ajouter une heure avec un assistant en langue.',
+                    '(c) Pour les élèves de première n\'ayant pas choisi l\'enseignement de spécialité mathématiques, l\'enseignement scientifique de deux heures hebdomadaires est complété par un enseignement de mathématiques spécifique d\'une durée hebdomadaire d\'une heure trente.',
+                    '(d) Volume horaire déterminé selon les besoins des élèves.',
+                    '(e) 54 heures, à titre indicatif, selon les besoins des élèves et les modalités de l\'accompagnement à l\'orientation mises en place dans l\'établissement.',
+                    '(f) Au choix parmi : arts plastiques, cinéma audiovisuel, danse, histoire des arts, musique ou théâtre. Les arts du cirque ne peuvent être choisis qu\'en enseignement de spécialité.',
+                    '(g) Enseignement assuré uniquement dans les lycées d\'enseignement général et technologique agricole.',
+                    '(h) Pour les élèves ne choisissant pas en première l\'enseignement optionnel « éducation physique et sportive ».',
+                    '(i) L\'enseignement de spécialité langues, littératures et cultures étrangères et régionales (LLCER) est proposé en allemand, anglais, anglais-monde contemporain (AMC), espagnol et italien, portugais et dans les langues régionales suivantes : basque, breton, catalan, corse, créole, occitan-langue d\'Oc et tahitien. L\'élève peut choisir cet enseignement de spécialité uniquement si la langue d\'enseignement de spécialité correspond à sa langue vivante A, B ou C.',
+                    '(j) L\'enseignement de spécialité littérature et langues et cultures de l\'Antiquité peut être suivi en latin ou en grec.',
+                    '(k) Cet enseignement est complété de 2 heures de sciences physiques en terminale.',
+                    '(l) Pour les élèves ne choisissant pas en terminale la spécialité « mathématiques ».',
+                    '(m) Pour les élèves choisissant en terminale la spécialité « mathématiques ».',
+                    '(n) Les enseignements optionnels de LCA latin et grec peuvent être choisis en plus des enseignements optionnels suivis par ailleurs.',
+                ]
+            }
+        ],
+        'Cycle terminal de la voie technologique': [
+            {
+                kind: 'tables',
+                tables: [
+                    {
+                        title: 'Horaires des enseignements communs',
+                        headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                        rows: [
+                            ['Français', '3 h', '-'],
+                            ['Philosophie', '-', '2 h'],
+                            ['Histoire-géographie', '1 h 30', '1 h 30'],
+                            ['Enseignement moral et civique', '18 h annuelles', '18 h annuelles'],
+                            ['Langues vivantes A et B + enseignement technologique en langue vivante A ou B (1)', '4 h (dont 1 h d\'ETLV)', '4 h (dont 1h d\'ETLV)'],
+                            ['Éducation physique et sportive', '2 h', '2 h'],
+                            ['Mathématiques', '3 h', '3 h'],
+                            ['Accompagnement personnalisé (2)', '', ''],
+                            ['Accompagnement au choix de l\'orientation (3)', '', ''],
+                            ['Heure de vie de classe', '', ''],
+                        ],
+                        footnotes: [
+                            '(1) La langue vivante A est étrangère. La langue vivante B peut être étrangère ou régionale. L\'horaire élève indiqué correspond à une enveloppe globalisée pour ces deux langues vivantes. À l\'enseignement d\'une langue vivante peut s\'ajouter une heure avec un assistant de langue. L\'enseignement technologique en langue vivante A ou B est pris en charge conjointement par un enseignant d\'une discipline technologique et un enseignant de Langue vivante.',
+                            '(2) Volume horaire déterminé selon les besoins des élèves.',
+                            '(3) 54 h, à titre indicatif, selon les besoins des élèves et les modalités de l\'accompagnement à l\'orientation mises en place dans l\'établissement.',
+                        ]
+                    }
+                ]
+            },
+            {
+                kind: 'subtabs',
+                tabs: {
+                    'Série STMG': [
+                        {
+                            title: 'Horaires des enseignements de spécialité — série STMG',
+                            headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                            rows: [
+                                ['Sciences de gestion et numérique', '7 h', '-'],
+                                ['Management', '4 h', '-'],
+                                ['Management, sciences de gestion et numérique<br>avec 1 enseignement spécifique parmi :<br>• gestion et finance ;<br>• mercatique (marketing) ;<br>• ressources humaines et communication ;<br>• systèmes d\'information de gestion', '-', '10 h'],
+                                ['Droit et économie', '4 h', '6 h'],
+                            ]
+                        }
+                    ],
+                    'Série ST2S': [
+                        {
+                            title: 'Horaires des enseignements de spécialité — série ST2S',
+                            headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                            rows: [
+                                ['Physique-Chimie pour la santé', '3 h', '-'],
+                                ['Biologie et physiopathologie humaines', '5 h', '-'],
+                                ['Chimie, Biologie et physiopathologie humaines', '-', '8 h'],
+                                ['Sciences et techniques sanitaires et sociales', '7 h', '8 h'],
+                            ]
+                        }
+                    ],
+                    'Série STI2D': [
+                        {
+                            title: 'Horaires des enseignements de spécialité — série STI2D',
+                            headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                            rows: [
+                                ['Innovation technologique', '3 h', '-'],
+                                ['Ingénierie et développement durable (I2D)', '9 h', '-'],
+                                ['Ingénierie, Innovation et développement durable (2I2D)<br>avec 1 enseignement spécifique parmi :<br>• architecture et construction ;<br>• énergies et environnement ;<br>• innovation technologique et écoconception ;<br>• systèmes d\'information et numériques', '-', '12 h'],
+                                ['Physique-Chimie et Mathématiques', '6 h', '6 h'],
+                            ]
+                        }
+                    ],
+                    'Série STL': [
+                        {
+                            title: 'Horaires des enseignements de spécialité — série STL',
+                            headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                            rows: [
+                                ['Physique chimie et Mathématiques', '5 h', '5 h'],
+                                ['Biochimie-Biologie', '4 h', '-'],
+                                ['Biotechnologie<br>ou Sciences physiques et chimiques en laboratoire', '9 h', '-'],
+                                ['Biochimie-Biologie-Biotechnologie<br>ou Sciences physiques et chimiques en laboratoire', '-', '13 h'],
+                            ]
+                        }
+                    ],
+                    'Série STD2A': [
+                        {
+                            title: 'Horaires des enseignements de spécialité — série STD2A',
+                            headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                            rows: [
+                                ['Physique-Chimie', '2 h', '-'],
+                                ['Outils et langage numérique', '2 h', '-'],
+                                ['Design et métiers d\'art', '14 h', '-'],
+                                ['Analyse et méthode en design', '-', '9 h'],
+                                ['Conception et création en design et métiers d\'art', '-', '9 h'],
+                            ]
+                        }
+                    ],
+                    'Série STHR': [
+                        {
+                            title: 'Horaires des enseignements de spécialité — série STHR',
+                            headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                            rows: [
+                                ['Enseignement scientifique alimentation - environnement (ESAE)', '3 h', '-'],
+                                ['Sciences et technologies culinaires et des services', '10 h', '-'],
+                                ['Sciences et technologies culinaires et des services -<br>Enseignement scientifique alimentation - environnement (ESAE)', '-', '13 h'],
+                                ['Économie - gestion hôtelière', '5 h', '5 h'],
+                            ]
+                        }
+                    ],
+                    'Série S2TMD': [
+                        {
+                            title: 'Horaires des enseignements de spécialité — série S2TMD',
+                            headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                            rows: [
+                                ['Économie, droit et environnement du spectacle vivant', '3 h', '-'],
+                                ['Culture et sciences chorégraphiques / ou musicales / ou théâtrales (4)', '5 h 30', '7 h'],
+                                ['Pratique chorégraphique / ou musicale / ou théâtrale (4)', '5 h 30', '7 h'],
+                            ]
+                        }
+                    ],
+                }
+            },
+            {
+                kind: 'tables',
+                tables: [
+                    {
+                        title: 'Horaires des enseignements optionnels',
+                        headers: ['Enseignements', 'Classe de première - Horaire par élève', 'Classe de terminale - Horaire par élève'],
+                        rows: [
+                            ['Arts (5)', '3 h', '3 h'],
+                            ['Éducation physique et sportive', '3 h', '3 h'],
+                            ['Langues des signes française', '3 h', '3 h'],
+                            ['Langue vivante C', '3 h', '3 h'],
+                            ['Langues et cultures de l\'Antiquité (6)', '3 h', '3 h'],
+                            ['Droit et grands enjeux du monde contemporain (7)', '', '3 h'],
+                        ],
+                        extraNotes: [
+                            'En outre, l\'élève peut suivre, en classe de première et terminale, un atelier artistique d\'une durée de 72 h annuelles.',
+                            'En classe de première et terminale, le nombre d\'heures pour les enseignements en groupe à effectif réduit est proportionnel au nombre d\'élèves, dans un rapport de 8 h pour 29 élèves.',
+                        ],
+                        footnotes: [
+                            '(5) Au choix parmi : arts plastiques ou cinéma-audiovisuel ou danse ou histoire des arts ou musique ou théâtre.',
+                            '(6) Les enseignements optionnels de Langues et cultures de l\'Antiquité (LCA) latin et grec peuvent être choisis en plus de l\'enseignement optionnel suivi par ailleurs.',
+                            '(7) Uniquement en classe de terminale.',
+                        ]
+                    }
+                ]
+            }
+        ],
+    },
+    lp: []
+};
+
+// Source officielle associée à chaque voie (affichée une seule fois, en bas
+// de l'onglet, puisqu'elle couvre l'ensemble des tableaux de cette voie).
+const HORAIRES_REG_SOURCES = {
+    clg: 'https://www.education.gouv.fr/les-horaires-par-cycle-au-college-9884',
+    lgt: {
+        '2nd': 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000037202776',
+        'Cycle terminal de la voie générale': 'https://eduscol.education.gouv.fr/5418/cycle-terminal-de-la-voie-generale',
+        'Cycle terminal de la voie technologique': 'https://eduscol.education.gouv.fr/5643/cycle-terminal-de-la-voie-technologique'
+    },
+    lp: null
+};
+
+function openHorairesRegModal() {
+    document.getElementById('horairesRegModal').classList.add('active');
+    renderHorairesRegModal();
+}
+
+function closeHorairesRegModal() {
+    document.getElementById('horairesRegModal').classList.remove('active');
+}
+
+function switchHorairesRegTab(tab) {
+    currentHorairesRegTab = tab;
+    currentHorairesRegNiveau = null;
+    currentHorairesRegFiliere = null;
+    renderHorairesRegModal();
+}
+
+function switchHorairesRegNiveau(niveau) {
+    currentHorairesRegNiveau = niveau;
+    currentHorairesRegFiliere = null;
+    renderHorairesRegModal();
+}
+
+function switchHorairesRegFiliere(filiere) {
+    currentHorairesRegFiliere = filiere;
+    renderHorairesRegModal();
+}
+
+// Construit le HTML d'une ligne de tableau : ligne normale [libellé, valeur],
+// ou ligne de section / sous-section (titre en gras, sur toute la largeur).
+function buildHorairesRegRowHtml(row, colCount) {
+    if (row.section !== undefined) {
+        return `<tr class="horaires-reg-section-row"><td colspan="${colCount}">${row.section}</td></tr>`;
+    }
+    if (row.subsection !== undefined) {
+        return `<tr class="horaires-reg-subsection-row"><td colspan="${colCount}">${row.subsection}</td></tr>`;
+    }
+    return `<tr>${row.map(cell => `<td>${cell || '—'}</td>`).join('')}</tr>`;
+}
+
+function buildHorairesRegTablesHtml(tables) {
+    if (!tables || tables.length === 0) return '';
+    return tables.map(table => `
+        <h3 style="font-size: 1rem; color: var(--primary); margin: 18px 0 8px;">${table.title}</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>${table.headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                </thead>
+                <tbody>
+                    ${table.rows.map(row => buildHorairesRegRowHtml(row, table.headers.length)).join('')}
+                </tbody>
+            </table>
+        </div>
+        ${table.note ? `<p style="font-style: italic; color: var(--text-muted); font-size: 0.85rem; margin-top: 8px;">${table.note}</p>` : ''}
+        ${table.extraNotes && table.extraNotes.length > 0 ? `
+            <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+                ${table.extraNotes.map(n => `<p style="margin: 0;">${n}</p>`).join('')}
+            </div>
+        ` : ''}
+        ${table.footnotes && table.footnotes.length > 0 ? `
+            <div style="margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+                ${table.footnotes.map(fn => `<p style="margin: 0;">${fn}</p>`).join('')}
+            </div>
+        ` : ''}
+    `).join('');
+}
+
+// Le contenu d'une voie est soit un tableau de tableaux (affichage direct, cas
+// du Collège), soit un objet de sous-onglets « niveau » (cas du Lycée), chaque
+// niveau pouvant lui-même contenir des sous-onglets « filière ».
+// Le contenu d'un niveau sans filière est soit un simple tableau de tableaux
+// (cas déjà existant), soit une liste de « sections » mêlant tableaux et
+// groupes de sous-onglets intercalés (ex : un tableau, puis un choix de série
+// technologique, puis un autre tableau).
+function buildHorairesRegContentHtml(items) {
+    if (!items || items.length === 0) return '<p class="empty-state">Contenu à venir.</p>';
+    const isSectioned = items[0] && items[0].kind !== undefined;
+    if (!isSectioned) return buildHorairesRegTablesHtml(items);
+
+    return items.map(section => {
+        if (section.kind === 'subtabs') {
+            const tabKeys = Object.keys(section.tabs);
+            if (!currentHorairesRegFiliere || !tabKeys.includes(currentHorairesRegFiliere)) {
+                currentHorairesRegFiliere = tabKeys[0];
+            }
+            const tabsHtml = tabKeys.map(k =>
+                `<button class="mode-btn ${k === currentHorairesRegFiliere ? 'active' : ''}" onclick="switchHorairesRegFiliere('${k.replace(/'/g, "\\'")}')">${k}</button>`
+            ).join('');
+            const subTables = section.tabs[currentHorairesRegFiliere];
+            return `
+                <div class="mode-selector" style="margin: 18px 0 16px;">${tabsHtml}</div>
+                ${subTables && subTables.length > 0 ? buildHorairesRegTablesHtml(subTables) : `<p class="empty-state">Contenu à venir pour ${currentHorairesRegFiliere}.</p>`}
+            `;
+        }
+        return buildHorairesRegTablesHtml(section.tables || []);
+    }).join('');
+}
+
+function renderHorairesRegTabContent() {
+    const area = document.getElementById('horairesRegTabContent');
+    const data = HORAIRES_REG_TABLES[currentHorairesRegTab];
+
+    let contentHtml;
+    if (Array.isArray(data)) {
+        contentHtml = data.length > 0
+            ? buildHorairesRegTablesHtml(data)
+            : `<p class="empty-state">Contenu à venir pour ${HORAIRES_REG_TAB_LABELS[currentHorairesRegTab]}.</p>`;
+    } else {
+        const niveaux = Object.keys(data);
+        if (!currentHorairesRegNiveau || !niveaux.includes(currentHorairesRegNiveau)) {
+            currentHorairesRegNiveau = niveaux[0];
+        }
+        const niveauTabsHtml = niveaux.map(n =>
+            `<button class="mode-btn ${n === currentHorairesRegNiveau ? 'active' : ''}" onclick="switchHorairesRegNiveau('${n.replace(/'/g, "\\'")}')">${n}</button>`
+        ).join('');
+
+        const niveauContent = data[currentHorairesRegNiveau];
+        let filiereTabsHtml = '';
+        let tables;
+        if (Array.isArray(niveauContent)) {
+            // Ce niveau n'a pas de filière de premier niveau (sous-sous-onglet
+            // classique) : mais s'il s'agit du format en sections (tableaux et
+            // sous-onglets « Série » intercalés), la filière active est gérée
+            // par buildHorairesRegContentHtml lui-même — il ne faut donc PAS
+            // l'écraser ici, sous peine de revenir systématiquement à la
+            // première série au moindre re-rendu.
+            const isSectioned = niveauContent[0] && niveauContent[0].kind !== undefined;
+            if (!isSectioned) {
+                currentHorairesRegFiliere = null;
+            }
+            tables = niveauContent;
+        } else {
+            const filiereKeys = Object.keys(niveauContent);
+            if (!currentHorairesRegFiliere || !filiereKeys.includes(currentHorairesRegFiliere)) {
+                currentHorairesRegFiliere = filiereKeys[0];
+            }
+            filiereTabsHtml = `<div class="mode-selector" style="margin-bottom: 16px;">${filiereKeys.map(f =>
+                `<button class="mode-btn ${f === currentHorairesRegFiliere ? 'active' : ''}" onclick="switchHorairesRegFiliere('${f.replace(/'/g, "\\'")}')">${f}</button>`
+            ).join('')}</div>`;
+            tables = niveauContent[currentHorairesRegFiliere];
+        }
+
+        contentHtml = `
+            <div class="mode-selector" style="margin-bottom: 12px;">${niveauTabsHtml}</div>
+            ${filiereTabsHtml}
+            ${buildHorairesRegContentHtml(tables)}
+        `;
+    }
+
+    const sourceEntry = HORAIRES_REG_SOURCES[currentHorairesRegTab];
+    const source = (sourceEntry && typeof sourceEntry === 'object')
+        ? sourceEntry[currentHorairesRegNiveau]
+        : sourceEntry;
+    const sourceHtml = source ? `<p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 16px; border-top: 1px solid var(--border); padding-top: 10px;">Source : <a href="${source}" target="_blank" rel="noopener noreferrer" style="color: var(--primary);">${source}</a></p>` : '';
+
+    area.innerHTML = contentHtml + sourceHtml;
+}
+
+function renderHorairesRegModal() {
+    const container = document.getElementById('horairesRegContent');
+    const tabsHtml = Object.keys(HORAIRES_REG_TAB_LABELS).map(key =>
+        `<button class="mode-btn ${key === currentHorairesRegTab ? 'active' : ''}" onclick="switchHorairesRegTab('${key}')">${HORAIRES_REG_TAB_LABELS[key]}</button>`
+    ).join('');
+
+    container.innerHTML = `
+        <div class="mode-selector" style="margin-bottom: 16px;">${tabsHtml}</div>
+        <div id="horairesRegTabContent"></div>
+    `;
+    renderHorairesRegTabContent();
 }
 
 function deleteService(disc, sIndex) {

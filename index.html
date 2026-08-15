@@ -28,6 +28,7 @@
                         <span class="tooltip-text">Format : Nom Prénom Discipline Apport</span>
                     </div>
                     <button class="btn-header" onclick="openSettingsModal()">⚙️ Paramètres</button>
+                    <button class="btn-header" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
                     <button class="btn-header" onclick="openTrmdModal()">📊 TRMD</button>
                     <button class="btn-header" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
                     <button class="btn-header-autonomie" onclick="openAutonomieModal()"><span>🏛️</span><span id="autonomieBtnLabel" class="autonomie-btn-label">Autonomie EPLE</span></button>
@@ -213,6 +214,16 @@
                 </div>
             </div>
             <div id="trmdContent"></div>
+        </div>
+    </div>
+
+    <div id="horairesRegModal" class="modal-overlay">
+        <div class="modal-card modal-lg" style="max-width: 1200px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📐 Horaires réglementaires</h2>
+                <button class="modal-close" onclick="closeHorairesRegModal()">&times;</button>
+            </div>
+            <div id="horairesRegContent"></div>
         </div>
     </div>
 
