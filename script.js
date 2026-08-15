@@ -4539,7 +4539,79 @@ const HORAIRES_REG_TABLES = {
             }
         ],
     },
-    lp: []
+    lp: {
+        'Bac Professionnel (BP)': [
+            {
+                title: 'Bac Professionnel - Grille horaire',
+                headers: ['Enseignements', 'Seconde prof', 'Première prof', 'Terminale prof', 'Total sur 3 ans'],
+                rows: [
+                    { cells: ['ENSEIGNEMENTS PROFESSIONNELS', '450', '420', '377', '1247'], style: 'section' },
+                    { cells: ['Enseignement professionnel', '360', '294', '273', '927'], style: 'normal' },
+                    { cells: ['Enseignements professionnels et français en co-intervention (a)', '15', '14', '/', '29'], style: 'normal' },
+                    { cells: ['Enseignements professionnels et mathématiques-sciences en co-intervention (a)', '15', '14', '/', '29'], style: 'normal' },
+                    { cells: ['Réalisation d\'un projet', '-', '42', '26', '68'], style: 'normal' },
+                    { cells: ['Prévention-santé-environnement', '30', '28', '39', '97'], style: 'normal' },
+                    { cells: ['Economie-gestion ou économie-droit (selon la spécialité)', '30', '28', '39', '97'], style: 'normal' },
+                    { cells: ['ENSEIGNEMENTS GÉNÉRAUX', '390', '350', '390', '1 130'], style: 'section' },
+                    { cells: ['Français, histoire-géographie et enseignement moral et civique (b)', '120', '98', '117', '335'], style: 'normal' },
+                    { cells: ['Mathématiques (b)', '60', '56', '65', '181'], style: 'normal' },
+                    { cells: ['Langue vivante A', '60', '56', '65', '181'], style: 'normal' },
+                    { cells: ['Physique-chimie ou langue vivante B (selon la spécialité)', '45', '42', '39', '126'], style: 'normal' },
+                    { cells: ['Arts appliqués et culture artistique', '30', '28', '26', '84'], style: 'normal' },
+                    { cells: ['Education physique et sportive', '75', '70', '78', '223'], style: 'normal' },
+                    { cells: ['SOUTIEN AU PARCOURS', '30', '28', '39', '97'], style: 'section' },
+                    { cells: ['TOTAL DES HEURES', '870', '798', '806', '2 474'], style: 'total' },
+                    { cells: ['PÉRIODE DE FORMATION EN MILIEU PROFESSIONNEL OBLIGATOIRE POUR L\'EXAMEN', '4 à 6 semaines', '6 à 8 semaines', '6 semaines', '16 à 20 semaines'], style: 'section' },
+                    { cells: ['Deux semaines dédiées à la préparation d\'une insertion professionnelle avec PFMP ou à la préparation d\'une poursuite d\'études, pour lesquelles l\'organisation, la répartition et la planification relèvent de l\'autonomie des établissements', '', '2 semaines', '2 semaines', ''], style: 'normal' },
+                ],
+                footnotes: [
+                    '(*) Volume horaire élève identique quelle que soit la spécialité (2 474 h).',
+                    '(a) La dotation horaire professeur est égale au double du volume horaire élève.',
+                    '(b) Les heures de français et de mathématiques en seconde et en première professionnelle font l\'objet de groupes à effectifs réduits s\'appuyant sur les besoins des élèves pour renforcer l\'acquisition des savoirs fondamentaux, sur la base de l\'article 6 et de l\'annexe 2 du présent arrêté.',
+                ]
+            }
+        ],
+        "Certification d'Aptitude Professionnelle (CAP)": [
+            {
+                title: 'CAP - Grille horaire',
+                headers: ['Enseignements', 'P1 Total', 'P1 Classe entière', 'P1 Groupe réduit', 'P2 Total', 'P2 Classe entière', 'P2 Groupe réduit', 'Total 2 ans'],
+                groupedHeader: {
+                    row1: [
+                        { label: 'Enseignements', rowspan: 2 },
+                        { label: 'PREMIÈRE ANNÉE', colspan: 3 },
+                        { label: 'DEUXIÈME ANNÉE', colspan: 3 },
+                        { label: 'TOTAL SUR 2 ANS', rowspan: 2 }
+                    ],
+                    row2: ['Total', 'Dont en classe entière', 'Dont en groupe à effectif réduit (a)', 'Total', 'Dont en classe entière', 'Dont en groupe à effectif réduit (a)']
+                },
+                rows: [
+                    { cells: ['ENSEIGNEMENTS PROFESSIONNELS', '551', '', '', '494', '', '', '1 045'], style: 'section' },
+                    { cells: ['Enseignement professionnel', '333,5', '58', '275,5', '312', '52', '260', '645,5'], style: 'normal' },
+                    { cells: ['Enseignement professionnel et français en co-intervention (b)', '43,5', '43,5', '0', '39', '39', '0', '82,5'], style: 'normal' },
+                    { cells: ['Enseignement professionnel et mathématiques en co-intervention (b)', '43,5', '43,5', '0', '39', '39', '0', '82,5'], style: 'normal' },
+                    { cells: ['Réalisation d\'un chef d\'œuvre (c)', '87', '', '', '78', '', '', '165'], style: 'normal' },
+                    { cells: ['Prévention-santé-environnement', '43,5', '0', '43,5', '26', '0', '26', '69,5'], style: 'normal' },
+                    { cells: ['ENSEIGNEMENTS GÉNÉRAUX', '246,5', '', '', '221', '', '', '467,5'], style: 'section' },
+                    { cells: ['Français, histoire-géographie', '43,5', '14,5', '29', '39', '13', '26', '82,5'], style: 'normal' },
+                    { cells: ['Enseignement moral et civique', '14,5', '0', '14,5', '13', '0', '13', '27,5'], style: 'normal' },
+                    { cells: ['Mathématiques - Physique-chimie', '43,5', '14,5', '29', '39', '13', '26', '82,5'], style: 'normal' },
+                    { cells: ['Langue vivante', '43,5', '14,5', '29', '39', '13', '26', '82,5'], style: 'normal' },
+                    { cells: ['Arts appliqués et culture artistique', '29', '14,5', '14,5', '26', '13', '13', '55'], style: 'normal' },
+                    { cells: ['Education physique et sportive', '72,5', '72,5', '0', '65', '65', '0', '137,5'], style: 'normal' },
+                    { cells: ['CONSOLIDATION, ACCOMPAGNEMENT PERSONNALISÉ ET ACCOMPAGNEMENT AU CHOIX D\'ORIENTATION', '101,5', '43,5 (d)', '58', '91', '39', '52', '192,5'], style: 'section' },
+                    { cells: ['TOTAL', '899', '', '', '806', '', '', '1705'], style: 'total' },
+                    { cells: ['PÉRIODE DE FORMATION EN MILIEU PROFESSIONNEL', '6 à 7 semaines', '', '', '6 à 7 semaines', '', '', '12 à 14 semaines'], style: 'section' },
+                ],
+                footnotes: [
+                    '(a) Horaire donnant droit au doublement de la dotation horaire professeur lorsque le seuil d\'effectifs est atteint.',
+                    '(b) La dotation horaire professeur est égale au double du volume horaire élève.',
+                    '(c) Horaire donnant droit au dédoublement de la dotation horaire professeur sans condition de seuil.',
+                    '(d) Dédoublements possibles en fonction des besoins des élèves.',
+                    '(*) Volume horaire élève identique quelle que soit la spécialité (1705 h).',
+                ]
+            }
+        ]
+    }
 };
 
 // Source officielle associée à chaque voie (affichée une seule fois, en bas
@@ -4551,7 +4623,10 @@ const HORAIRES_REG_SOURCES = {
         'Cycle terminal de la voie générale': 'https://eduscol.education.gouv.fr/5418/cycle-terminal-de-la-voie-generale',
         'Cycle terminal de la voie technologique': 'https://eduscol.education.gouv.fr/5643/cycle-terminal-de-la-voie-technologique'
     },
-    lp: null
+    lp: {
+        'Bac Professionnel (BP)': 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000037833273/',
+        "Certification d'Aptitude Professionnelle (CAP)": 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000037833254/'
+    }
 };
 
 function openHorairesRegModal() {
@@ -4590,7 +4665,25 @@ function buildHorairesRegRowHtml(row, colCount) {
     if (row.subsection !== undefined) {
         return `<tr class="horaires-reg-subsection-row"><td colspan="${colCount}">${row.subsection}</td></tr>`;
     }
+    if (row.cells !== undefined) {
+        const cls = row.style === 'section' ? 'horaires-reg-section-row-alt'
+            : (row.style === 'total' ? 'horaires-reg-total-row' : '');
+        return `<tr class="${cls}">${row.cells.map(cell => `<td>${cell || '—'}</td>`).join('')}</tr>`;
+    }
     return `<tr>${row.map(cell => `<td>${cell || '—'}</td>`).join('')}</tr>`;
+}
+
+// En-tête de tableau standard (une ligne), ou en-tête groupé sur deux lignes
+// avec colonnes fusionnées (ex : « 1re année / 2e année / total »).
+function buildHorairesRegHeaderHtml(table) {
+    if (table.groupedHeader) {
+        const row1 = table.groupedHeader.row1.map(c =>
+            `<th ${c.colspan ? `colspan="${c.colspan}"` : ''} ${c.rowspan ? `rowspan="${c.rowspan}"` : ''}>${c.label}</th>`
+        ).join('');
+        const row2 = table.groupedHeader.row2.map(h => `<th>${h}</th>`).join('');
+        return `<tr>${row1}</tr><tr>${row2}</tr>`;
+    }
+    return `<tr>${table.headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
 }
 
 function buildHorairesRegTablesHtml(tables) {
@@ -4600,7 +4693,7 @@ function buildHorairesRegTablesHtml(tables) {
         <div class="table-container">
             <table>
                 <thead>
-                    <tr>${table.headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                    ${buildHorairesRegHeaderHtml(table)}
                 </thead>
                 <tbody>
                     ${table.rows.map(row => buildHorairesRegRowHtml(row, table.headers.length)).join('')}
