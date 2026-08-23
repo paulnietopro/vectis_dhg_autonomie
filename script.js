@@ -982,7 +982,7 @@ async function exportCoEnseignementToExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Co-enseignement');
 
-    const epleLabel = epleIdentity && epleIdentity.name ? `_${epleIdentity.name.replace(/[^a-zA-Z0-9]+/g, '_')}` : '';
+    const epleLabel = epleIdentity && epleIdentity.name ? `_${sanitizeFileName(epleIdentity.name)}` : '';
     const dateStr = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `Co-enseignement${epleLabel}_${dateStr}.xlsx`);
 }
@@ -3982,7 +3982,7 @@ async function exportTrmdToExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, buildTrmdSheet(), 'TRMD');
 
-    const epleLabel = epleIdentity && epleIdentity.name ? `_${epleIdentity.name.replace(/[^a-zA-Z0-9]+/g, '_')}` : '';
+    const epleLabel = epleIdentity && epleIdentity.name ? `_${sanitizeFileName(epleIdentity.name)}` : '';
     const dateStr = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `TRMD${epleLabel}_${dateStr}.xlsx`);
 }
@@ -4080,8 +4080,19 @@ function sanitizeSheetName(name) {
     return cleaned || 'Feuille';
 }
 
+// Ne retire que les caractères réellement interdits dans un nom de fichier
+// (Windows étant le plus restrictif : \ / : * ? " < > |) — les accents,
+// espaces et autres signes de ponctuation restent parfaitement valides et
+// sont donc conservés tels quels.
+function sanitizeFileName(name) {
+    return (name || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function openTableExportModal() {
     renderTableExportDisciplinesList();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const epleLabel = epleIdentity && epleIdentity.name ? sanitizeFileName(epleIdentity.name) : 'EPLE';
+    document.getElementById('exportFileName').value = `DHG_${epleLabel}_${dateStr}`;
     document.getElementById('tableExportModal').classList.add('active');
 }
 
@@ -4131,7 +4142,10 @@ async function performTableExport() {
     }
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    const epleLabel = epleIdentity && epleIdentity.name ? `_${epleIdentity.name.replace(/[^a-zA-Z0-9]+/g, '_')}` : '';
+    const epleLabel = epleIdentity && epleIdentity.name ? `_${sanitizeFileName(epleIdentity.name)}` : '';
+
+    const customNameRaw = document.getElementById('exportFileName').value.trim();
+    const baseName = sanitizeFileName(customNameRaw || `DHG${epleLabel}_${dateStr}`);
 
     if (mode === 'single') {
         const wb = XLSX.utils.book_new();
@@ -4141,7 +4155,7 @@ async function performTableExport() {
         selectedDiscs.forEach(disc => {
             XLSX.utils.book_append_sheet(wb, buildDisciplineSheet(disc), sanitizeSheetName(disc));
         });
-        XLSX.writeFile(wb, `Export${epleLabel}_${dateStr}.${format}`, { bookType: format });
+        XLSX.writeFile(wb, `${baseName}.${format}`, { bookType: format });
     } else {
         // Les navigateurs bloquent ou n'enclenchent que le dernier téléchargement lorsque
         // plusieurs fichiers sont générés dans la même boucle synchrone : on espace donc
@@ -4152,7 +4166,7 @@ async function performTableExport() {
             downloads.push(() => {
                 const wbTrmd = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wbTrmd, buildTrmdSheet(), 'TRMD');
-                XLSX.writeFile(wbTrmd, `TRMD${epleLabel}_${dateStr}.${format}`, { bookType: format });
+                XLSX.writeFile(wbTrmd, `${baseName}_TRMD.${format}`, { bookType: format });
             });
         }
 
@@ -4160,8 +4174,8 @@ async function performTableExport() {
             downloads.push(() => {
                 const wbDisc = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wbDisc, buildDisciplineSheet(disc), sanitizeSheetName(disc));
-                const safeDiscName = disc.replace(/[^a-zA-Z0-9]+/g, '_');
-                XLSX.writeFile(wbDisc, `${safeDiscName}_${dateStr}.${format}`, { bookType: format });
+                const safeDiscName = sanitizeFileName(disc);
+                XLSX.writeFile(wbDisc, `${baseName}_${safeDiscName}.${format}`, { bookType: format });
             });
         });
 

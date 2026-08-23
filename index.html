@@ -19,7 +19,13 @@
             </div>
             <div class="header-actions">
                 <div class="actions-row">
-                    <button class="btn-header" onclick="openHelpModal()">💡 Notice & Aides</button>
+                    <button class="btn-header-info" onclick="openHelpModal()">💡 Notice & Aides</button>
+                    <button class="btn-header-info" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
+                    <button class="btn-header-info" id="openFeedbackBtn">💬 Contribuer</button>
+                    <button class="btn-header-info" onclick="loadTestDataset()">🧪 Charger le jeu de test</button>
+                </div>
+                <div class="actions-row">
+                    <button class="btn-header-params" onclick="openSettingsModal()">⚙️ Paramètres</button>
                     <div class="tooltip-wrapper">
                         <label class="file-upload-btn">
                             📊 Importer
@@ -27,22 +33,18 @@
                         </label>
                         <span class="tooltip-text">Format : Nom Prénom Discipline Apport</span>
                     </div>
-                    <button class="btn-header" onclick="openSettingsModal()">⚙️ Paramètres</button>
-                    <button class="btn-header" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
-                    <button class="btn-header" onclick="openHistoryModal()">🕒 Historique</button>
-                    <button class="btn-header" onclick="openTrmdModal()">📊 TRMD</button>
-                    <button class="btn-header" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
-                    <button class="btn-header-autonomie" onclick="openAutonomieModal()"><span>🏛️</span><span id="autonomieBtnLabel" class="autonomie-btn-label">Autonomie EPLE</span></button>
-                </div>
-                <div class="actions-row">
-                    <button class="btn-header-io" onclick="saveState()">💾 Sauvegarder</button>
-                    <label class="btn-header-io">
+                    <label class="btn-header-import">
                         📂 Charger une sauvegarde
                         <input type="file" id="jsonFileInput" accept=".json">
                     </label>
+                    <button class="btn-header-save" onclick="saveState()">💾 Sauvegarder</button>
+                    <button class="btn-header-save" onclick="openHistoryModal()">🕒 Historique</button>
                     <button class="btn-header-export" onclick="openTableExportModal()">🗂️ Exporter au format tableur</button>
-                    <button class="btn-header-test" onclick="loadTestDataset()">🧪 Charger le jeu de test</button>
-                    <button class="btn-header-contrib" id="openFeedbackBtn">💬 Contribuer</button>
+                </div>
+                <div class="actions-row">
+                    <button class="btn-header-indigo" onclick="openTrmdModal()">📊 TRMD</button>
+                    <button class="btn-header-indigo" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
+                    <button class="btn-header-autonomie" onclick="openAutonomieModal()"><span>🏛️</span><span id="autonomieBtnLabel" class="autonomie-btn-label">Autonomie EPLE</span></button>
                 </div>
                 <div class="actions-row" id="speRowAction" style="display: none;">
                     <button class="btn-header-spe" onclick="openSpecialiteModal()">🎓 Spécialités</button>
@@ -248,6 +250,12 @@
             <div class="modal-header" style="justify-content: space-between;">
                 <h2>🗂️ Exporter au format tableur</h2>
                 <button class="modal-close" onclick="closeTableExportModal()">&times;</button>
+            </div>
+
+            <div class="export-form-section">
+                <div class="export-form-label">Nom du fichier</div>
+                <input type="text" id="exportFileName" class="export-filename-input" placeholder="DHG_...">
+                <div class="export-form-hint">L'extension (.xlsx ou .ods) est ajoutée automatiquement. En mode « un fichier par discipline », ce nom sert de préfixe commun.</div>
             </div>
 
             <div class="export-form-section">

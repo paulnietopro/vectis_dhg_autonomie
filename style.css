@@ -130,10 +130,10 @@ body {
     box-shadow: 0 2px 4px rgba(99, 102, 241, 0.25);
 }
 
-.btn-header-io {
-    background: var(--rose-bg);
-    color: var(--rose-text);
-    border: 1px solid var(--rose-border);
+.btn-header-indigo {
+    background: var(--indigo-bg);
+    color: var(--indigo-text);
+    border: 1px solid var(--indigo-border);
     padding: 10px 16px;
     border-radius: 8px;
     font-weight: 700;
@@ -144,9 +144,44 @@ body {
     transition: all 0.2s;
     font-size: 0.9rem;
 }
-.btn-header-io:hover {
-    background: var(--rose-hover);
-    box-shadow: 0 2px 4px rgba(251, 113, 133, 0.25);
+.btn-header-indigo:hover {
+    background: var(--indigo-hover);
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.25);
+}
+
+.btn-header-import {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+.btn-header-import:hover { background: var(--primary-hover); }
+
+.btn-header-save {
+    background: var(--emerald-bg);
+    color: var(--emerald-text);
+    border: 1px solid var(--emerald-border);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+.btn-header-save:hover {
+    background: var(--emerald-hover);
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
 .btn-header-export {
@@ -168,7 +203,7 @@ body {
     box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
-.btn-header-test {
+.btn-header-info {
     background: var(--cyan-bg);
     color: var(--cyan-text);
     border: 1px solid var(--cyan-border);
@@ -182,12 +217,12 @@ body {
     transition: all 0.2s;
     font-size: 0.9rem;
 }
-.btn-header-test:hover {
+.btn-header-info:hover {
     background: var(--cyan-hover);
     box-shadow: 0 2px 4px rgba(6, 182, 212, 0.25);
 }
 
-.btn-header-contrib {
+.btn-header-params {
     background: var(--amber-bg);
     color: var(--amber-text);
     border: 1px solid var(--amber-border);
@@ -201,7 +236,7 @@ body {
     transition: all 0.2s;
     font-size: 0.9rem;
 }
-.btn-header-contrib:hover {
+.btn-header-params:hover {
     background: var(--amber-hover);
     box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 }
@@ -260,7 +295,7 @@ body {
 }
 .btn-header-coens:hover {
     background: var(--amber-hover);
-    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.25);
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 }
 
 .tooltip-wrapper {
@@ -751,6 +786,17 @@ input[type="number"] { width: 100%; text-align: center; }
 /* Modale Export tableur */
 .export-form-section { margin-bottom: 18px; }
 .export-form-label { font-weight: 700; font-size: 0.88rem; color: var(--text); margin-bottom: 8px; }
+.export-filename-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.export-filename-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15); }
+.export-form-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; }
 .export-radio-group { display: flex; gap: 16px; flex-wrap: wrap; }
 .export-radio-option {
     display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; font-weight: 500;
