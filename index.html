@@ -29,6 +29,7 @@
                     </div>
                     <button class="btn-header" onclick="openSettingsModal()">⚙️ Paramètres</button>
                     <button class="btn-header" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
+                    <button class="btn-header" onclick="openHistoryModal()">🕒 Historique</button>
                     <button class="btn-header" onclick="openTrmdModal()">📊 TRMD</button>
                     <button class="btn-header" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
                     <button class="btn-header-autonomie" onclick="openAutonomieModal()"><span>🏛️</span><span id="autonomieBtnLabel" class="autonomie-btn-label">Autonomie EPLE</span></button>
@@ -224,6 +225,20 @@
                 <button class="modal-close" onclick="closeHorairesRegModal()">&times;</button>
             </div>
             <div id="horairesRegContent"></div>
+        </div>
+    </div>
+
+    <!-- Modale Historique -->
+    <div id="historyModal" class="modal-overlay">
+        <div class="modal-card modal-lg" style="max-width: 1000px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🕒 Historique des modifications</h2>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="printHistoryContent()">🖨️ Export PDF</button>
+                    <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+                </div>
+            </div>
+            <div id="historyContent"></div>
         </div>
     </div>
 

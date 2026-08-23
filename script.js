@@ -2639,13 +2639,15 @@ function deleteDisciplineFromSettings(disc) {
 }
 
 function saveState() {
+    recordHistoryPoint();
     const exportObject = {
         epleIdentity: epleIdentity,
         dotation: dotationGlobal,
         levels: levels,
         baseHoursStore: baseHoursStore,
         dataStore: dataStore,
-        coEnseignementGroups: coEnseignementGroups
+        coEnseignementGroups: coEnseignementGroups,
+        changeHistory: changeHistory
     };
     const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
     const blobUrl = URL.createObjectURL(blob);
@@ -2696,6 +2698,7 @@ function applyLoadedData(loadedData) {
             baseHoursStore = loadedData.baseHoursStore;
         }
         coEnseignementGroups = Array.isArray(loadedData.coEnseignementGroups) ? loadedData.coEnseignementGroups : [];
+        changeHistory = Array.isArray(loadedData.changeHistory) ? loadedData.changeHistory : [];
         if (loadedData.epleIdentity) {
             epleIdentity = loadedData.epleIdentity;
             if (epleIdentity.enableSpecialites === undefined) {
@@ -2719,6 +2722,7 @@ function applyLoadedData(loadedData) {
     currentAutonomieTabLevelIndex = 0;
     currentAutonomieTabDiscIndex = 0;
     currentAutonomieTabDisciplinesIndex = 0;
+    resetHistoryBaseline();
     updateAppTitle();
     renderApp();
 }
@@ -4840,4 +4844,188 @@ function deleteTeacher(disc, tIndex) {
         });
         renderApp();
     }
+}
+// ------------------------------------------------------------------
+// Historique des modifications — à chaque clic sur « Sauvegarder », compare
+// l'état actuel à celui de la dernière sauvegarde (ou du dernier chargement)
+// et enregistre un résumé lisible de ce qui a changé. Conservé dans le
+// fichier de sauvegarde lui-même, pour s'accumuler au fil de l'année.
+// ------------------------------------------------------------------
+
+let changeHistory = [];
+let lastSavedSnapshot = null;
+
+function captureHistorySnapshot() {
+    return JSON.parse(JSON.stringify({
+        epleName: epleIdentity && epleIdentity.name,
+        hp: dotationGlobal && dotationGlobal.hp,
+        hsa: dotationGlobal && dotationGlobal.hsa,
+        levels: levels,
+        dataStore: dataStore
+    }));
+}
+
+// À appeler après tout chargement (import DHG initial ou rechargement d'une
+// sauvegarde) : établit la base de comparaison pour la prochaine sauvegarde,
+// pour ne pas considérer les données qui viennent d'être chargées comme des
+// « changements ».
+function resetHistoryBaseline() {
+    lastSavedSnapshot = captureHistorySnapshot();
+}
+
+function computeHistoryChanges(oldSnap, newSnap) {
+    const changes = [];
+    if (!oldSnap || !newSnap) return changes;
+
+    if ((oldSnap.epleName || '') !== (newSnap.epleName || '')) {
+        changes.push(`Nom de l'établissement modifié : « ${oldSnap.epleName || '(vide)'} » → « ${newSnap.epleName || '(vide)'} ».`);
+    }
+    if ((oldSnap.hp || 0) !== (newSnap.hp || 0)) {
+        changes.push(`Heures Postes (HP) modifiées : ${oldSnap.hp || 0} → ${newSnap.hp || 0}.`);
+    }
+    if ((oldSnap.hsa || 0) !== (newSnap.hsa || 0)) {
+        changes.push(`HSA modifiées : ${oldSnap.hsa || 0} → ${newSnap.hsa || 0}.`);
+    }
+
+    const oldLevels = oldSnap.levels || [];
+    const newLevels = newSnap.levels || [];
+    oldLevels.filter(l => !newLevels.includes(l)).forEach(l => changes.push(`Niveau « ${l} » supprimé.`));
+    newLevels.filter(l => !oldLevels.includes(l)).forEach(l => changes.push(`Niveau « ${l} » ajouté.`));
+
+    const oldDS = oldSnap.dataStore || {};
+    const newDS = newSnap.dataStore || {};
+    const allDiscs = new Set([...Object.keys(oldDS), ...Object.keys(newDS)]);
+
+    allDiscs.forEach(disc => {
+        const oldDisc = oldDS[disc];
+        const newDisc = newDS[disc];
+        if (!oldDisc && newDisc) { changes.push(`Discipline « ${disc} » ajoutée.`); return; }
+        if (oldDisc && !newDisc) { changes.push(`Discipline « ${disc} » supprimée.`); return; }
+        if (!oldDisc || !newDisc) return;
+
+        const oldTeachers = oldDisc.teachers || [];
+        const newTeachers = newDisc.teachers || [];
+        oldTeachers.filter(t => !newTeachers.includes(t)).forEach(t => changes.push(`Enseignant « ${t} » retiré de ${disc}.`));
+        newTeachers.filter(t => !oldTeachers.includes(t)).forEach(t => changes.push(`Enseignant « ${t} » ajouté en ${disc}.`));
+
+        // Services : appariement par (nom + niveau), les services n'ayant pas
+        // d'identifiant stable dans le modèle de données.
+        const oldServices = oldDisc.services || [];
+        const newServices = newDisc.services || [];
+        const keyOf = s => `${s.name}::${s.level}`;
+        const oldByKey = new Map(oldServices.map(s => [keyOf(s), s]));
+        const newByKey = new Map(newServices.map(s => [keyOf(s), s]));
+
+        oldByKey.forEach((s, key) => {
+            if (!newByKey.has(key)) changes.push(`Service « ${s.name} » (${disc}, ${s.level}) supprimé.`);
+        });
+        newByKey.forEach((s, key) => {
+            if (!oldByKey.has(key)) changes.push(`Service « ${s.name} » (${disc}, ${s.level}) ajouté.`);
+        });
+        oldByKey.forEach((oldS, key) => {
+            const newS = newByKey.get(key);
+            if (!newS) return;
+            if ((oldS.hours || 0) !== (newS.hours || 0)) {
+                changes.push(`Volume horaire de « ${oldS.name} » (${disc}) modifié : ${oldS.hours || 0}h → ${newS.hours || 0}h.`);
+            }
+            if ((oldS.classes || 0) !== (newS.classes || 0)) {
+                changes.push(`Nombre de classes de « ${oldS.name} » (${disc}) modifié : ${oldS.classes || 0} → ${newS.classes || 0}.`);
+            }
+            if (!!oldS.isCoEnseignement !== !!newS.isCoEnseignement) {
+                changes.push(`Co-enseignement ${newS.isCoEnseignement ? 'activé' : 'désactivé'} pour « ${oldS.name} » (${disc}).`);
+            }
+            const oldAlloc = oldS.allocations || {};
+            const newAlloc = newS.allocations || {};
+            const allTeachers = new Set([...Object.keys(oldAlloc), ...Object.keys(newAlloc)]);
+            allTeachers.forEach(t => {
+                const ov = oldAlloc[t] || 0;
+                const nv = newAlloc[t] || 0;
+                if (ov !== nv) {
+                    if (ov === 0) changes.push(`« ${t} » affecté à « ${oldS.name} » (${disc}) : ${nv}h.`);
+                    else if (nv === 0) changes.push(`« ${t} » retiré de « ${oldS.name} » (${disc}) (était ${ov}h).`);
+                    else changes.push(`Heures de « ${t} » sur « ${oldS.name} » (${disc}) modifiées : ${ov}h → ${nv}h.`);
+                }
+            });
+        });
+    });
+
+    return changes;
+}
+
+// À appeler juste avant l'export du fichier de sauvegarde : compare l'état
+// actuel à la dernière base connue, enregistre un point d'historique si des
+// changements sont détectés, puis met à jour la base pour la prochaine fois.
+function recordHistoryPoint() {
+    const newSnap = captureHistorySnapshot();
+    if (lastSavedSnapshot) {
+        const changes = computeHistoryChanges(lastSavedSnapshot, newSnap);
+        if (changes.length > 0) {
+            changeHistory.push({
+                id: 'h-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+                date: new Date().toISOString(),
+                changes
+            });
+        }
+    }
+    lastSavedSnapshot = newSnap;
+}
+
+function openHistoryModal() {
+    document.getElementById('historyModal').classList.add('active');
+    renderHistoryModal();
+}
+
+function closeHistoryModal() {
+    document.getElementById('historyModal').classList.remove('active');
+}
+
+function formatHistoryDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) + ' à ' +
+        d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderHistoryModal() {
+    const container = document.getElementById('historyContent');
+    if (!changeHistory || changeHistory.length === 0) {
+        container.innerHTML = '<p class="empty-state">Aucun historique pour l\'instant. Un point est enregistré automatiquement à chaque sauvegarde comportant des changements.</p>';
+        return;
+    }
+
+    const sorted = changeHistory.slice().reverse();
+
+    container.innerHTML = `
+        <div class="card-hint">Un point est ajouté automatiquement à chaque sauvegarde comportant des changements. Vous pouvez supprimer une ligne si besoin.</div>
+        <div class="table-container" style="margin-top: 12px;">
+            <table>
+                <thead><tr><th style="white-space: nowrap;">Date</th><th>Modifications</th><th></th></tr></thead>
+                <tbody>
+                    ${sorted.map(entry => `
+                        <tr>
+                            <td style="white-space: nowrap; vertical-align: top;">${formatHistoryDate(entry.date)}</td>
+                            <td>
+                                <ul style="margin: 0; padding-left: 18px;">
+                                    ${entry.changes.map(c => `<li>${c}</li>`).join('')}
+                                </ul>
+                            </td>
+                            <td style="vertical-align: top; text-align: center;">
+                                <button type="button" class="delete-btn-icon" title="Supprimer cette ligne" onclick="deleteHistoryEntry('${entry.id}')">✕</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function deleteHistoryEntry(id) {
+    if (!confirm("Supprimer cette ligne de l'historique ? Cette action est irréversible.")) return;
+    changeHistory = changeHistory.filter(e => e.id !== id);
+    renderHistoryModal();
+}
+
+function printHistoryContent() {
+    triggerPrint();
 }
