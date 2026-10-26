@@ -17,42 +17,55 @@
                 <h1 id="appMainTitle">VectisDHG Autonomie</h1>
                 <p>Outil d'aide à la ventilation de la Dotation Horaire Globale</p>
             </div>
-            <div class="header-actions">
-                <div class="actions-row">
-                    <button class="btn-header-info" onclick="openHelpModal()">💡 Notice & Aides</button>
-                    <button class="btn-header-info" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
-                    <button class="btn-header-info" id="openFeedbackBtn">💬 Contribuer</button>
-                    <button class="btn-header-info" onclick="loadTestDataset()">🧪 Charger le jeu de test</button>
-                </div>
-                <div class="actions-row">
-                    <button class="btn-header-params" onclick="openSettingsModal()">⚙️ Paramètres</button>
-                    <div class="tooltip-wrapper">
-                        <label class="file-upload-btn">
-                            📊 Importer
-                            <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv">
-                        </label>
-                        <span class="tooltip-text">Format : Nom Prénom Discipline Apport</span>
+        </div>
+
+        <nav class="menu-bar" id="menuBar" aria-label="Menu principal">
+            <div class="menu">
+                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Fichier</button>
+                <div class="menu-panel">
+                    <label class="menu-item"><span>📂 Ouvrir (charger une sauvegarde)</span><input type="file" id="jsonFileInput" accept=".json"></label>
+                    <button class="menu-item" type="button" onclick="saveState()">💾 Enregistrer (sauvegarder)</button>
+                    <label class="menu-item" title="Format : Nom Prénom Discipline Apport"><span>📊 Importer</span> <span class="menu-hint">Nom Prénom Discipline Apport</span><input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv"></label>
+                    <div class="menu-sep"></div>
+                    <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📤 Exporter <span class="menu-caret">▸</span></button>
+                    <div class="menu-group">
+                        <button class="menu-item menu-sub-item" type="button" onclick="openTableExportModal()">🗂️ Exporter par discipline</button>
+                        <button class="menu-item menu-sub-item" type="button" onclick="openTeacherExportModal()">📄 Exporter les services des enseignants</button>
                     </div>
-                    <label class="btn-header-import">
-                        📂 Charger une sauvegarde
-                        <input type="file" id="jsonFileInput" accept=".json">
-                    </label>
-                    <button class="btn-header-save" onclick="saveState()">💾 Sauvegarder</button>
-                    <button class="btn-header-save" onclick="openHistoryModal()">🕒 Historique</button>
-                    <button class="btn-header-export" onclick="openTableExportModal()">🗂️ Exporter au format tableur</button>
-                </div>
-                <div class="actions-row">
-                    <button class="btn-header-indigo" onclick="openTrmdModal()">📊 TRMD</button>
-                    <button class="btn-header-indigo" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
-                    <button class="btn-header-autonomie" onclick="openAutonomieModal()"><span>🏛️</span><span id="autonomieBtnLabel" class="autonomie-btn-label">Autonomie EPLE</span></button>
-                </div>
-                <div class="actions-row" id="speRowAction" style="display: none;">
-                    <button class="btn-header-spe" onclick="openSpecialiteModal()">🎓 Spécialités</button>
-                    <button class="btn-header-opt" id="btnOptionnels" style="display: none;" onclick="openOptionnelModal()">🎨 Options</button>
-                    <button class="btn-header-coens" id="btnCoEnseignement" style="display: none;" onclick="openCoEnseignementModal()">🤝 Co-enseignement</button>
                 </div>
             </div>
-        </div>
+            <div class="menu" id="menuEdition" style="display: none;">
+                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Édition</button>
+                <div class="menu-panel">
+                    <button class="menu-item" id="btnSpecialites" type="button" onclick="openSpecialiteModal()">🎓 Spécialités</button>
+                    <button class="menu-item" id="btnOptionnels" type="button" style="display: none;" onclick="openOptionnelModal()">🎨 Options</button>
+                    <button class="menu-item" id="btnCoEnseignement" type="button" style="display: none;" onclick="openCoEnseignementModal()">🤝 Co-enseignement</button>
+                </div>
+            </div>
+            <div class="menu">
+                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Autonomie</button>
+                <div class="menu-panel">
+                    <button class="menu-item" type="button" onclick="openTrmdModal()">📊 TRMD</button>
+                    <button class="menu-item" type="button" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
+                    <button class="menu-item" type="button" onclick="openAutonomieModal()">🏛️ <span id="autonomieBtnLabel" class="autonomie-btn-label">Autonomie EPLE</span></button>
+                </div>
+            </div>
+            <div class="menu">
+                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Structure</button>
+                <div class="menu-panel">
+                    <button class="menu-item" type="button" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
+                    <button class="menu-item" type="button" onclick="openStructureModal()">🏗️ Construire les services avec la structure de l'EPLE</button>
+                </div>
+            </div>
+            <div class="menu">
+                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Paramètres</button>
+                <div class="menu-panel">
+                    <button class="menu-item" type="button" onclick="openSettingsModal()">⚙️ Paramètres</button>
+                    <button class="menu-item" type="button" onclick="openHistoryModal()">🕒 Historique</button>
+                    <button class="menu-item" type="button" onclick="openHelpModal()">💡 Notice &amp; Aides</button>
+                </div>
+            </div>
+        </nav>
 
         <div id="tabsContainer" class="tabs-nav"></div>
         <div id="contentsContainer"></div>
@@ -60,7 +73,7 @@
 
     <footer class="app-footer">
         <p>© 2026 VectisDHG Autonomie. Tous droits réservés.</p>
-        <p>Cet outil est mis à disposition gratuitement pour un usage strictly personnel, éducatif et non commercial.</p>
+        <p>Cet outil est mis à disposition gratuitement pour un usage strictement personnel, éducatif et non commercial.</p>
         <p>Toute exploitation commercialisée, revente, ou intégration dans une offre payante est formellement interdite sans l'accord préalable écrit de l'auteur.</p>
     </footer>
 
@@ -230,6 +243,16 @@
         </div>
     </div>
 
+    <div id="structureModal" class="modal-overlay">
+        <div class="modal-card modal-lg" style="max-width: 1200px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🏗️ Structure de l'EPLE : construire les services</h2>
+                <button class="modal-close" onclick="closeStructureModal()">&times;</button>
+            </div>
+            <div id="structureContent"></div>
+        </div>
+    </div>
+
     <!-- Modale Historique -->
     <div id="historyModal" class="modal-overlay">
         <div class="modal-card modal-lg" style="max-width: 1000px;">
@@ -362,6 +385,7 @@
                 <button id="btnSettingsEple" class="mode-btn active" onclick="switchSettingsTab('eple')">Identité EPLE</button>
                 <button id="btnSettingsLevels" class="mode-btn" onclick="switchSettingsTab('levels')">Niveaux</button>
                 <button id="btnSettingsDisc" class="mode-btn" onclick="switchSettingsTab('disciplines')">Disciplines</button>
+                <button id="btnSettingsTools" class="mode-btn" onclick="switchSettingsTab('tools')">Aide &amp; données</button>
             </div>
 
             <!-- Onglet Identité EPLE -->
@@ -445,8 +469,89 @@
                 </div>
                 <ul id="disciplinesList" class="settings-list"></ul>
             </div>
+
+            <!-- Onglet Aide & données -->
+            <div id="settingsToolsTab" class="tab-content" style="padding: 0; box-shadow: none; background: transparent;">
+                <div class="settings-tools">
+                    <div class="settings-tool-item">
+                        <div>
+                            <div class="settings-tool-title">💬 Contribuer</div>
+                            <div class="settings-tool-desc">Envoyer un retour, une idée d'amélioration ou signaler un problème.</div>
+                        </div>
+                        <button class="btn-secondary" id="openFeedbackBtn" onclick="closeSettingsModal()">Ouvrir</button>
+                    </div>
+                    <div class="settings-tool-item">
+                        <div>
+                            <div class="settings-tool-title">🧪 Charger le jeu de test</div>
+                            <div class="settings-tool-desc">Remplace toutes les données saisies par un jeu de données fictif (pensez à sauvegarder avant).</div>
+                        </div>
+                        <button class="btn-secondary" onclick="loadTestDataset()">Charger</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Modale choix d'export -->
+    <div id="exportChoiceModal" class="modal-overlay">
+        <div class="modal-card modal-sm">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📤 Exporter</h2>
+                <button class="modal-close" onclick="closeExportChoiceModal()">&times;</button>
+            </div>
+            <div class="export-choice-list">
+                <button class="export-choice-btn" onclick="closeExportChoiceModal(); openTableExportModal()">
+                    <strong>🗂️ Exporter par discipline</strong>
+                    <span>Fichier tableur (xlsx, csv, ods) : une feuille ou un fichier par discipline.</span>
+                </button>
+                <button class="export-choice-btn" onclick="closeExportChoiceModal(); openTeacherExportModal()">
+                    <strong>📄 Exporter les services des enseignants</strong>
+                    <span>PDF : une page par enseignant avec ses services, ses heures et ses totaux.</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale export PDF des services par enseignant -->
+    <div id="teacherExportModal" class="modal-overlay">
+        <div class="modal-card modal-sm">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📄 Services des enseignants (PDF)</h2>
+                <button class="modal-close" onclick="closeTeacherExportModal()">&times;</button>
+            </div>
+            <div class="export-form-section">
+                <div class="export-form-label">Informations à inclure</div>
+                <div class="export-checkbox-list" style="max-height: none;">
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="apport" checked> Apport</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="discipline" checked> Discipline</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="niveau" checked> Niveau de chaque service</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="heures" checked> Nombre d'heures de chaque service</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="pondService" checked> Pondération de chaque service</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="totalHeures" checked> Total des heures enseignées</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="pondTotal" checked> Pondérations (total)</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="total" checked> Total (heures + pondérations)</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="hsa" checked> HSA</label>
+                </div>
+            </div>
+            <div class="export-form-section">
+                <div class="export-form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                    <span>Disciplines concernées</span>
+                    <span style="display: flex; gap: 8px;">
+                        <button type="button" class="export-link-btn" onclick="setAllTeacherPdfDisciplines(true)">Tout sélectionner</button>
+                        <button type="button" class="export-link-btn" onclick="setAllTeacherPdfDisciplines(false)">Tout désélectionner</button>
+                    </span>
+                </div>
+                <div id="teacherPdfDisciplinesList" class="export-checkbox-list"></div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+                <button class="btn-secondary" onclick="closeTeacherExportModal()">Annuler</button>
+                <button class="btn-header-export" onclick="generateTeacherServicesPdf()">📄 Générer le PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenu imprimé : services par enseignant -->
+    <div id="teacherPdfPrint"></div>
 
     <!-- Script externe -->
     <script src="script.js"></script>

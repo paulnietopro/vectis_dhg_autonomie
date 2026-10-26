@@ -481,6 +481,8 @@ input[type="file"] { display: none; }
     flex-shrink: 0;
 }
 .delete-btn-icon:hover { background: var(--danger-hover); }
+.edit-btn-icon { background: var(--primary); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 0.75rem; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.edit-btn-icon:hover { opacity: 0.85; }
 
 .lock-btn-icon {
     background: #f1f5f9;
@@ -633,6 +635,9 @@ input[type="number"] { width: 100%; text-align: center; }
 .teacher-cell { background: #fafafa; text-align: center; }
 .totals-row td { font-weight: 600; background: #f8fafc; text-align: center; }
 .totals-row.grand-total td { font-weight: 800; background: #e2e8f0; color: var(--primary); font-size: 0.95rem; }
+.teacher-name-row { display: none; }
+table.header-out .teacher-name-row { display: table-row; }
+.teacher-name-row td { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-align: center; background: #fff; border-top: none; padding: 3px 4px; }
 .totals-row.hsa-row td { font-weight: 800; background: #f1f5f9; font-size: 0.95rem; }
 .empty-state { padding: 40px; text-align: center; color: var(--text-muted); }
 
@@ -839,7 +844,60 @@ input[type="number"] { width: 100%; text-align: center; }
 .pond-info-table { border-collapse: collapse; width: 100%; margin: 0; }
 .pond-info-table td { border: 1px solid var(--border, #d1d5db); padding: 8px 12px; vertical-align: top; }
 .pond-info-table td:first-child { font-weight: 600; width: 36%; background: var(--bg-secondary, #f8fafc); }
+.pond-info-source { margin: -8px 0 0; font-size: 0.9rem; color: var(--text-muted); word-break: break-all; }
+.pond-info-source a { color: var(--primary); text-decoration: underline; }
 .pond-info-note { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+
+.structure-intro { margin: 0 0 14px; color: var(--text-muted); }
+.structure-level-pick { margin: 0 0 12px; }
+.structure-level-pick select { width: auto; min-width: 160px; margin-left: 6px; }
+.structure-table { width: 100%; table-layout: fixed; }
+.structure-table th { white-space: normal; }
+.structure-table th:nth-child(1) { width: 36%; }
+.structure-table th:nth-child(2), .structure-table th:nth-child(3) { width: 14%; }
+.structure-table th:nth-child(4) { width: 22%; }
+.structure-table th:nth-child(5) { width: 14%; }
+.structure-table td:first-child { white-space: normal; word-break: break-word; }
+.structure-table select { width: 100%; min-width: 0; }
+.structure-table button { white-space: nowrap; }
+.structure-level-pick select, .structure-table select { padding: 6px 8px; border: 1px solid var(--border, #d1d5db); border-radius: 6px; background: var(--surface, #fff); }
+.structure-note { font-size: 0.85rem; color: var(--text-muted); font-style: italic; margin: 0 0 12px; }
+.structure-table input[type="number"] { width: 70px; }
+.structure-table td { vertical-align: middle; }
+.structure-heading-row td { font-weight: 700; background: #eef2ff; color: var(--primary); }
+.structure-heading-row.level-1 td { background: #f1f5f9; }
+.structure-heading-row.level-2 td { background: #f8fafc; font-style: italic; }
+.structure-created { margin-left: 8px; color: #15803d; font-weight: 700; font-size: 0.85rem; }
+
+.cell-pond { font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 2px; line-height: 1.2; }
+.cell-pond:empty { display: none; }
+
+.settings-tools { display: flex; flex-direction: column; gap: 12px; }
+.settings-tool-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; background: var(--bg-secondary, #f8fafc); }
+.settings-tool-title { font-weight: 700; }
+.settings-tool-desc { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+.export-choice-list { display: flex; flex-direction: column; gap: 12px; }
+.export-choice-btn { text-align: left; padding: 14px 16px; border: 1px solid var(--border, #d1d5db); border-radius: 8px; background: var(--surface, #fff); cursor: pointer; display: flex; flex-direction: column; gap: 4px; font-family: inherit; font-size: 0.95rem; }
+.export-choice-btn span { font-size: 0.82rem; color: var(--text-muted); }
+.export-choice-btn:hover { border-color: var(--primary); background: #f5f8ff; }
+#teacherPdfPrint { display: none; }
+
+ .menu-bar { display: flex; flex-wrap: wrap; gap: 2px; background: var(--surface); padding: 4px 8px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: -12px 0 20px; position: relative; z-index: 50; }
+.menu { position: relative; }
+.menu-btn { background: transparent; border: none; padding: 8px 16px; font-size: 0.95rem; font-weight: 600; color: var(--text); border-radius: 6px; cursor: pointer; font-family: inherit; }
+.menu-btn:hover, .menu.open > .menu-btn { background: #eef2ff; color: var(--primary); }
+.menu-panel { display: none; position: absolute; top: 100%; left: 0; min-width: 340px; background: var(--surface, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); padding: 6px; z-index: 60; }
+.menu.open > .menu-panel { display: block; }
+.menu-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 9px 12px; border: none; background: transparent; border-radius: 6px; font-size: 0.9rem; font-family: inherit; color: var(--text); cursor: pointer; box-sizing: border-box; }
+.menu-item:hover { background: #eef2ff; color: var(--primary); }
+.menu-item input[type="file"] { display: none; }
+.menu-hint { white-space: nowrap; font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
+.menu-sep { height: 1px; background: var(--border, #e5e7eb); margin: 6px 4px; }
+.menu-caret { margin-left: auto; color: var(--text-muted); }
+.menu-group { display: none; }
+.menu-group.open { display: block; }
+.menu-sub-item { padding-left: 32px; }
+@media (max-width: 700px) { .menu-panel { min-width: 240px; } }
 
 @media print {
     @page { size: A4 landscape; margin: 10mm; }
@@ -855,7 +913,26 @@ input[type="number"] { width: 100%; text-align: center; }
        réserve aucun espace), pour que la modale à imprimer redevienne le
        seul contenu, en position normale (static) : c'est le navigateur qui
        se charge alors, nativement, de la caler après la marge @page. */
-    body > *:not(#trmdModal):not(#coEnseignementModal):not(#historyModal) { display: none !important; }
+    body > *:not(#trmdModal):not(#coEnseignementModal):not(#historyModal):not(#teacherPdfPrint) { display: none !important; }
+    #teacherPdfPrint { display: none !important; }
+    body.printing-teachers #teacherPdfPrint { display: block !important; }
+    .tpdf-page { page-break-after: always; break-after: page; font-family: inherit; color: #111; padding: 4mm 2mm; }
+    .tpdf-page:last-child { page-break-after: auto; break-after: auto; }
+    .tpdf-meta { font-size: 9pt; color: #555; margin-bottom: 6mm; }
+    .tpdf-page h1 { font-size: 20pt; margin: 0 0 6mm; color: #1d4ed8; }
+    .tpdf-infos { display: flex; gap: 12mm; margin-bottom: 8mm; font-size: 11pt; }
+    .tpdf-infos span { display: block; font-size: 8.5pt; color: #555; text-transform: uppercase; letter-spacing: 0.03em; }
+    .tpdf-table, .tpdf-totals { width: 100%; border-collapse: collapse; font-size: 10.5pt; }
+    .tpdf-table th, .tpdf-table td { border: 1px solid #999; padding: 2mm 3mm; text-align: left; }
+    .tpdf-table th { background: #e8eefc; }
+    .tpdf-table .num, .tpdf-totals .num { text-align: right; white-space: nowrap; }
+    .tpdf-table .empty { text-align: center; color: #666; font-style: italic; }
+    .tpdf-table small { color: #555; }
+    .tpdf-totals { width: auto; min-width: 90mm; margin: 8mm 0 0 auto; }
+    .tpdf-totals td { border: 1px solid #999; padding: 2mm 4mm; }
+    .tpdf-totals tr:last-child td { background: #f1f5f9; }
+    .tpdf-table, .tpdf-totals { page-break-inside: auto; }
+    .tpdf-table tr { page-break-inside: avoid; }
     #trmdModal:not(.active), #coEnseignementModal:not(.active), #historyModal:not(.active) { display: none !important; }
     #trmdModal, #coEnseignementModal, #historyModal {
         position: static !important; display: block !important; width: auto !important; height: auto !important;
@@ -882,6 +959,7 @@ input[type="number"] { width: 100%; text-align: center; }
     .coens-select-row { display: none !important; }
     .coens-fusionne-badge, .coens-dissociate-btn { display: none !important; }
     #historyModal .delete-btn-icon { display: none !important; }
+    .edit-btn-icon { display: none !important; }
     #historyModal .card-hint { display: none !important; }
     #coEnseignementModal .action-bar,
     #coEnseignementModal .settings-tab-hint { display: none !important; }

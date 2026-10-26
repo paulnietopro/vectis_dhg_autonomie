@@ -553,8 +553,8 @@ function hasAnyOptionnel() {
 }
 
 function updateSpecialiteButtonVisibility() {
-    const speRow = document.getElementById('speRowAction');
-    const speBtn = document.querySelector('.btn-header-spe');
+    const speRow = document.getElementById('menuEdition');
+    const speBtn = document.getElementById('btnSpecialites');
     const optBtn = document.getElementById('btnOptionnels');
     const coEnsBtn = document.getElementById('btnCoEnseignement');
 
@@ -563,16 +563,16 @@ function updateSpecialiteButtonVisibility() {
     const showCoEns = epleIdentity.enableCoEnseignement || false;
 
     if (speRow) {
-        speRow.style.display = (showSpe || showOpt || showCoEns) ? 'flex' : 'none';
+        speRow.style.display = (showSpe || showOpt || showCoEns) ? 'block' : 'none';
     }
     if (speBtn) {
-        speBtn.style.display = showSpe ? 'inline-flex' : 'none';
+        speBtn.style.display = showSpe ? 'flex' : 'none';
     }
     if (optBtn) {
-        optBtn.style.display = showOpt ? 'inline-flex' : 'none';
+        optBtn.style.display = showOpt ? 'flex' : 'none';
     }
     if (coEnsBtn) {
-        coEnsBtn.style.display = showCoEns ? 'inline-flex' : 'none';
+        coEnsBtn.style.display = showCoEns ? 'flex' : 'none';
     }
 }
 
@@ -2415,10 +2415,12 @@ function switchSettingsTab(tab) {
     document.getElementById('btnSettingsEple').classList.toggle('active', tab === 'eple');
     document.getElementById('btnSettingsLevels').classList.toggle('active', tab === 'levels');
     document.getElementById('btnSettingsDisc').classList.toggle('active', tab === 'disciplines');
+    document.getElementById('btnSettingsTools').classList.toggle('active', tab === 'tools');
     
     document.getElementById('settingsEpleTab').classList.toggle('active', tab === 'eple');
     document.getElementById('settingsLevelsTab').classList.toggle('active', tab === 'levels');
     document.getElementById('settingsDisciplinesTab').classList.toggle('active', tab === 'disciplines');
+    document.getElementById('settingsToolsTab').classList.toggle('active', tab === 'tools');
     
     renderSettingsModal();
 }
@@ -2428,6 +2430,8 @@ function renderSettingsModal() {
         renderEpleSelectedCard();
     } else if (settingsActiveTab === 'levels') {
         renderLevelsList();
+    } else if (settingsActiveTab === 'tools') {
+        // Onglet statique : rien à générer
     } else {
         renderDisciplinesList();
     }
@@ -2750,6 +2754,7 @@ function loadTestDataset() {
     try {
         const loadedData = JSON.parse(JSON.stringify(testDataset));
         applyLoadedData(loadedData);
+        closeSettingsModal();
     } catch (err) {
         alert("Erreur lors du chargement du jeu de test.");
     }
@@ -2866,11 +2871,13 @@ function renderApp() {
     });
 
     document.querySelectorAll('.level-select').forEach(autoAdjustLevelSelect);
+    requestAnimationFrame(updateTeacherNameReminders);
 }
 
 function switchTab(activeIndex) {
     currentActiveTabIndex = activeIndex;
     document.querySelectorAll('#tabsContainer .tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === activeIndex));
+    setTimeout(updateTeacherNameReminders, 0);
     document.querySelectorAll('#contentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
 }
 
@@ -2959,7 +2966,7 @@ function createActionBar(disc) {
     const deleteToggleBtn = document.createElement('button');
     const isDeleteMode = dataStore[disc].deleteMode;
     deleteToggleBtn.className = `btn-danger-mode ${isDeleteMode ? 'active' : ''}`;
-    deleteToggleBtn.textContent = isDeleteMode ? '✖ Masquer la suppression' : '🗑️ Suppression';
+    deleteToggleBtn.textContent = isDeleteMode ? '✖ Masquer la suppression / modification' : '🗑️ Suppression / Modification';
     deleteToggleBtn.onclick = () => {
         dataStore[disc].deleteMode = !dataStore[disc].deleteMode;
         renderApp();
@@ -3307,6 +3314,8 @@ function refreshDisciplineTotals(table, data, disc) {
             hsaCell.innerHTML = `<span class="badge ${badgeClass}">${fmtHours(hsaVal, data, true, 2)}</span>`;
         }
     });
+
+    refreshCellPonds(table, data, disc);
 }
 
 function getCrossListedOptions(disc) {
@@ -3358,7 +3367,7 @@ function createTable(disc) {
     
     data.teachers.forEach((t, tIndex) => {
         const deleteColBtn = data.deleteMode 
-            ? `<button class="delete-btn-icon" title="Supprimer cet enseignant" onclick="deleteTeacher('${disc}', ${tIndex})">✕</button>` 
+            ? `<button class="delete-btn-icon" title="Supprimer cet enseignant" onclick="deleteTeacher('${disc}', ${tIndex})">✕</button><button class="edit-btn-icon" title="Modifier le nom de cet enseignant" onclick="renameTeacher('${disc}', ${tIndex})">✎</button>` 
             : '';
         const currentApport = data.apports[t] !== undefined ? data.apports[t] : 18;
 
@@ -3630,6 +3639,7 @@ function createTable(disc) {
                 <td class="teacher-cell">
                     <input type="number" min="0" step="0.5" value="${val}" 
                         oninput="updateAllocation('${anchorDisc}', ${sIndex}, '${t.replace(/'/g, "\\'")}', this.value, this, '${disc.replace(/'/g, "\\'")}')">
+                    <div class="cell-pond" data-anchor="${anchorDisc.replace(/"/g, '&quot;')}" data-sidx="${sIndex}" data-teacher="${t.replace(/"/g, '&quot;')}"></div>
                     ${coEnsBadgesHtml}
                 </td>
             `;
@@ -3684,10 +3694,18 @@ function createTable(disc) {
             <span class="badge ${badgeClass}">${fmtHours(hsaVal, data, true, 2)}</span>
         </td>`;
     });
+    tfootHtml += '</tr>';
+
+    // Rappel du nom des enseignants, affiché sous la ligne HSA quand l'en-tête n'est plus visible
+    tfootHtml += '<tr class="teacher-name-row"><td colspan="7"></td>';
+    data.teachers.forEach(t => {
+        tfootHtml += `<td class="teacher-name-cell">${escapeStructureHtml(t)}</td>`;
+    });
     tfootHtml += '</tr></tfoot>';
 
     tbodyHtml += '</tbody>';
     table.innerHTML = theadHtml + tbodyHtml + tfootHtml;
+    refreshCellPonds(table, data, disc);
     container.appendChild(table);
 
     return container;
@@ -4879,6 +4897,49 @@ function deleteService(disc, sIndex) {
     }
 }
 
+function renameTeacher(disc, tIndex) {
+    const data = dataStore[disc];
+    const oldName = data.teachers[tIndex];
+    const input = prompt("Nouveau nom de l'enseignant :", oldName);
+    if (input === null) return;
+    const newName = input.trim();
+    if (!newName || newName === oldName) return;
+    if (data.teachers.includes(newName)) {
+        alert(`Un enseignant nommé « ${newName} » existe déjà dans cette discipline.`);
+        return;
+    }
+
+    data.teachers[tIndex] = newName;
+    if (data.apports && data.apports[oldName] !== undefined) {
+        data.apports[newName] = data.apports[oldName];
+        delete data.apports[oldName];
+    }
+
+    // Services de cette discipline, et options d'autres disciplines rattachées à celle-ci
+    Object.keys(dataStore).forEach(d => {
+        (dataStore[d].services || []).forEach(service => {
+            const concerned = d === disc || (Array.isArray(service.assignedDisciplines) && service.assignedDisciplines.includes(disc));
+            if (!concerned) return;
+            if (service.allocations && Object.prototype.hasOwnProperty.call(service.allocations, oldName)) {
+                service.allocations[newName] = service.allocations[oldName];
+                delete service.allocations[oldName];
+            }
+            if (Array.isArray(service.assignedTeachers)) {
+                service.assignedTeachers = service.assignedTeachers.map(t => t === oldName ? newName : t);
+            }
+        });
+    });
+
+    // Groupes de co-enseignement
+    (coEnseignementGroups || []).forEach(g => {
+        (g.members || []).forEach(m => {
+            if (m.disc === disc && m.teacher === oldName) m.teacher = newName;
+        });
+    });
+
+    renderApp();
+}
+
 function deleteTeacher(disc, tIndex) {
     if (confirm("Voulez-vous vraiment supprimer cet enseignant ? Cette action est irréversible.")) {
         const teacherName = dataStore[disc].teachers[tIndex];
@@ -5081,16 +5142,17 @@ function printHistoryContent() {
 }
 
 // Pondération : règle 1,1 (0,1h/h, plafonné à 1h) ; si l'enseignant a au moins un service en 1,25 :
-// (H1,1 × 0,1 + H1,25 × 0,25) / Σ heures des services × Apport
+// (min(H1,1 × 0,1 ; 1) + H1,25 × 0,25) / Σ heures des services × Apport, uniquement si Σ heures > Apport
 function pondExtra(sums, t, data) {
     const s11 = sums[t] || 0;
     const h125 = sums['125:' + t] || 0;
     const totalRaw = sums['raw:' + t] || 0;
-    if (h125 > 0 && totalRaw > 0) {
-        const apport = (data && data.apports && data.apports[t] !== undefined) ? data.apports[t] : 18;
-        return (s11 + h125 * 0.25) / totalRaw * apport;
+    const apport = (data && data.apports && data.apports[t] !== undefined) ? data.apports[t] : 18;
+    if (h125 > 0 && totalRaw > apport) {
+        return (Math.min(s11, 1.0) + h125 * 0.25) / totalRaw * apport;
     }
-    return Math.min(s11, 1.0);
+    // Sinon : pondération 1,1 plafonnée à 1 h, les pondérations 1,25 (0,25 h par heure) s'ajoutent
+    return Math.min(s11, 1.0) + h125 * 0.25;
 }
 
 // Affichage des heures : décimal (1,25 h) ou sexagésimal (1h15), par discipline
@@ -5117,6 +5179,7 @@ function toggleHoursFormat(disc) {
 function openPondInfoModal() {
     document.getElementById('pondInfoContent').innerHTML = `
         <div class="pond-info">
+            <p class="pond-info-source">Référence : <a href="https://www.education.gouv.fr/bo/15/Hebdo14/MENH1506031C.htm?cid_bo=87302" target="_blank" rel="noopener noreferrer">https://www.education.gouv.fr/bo/15/Hebdo14/MENH1506031C.htm?cid_bo=87302</a></p>
             <section class="pond-info-section">
                 <h3>Règles de calcul</h3>
                 <div class="pond-rule">
@@ -5126,13 +5189,15 @@ function openPondInfoModal() {
                 </div>
                 <div class="pond-rule">
                     <div class="pond-rule-title"><span class="pond-chip">1,25</span> Pondération 1,25</div>
-                    <p>Dès qu'un enseignant a au moins un service pondéré à 1,25, ses pondérations 1,1 et 1,25 se calculent ainsi, <strong>sans plafond</strong> :</p>
-                    <div class="pond-formula">(H<sub>1,1</sub> × 0,1 + H<sub>1,25</sub> × 0,25) ÷ Σ heures × Apport</div>
+                    <p>Si un enseignant a au moins un service pondéré à 1,25 <strong>et</strong> que son total des heures attribuées est <strong>strictement supérieur à son Apport</strong>, ses pondérations 1,1 et 1,25 se calculent ainsi :</p>
+                    <div class="pond-formula">(min(H<sub>1,1</sub> × 0,1 ; 1) + H<sub>1,25</sub> × 0,25) ÷ Σ heures × Apport</div>
                     <ul>
                         <li><strong>H<sub>1,1</sub></strong> et <strong>H<sub>1,25</sub></strong> : heures sur les services pondérés 1,1 et 1,25</li>
+                        <li><strong>min(H<sub>1,1</sub> × 0,1 ; 1)</strong> : la pondération totale des services à 1,1 est <strong>plafonnée à 1 h</strong>, y compris dans la formule</li>
                         <li><strong>Σ heures</strong> : total des heures attribuées à l'enseignant, services pondérés ou non</li>
                         <li><strong>Apport</strong> : apport de l'enseignant (18 h par défaut)</li>
                     </ul>
+                    <p>Si le total des heures attribuées est <strong>inférieur ou égal à l'Apport</strong>, la formule ne s'applique pas : la pondération 1,1 reste plafonnée à 1 h et les pondérations 1,25 (0,25 h par heure) s'y <strong>ajoutent</strong>.</p>
                 </div>
                 <div class="pond-rule">
                     <div class="pond-rule-title"><span class="pond-chip">Autre</span> Autres coefficients (ex. 1,2)</div>
@@ -5162,13 +5227,14 @@ function openPondInfoModal() {
                 <h3>Exemple 2 : avec pondérations 1,1 et 1,25</h3>
                 <p class="pond-example-intro">Apport 18 h. Services : <strong>6 h</strong> en 1,1 · <strong>4 h</strong> en 1,25 · <strong>10 h</strong> non pondérées.</p>
                 <table class="pond-info-table">
-                    <tr><td>Heures attribuées (Σ)</td><td>6 + 4 + 10 = <strong>20 h</strong></td></tr>
-                    <tr><td>Pondérations (sans plafond)</td><td>(6 × 0,1 + 4 × 0,25) ÷ 20 × 18<br>= 1,6 ÷ 20 × 18 = <strong>1,44 h</strong></td></tr>
+                    <tr><td>Heures attribuées (Σ)</td><td>6 + 4 + 10 = <strong>20 h</strong>, supérieur à l'Apport (18 h) : la formule s'applique</td></tr>
+                    <tr><td>Pondérations (1,1 : 0,6 h, sous le plafond de 1 h)</td><td>(6 × 0,1 + 4 × 0,25) ÷ 20 × 18<br>= 1,6 ÷ 20 × 18 = <strong>1,44 h</strong></td></tr>
                     <tr><td>Total (brut + pondération)</td><td>20 + 1,44 = <strong>21,44 h</strong></td></tr>
                     <tr><td>HSA</td><td>21,44 − 18 = <strong>+3,44 h</strong></td></tr>
                 </table>
             </section>
 
+            <p class="pond-info-note">Si, dans l'exemple 2, l'enseignant n'avait que 18 h attribuées (ou moins), la formule ne s'appliquerait pas : 6 × 0,1 = 0,6 h (1,1, plafonné à 1 h) + 4 × 0,25 = 1,00 h (1,25) = 1,60 h.</p>
             <p class="pond-info-note">En affichage sexagésimal, 1,44 h s'écrit 1h26 (arrondi à la minute).</p>
         </div>`;
     document.getElementById('pondInfoModal').classList.add('active');
@@ -5177,3 +5243,432 @@ function openPondInfoModal() {
 function closePondInfoModal() {
     document.getElementById('pondInfoModal').classList.remove('active');
 }
+
+// ============================================================
+// Construire les services avec la structure de l'EPLE
+// ============================================================
+let currentStructureType = null;   // 'clg' | 'lgt' | 'lp'
+let currentStructureLevelId = null;
+const structureRowState = {};      // `${type}|${levelId}|${i}` -> { classes, disc, hours, created }
+const structureLevelChoice = {};   // `${type}|${levelId}` -> niveau de l'application
+
+const STRUCTURE_LP_WEEKS = 36;
+
+// "4h30" -> 4.5 ; "1h + 1h" -> 2 ; "5 h 30" -> 5.5 ; "4 h (dont 1 h d'ETLV)" -> 4 ; sinon null
+function parseStructureWeeklyHours(raw) {
+    if (raw === undefined || raw === null) return null;
+    const str = String(raw).trim();
+    if (!str || /annuel|semaine|^total/i.test(str)) return null;
+    const first = str.split(/\s+ou\s+/i)[0].replace(/\(.*?\)/g, '');
+    const parts = first.split('+');
+    let total = 0, found = false;
+    parts.forEach(p => {
+        const m = p.trim().match(/^(\d+(?:[.,]\d+)?)\s*(?:h|heures?)\s*(\d{1,2})?$/i);
+        if (m) {
+            found = true;
+            total += parseFloat(m[1].replace(',', '.')) + (m[2] ? parseInt(m[2], 10) / 60 : 0);
+        }
+    });
+    return found ? Math.round(total * 100) / 100 : null;
+}
+
+// "1 130" / "333,5" / "43,5 (d)" -> nombre ; sinon null
+function parseStructureAnnualHours(raw) {
+    if (raw === undefined || raw === null) return null;
+    const str = String(raw).replace(/\(.*?\)/g, '').replace(/\s/g, '').replace(',', '.');
+    if (!/^\d+(\.\d+)?$/.test(str)) return null;
+    const n = parseFloat(str);
+    return n > 0 ? n : null;
+}
+
+function cleanStructureName(name) {
+    return String(name || '').replace(/(\s*\((?:[a-z]|\d)\))+\s*$/i, '').trim();
+}
+
+// Extrait d'une liste de tableaux les lignes d'une colonne (avec titres de section)
+function extractStructureRows(tables, colIndex, annual) {
+    const rows = [];
+    let pendingHeadings = [];
+    const flushHeading = h => { pendingHeadings = pendingHeadings.filter(x => x.level < h.level); pendingHeadings.push(h); };
+    tables.forEach(table => {
+        if (tables.length > 1 && table.title) {
+            flushHeading({ level: 0, text: table.title });
+        }
+        (table.rows || []).forEach(item => {
+            if (item.section !== undefined) { flushHeading({ level: 1, text: item.section }); return; }
+            if (item.subsection !== undefined) { flushHeading({ level: 2, text: item.subsection }); return; }
+            const isCells = item.cells !== undefined;
+            const cells = isCells ? item.cells : item;
+            if (isCells && item.style === 'section') { flushHeading({ level: 1, text: cells[0] }); return; }
+            const name = cleanStructureName(cells[0]);
+            if (!name || /^total/i.test(name) || /^période|^deux semaines/i.test(name)) return;
+            let hours = annual ? parseStructureAnnualHours(cells[colIndex]) : parseStructureWeeklyHours(cells[colIndex]);
+            if (hours === null) return;
+            const raw = String(cells[colIndex]).trim();
+            if (annual) hours = Math.round(hours / STRUCTURE_LP_WEEKS * 10) / 10;
+            pendingHeadings.forEach(h => rows.push({ heading: h.text, level: h.level }));
+            pendingHeadings = [];
+            rows.push({ name, hours, raw: annual ? `${raw} h annuelles ÷ ${STRUCTURE_LP_WEEKS} semaines` : raw });
+        });
+    });
+    return rows;
+}
+
+function getStructureLevels(type) {
+    const T = HORAIRES_REG_TABLES;
+    const L = [];
+    if (type === 'clg') {
+        L.push({ id: '6e', label: '6ème', hint: '6', rows: extractStructureRows([T.clg[0]], 1) });
+        [['5e', '5ème', '5', 1], ['4e', '4ème', '4', 2], ['3e', '3ème', '3', 3]].forEach(([id, label, hint, col]) => {
+            L.push({ id, label, hint, rows: extractStructureRows([T.clg[1]], col) });
+        });
+    } else if (type === 'lgt') {
+        L.push({ id: '2gt', label: '2de GT', hint: '2', rows: extractStructureRows(T.lgt['2nd']['2nd GT'], 1) });
+        L.push({ id: '2sthr', label: '2de GT STHR', hint: '2', rows: extractStructureRows(T.lgt['2nd']['2nd GT STHR'], 1) });
+        const vg = T.lgt['Cycle terminal de la voie générale'];
+        L.push({ id: '1g', label: '1re générale', hint: '1', rows: extractStructureRows(vg, 1) });
+        L.push({ id: 'tg', label: 'Terminale générale', hint: 'T', rows: extractStructureRows(vg, 2) });
+        const vt = T.lgt['Cycle terminal de la voie technologique'];
+        const techTables = [];
+        vt.forEach(sec => {
+            if (sec.kind === 'subtabs') Object.keys(sec.tabs).forEach(k => (sec.tabs[k] || []).forEach(t => techTables.push(t)));
+            else (sec.tables || []).forEach(t => techTables.push(t));
+        });
+        L.push({ id: '1t', label: '1re technologique', hint: '1', rows: extractStructureRows(techTables, 1) });
+        L.push({ id: 'tt', label: 'Terminale technologique', hint: 'T', rows: extractStructureRows(techTables, 2) });
+    } else if (type === 'lp') {
+        const bp = T.lp['Bac Professionnel (BP)'];
+        L.push({ id: 'bp2', label: 'Bac pro - Seconde', hint: '2', annual: true, rows: extractStructureRows(bp, 1, true) });
+        L.push({ id: 'bp1', label: 'Bac pro - Première', hint: '1', annual: true, rows: extractStructureRows(bp, 2, true) });
+        L.push({ id: 'bpt', label: 'Bac pro - Terminale', hint: 'T', annual: true, rows: extractStructureRows(bp, 3, true) });
+        const cap = T.lp["Certification d'Aptitude Professionnelle (CAP)"];
+        L.push({ id: 'cap1', label: 'CAP - 1re année', hint: '1', annual: true, rows: extractStructureRows(cap, 1, true) });
+        L.push({ id: 'cap2', label: 'CAP - 2e année', hint: '2', annual: true, rows: extractStructureRows(cap, 4, true) });
+    }
+    return L.filter(l => l.rows.some(r => !r.heading));
+}
+
+function guessStructureAppLevel(hint) {
+    const re = hint === 'T' ? /^t/i : (hint === '1' ? /^(1|premi)/i : new RegExp('^' + hint, 'i'));
+    return levels.find(l => re.test(String(l).trim())) || levels[0] || '';
+}
+
+function openStructureModal() {
+    if (!currentStructureType) currentStructureType = null;
+    document.getElementById('structureModal').classList.add('active');
+    renderStructureModal();
+}
+
+function closeStructureModal() {
+    document.getElementById('structureModal').classList.remove('active');
+}
+
+function setStructureType(type) {
+    currentStructureType = type;
+    currentStructureLevelId = null;
+    renderStructureModal();
+}
+
+function setStructureLevel(id) {
+    currentStructureLevelId = id;
+    renderStructureModal();
+}
+
+function structureStateKey(i) {
+    return `${currentStructureType}|${currentStructureLevelId}|${i}`;
+}
+
+function getStructureRowState(i, defaultHours) {
+    const k = structureStateKey(i);
+    if (!structureRowState[k]) structureRowState[k] = { classes: 1, disc: '', hours: defaultHours, created: 0 };
+    return structureRowState[k];
+}
+
+function updateStructureRow(i, field, value) {
+    const st = structureRowState[structureStateKey(i)];
+    if (!st) return;
+    if (field === 'disc') st.disc = value;
+    else st[field] = parseFloat(value);
+}
+
+function updateStructureLevelChoice(value) {
+    structureLevelChoice[`${currentStructureType}|${currentStructureLevelId}`] = value;
+}
+
+function escapeStructureHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderStructureModal() {
+    const container = document.getElementById('structureContent');
+    const types = [['clg', 'Collège (CLG)'], ['lgt', 'Lycée (LGT)'], ['lp', 'Lycée Professionnel (LP)']];
+    let html = `<p class="structure-intro">Choisissez le type d'EPLE, puis créez les services d'un niveau en les rattachant à une discipline.</p>
+        <div class="mode-selector">${types.map(([k, l]) => `<button class="mode-btn ${k === currentStructureType ? 'active' : ''}" onclick="setStructureType('${k}')">${l}</button>`).join('')}</div>`;
+
+    if (!currentStructureType) {
+        container.innerHTML = html + '<p class="empty-state">Sélectionnez un type d\'EPLE pour afficher ses horaires réglementaires.</p>';
+        return;
+    }
+
+    const lvls = getStructureLevels(currentStructureType);
+    if (!currentStructureLevelId || !lvls.some(l => l.id === currentStructureLevelId)) currentStructureLevelId = lvls[0].id;
+    const lvl = lvls.find(l => l.id === currentStructureLevelId);
+    const disciplines = Object.keys(dataStore);
+
+    html += `<div class="mode-selector">${lvls.map(l => `<button class="mode-btn ${l.id === currentStructureLevelId ? 'active' : ''}" onclick="setStructureLevel('${l.id}')">${l.label}</button>`).join('')}</div>`;
+
+    if (disciplines.length === 0) {
+        container.innerHTML = html + '<p class="empty-state">Aucune discipline n\'est définie. Ajoutez-en dans Paramètres > Disciplines.</p>';
+        return;
+    }
+    if (levels.length === 0) {
+        container.innerHTML = html + '<p class="empty-state">Aucun niveau n\'est défini dans Paramètres.</p>';
+        return;
+    }
+
+    const choiceKey = `${currentStructureType}|${currentStructureLevelId}`;
+    if (!structureLevelChoice[choiceKey] || !levels.includes(structureLevelChoice[choiceKey])) {
+        structureLevelChoice[choiceKey] = guessStructureAppLevel(lvl.hint);
+    }
+    const levelOptions = levels.map(l => `<option value="${escapeStructureHtml(l)}" ${l === structureLevelChoice[choiceKey] ? 'selected' : ''}>${escapeStructureHtml(l)}</option>`).join('');
+    html += `<div class="structure-level-pick"><label>Niveau de l'application pour ces services :
+        <select onchange="updateStructureLevelChoice(this.value)">${levelOptions}</select></label></div>`;
+    if (lvl.annual) {
+        html += `<p class="structure-note">Les grilles de la voie professionnelle sont annuelles : l'horaire hebdomadaire proposé est l'horaire annuel ÷ ${STRUCTURE_LP_WEEKS} semaines. Il reste modifiable.</p>`;
+    }
+
+    let body = '';
+    lvl.rows.forEach((r, i) => {
+        if (r.heading !== undefined) {
+            body += `<tr class="structure-heading-row level-${r.level}"><td colspan="5">${escapeStructureHtml(r.heading)}</td></tr>`;
+            return;
+        }
+        const st = getStructureRowState(i, r.hours);
+        const discOptions = `<option value="">— Choisir —</option>` + disciplines.map(d => `<option value="${escapeStructureHtml(d)}" ${d === st.disc ? 'selected' : ''}>${escapeStructureHtml(d)}</option>`).join('');
+        body += `<tr>
+            <td>${escapeStructureHtml(r.name)}</td>
+            <td><input type="number" min="0" step="0.5" value="${st.hours}" title="Horaire réglementaire : ${escapeStructureHtml(r.raw)}" onchange="updateStructureRow(${i}, 'hours', this.value)"></td>
+            <td><input type="number" min="1" step="1" value="${st.classes}" onchange="updateStructureRow(${i}, 'classes', this.value)"></td>
+            <td><select onchange="updateStructureRow(${i}, 'disc', this.value)">${discOptions}</select></td>
+            <td><button class="btn-secondary" onclick="createServiceFromStructure(${i})">➕ Créer</button>${st.created ? `<span class="structure-created">✓ ${st.created > 1 ? '×' + st.created : 'créé'}</span>` : ''}</td>
+        </tr>`;
+    });
+    html += `<div class="table-container"><table class="structure-table"><thead><tr>
+        <th>Enseignement</th><th>Horaire hebdo. (h)</th><th>Nb classes / groupes</th><th>Discipline</th><th>Service</th></tr></thead>
+        <tbody>${body}</tbody></table></div>`;
+    container.innerHTML = html;
+}
+
+function createServiceFromStructure(i) {
+    const lvls = getStructureLevels(currentStructureType);
+    const lvl = lvls.find(l => l.id === currentStructureLevelId);
+    const r = lvl && lvl.rows[i];
+    const st = structureRowState[structureStateKey(i)];
+    if (!r || !st) return;
+    if (!st.disc || !dataStore[st.disc]) { alert('Veuillez choisir une discipline pour ce service.'); return; }
+    const classes = parseInt(st.classes, 10);
+    const hours = parseFloat(st.hours);
+    if (!(classes >= 1)) { alert('Le nombre de classes / groupes doit être au moins 1.'); return; }
+    if (!(hours >= 0)) { alert("L'horaire hebdomadaire n'est pas valide."); return; }
+    const level = structureLevelChoice[`${currentStructureType}|${currentStructureLevelId}`];
+
+    dataStore[st.disc].services.push({
+        level,
+        levels: [level],
+        name: r.name,
+        classes,
+        hours,
+        ponderationActive: false,
+        ponderationFactor: 1.1,
+        isSpecialite: false,
+        isOptionnel: false,
+        isCoEnseignement: false,
+        isMultiNiveau: false,
+        locked: false,
+        allocations: {}
+    });
+    baseHoursStore[getBaseHourKey(level, r.name)] = hours;
+    st.created = (st.created || 0) + 1;
+    renderApp();
+    renderStructureModal();
+}
+
+// Pondération « brute » affichée sous les heures de chaque case service / enseignant :
+// heures × (coefficient − 1), sans plafond ni formule. Les contraintes (plafond 1,1, formule 1,25)
+// ne s'appliquent que dans la ligne « Pondérations » du pied de tableau.
+function refreshCellPonds(table, data, disc) {
+    table.querySelectorAll('.cell-pond').forEach(el => {
+        const t = el.dataset.teacher;
+        const anchor = dataStore[el.dataset.anchor];
+        const sv = anchor && anchor.services[parseInt(el.dataset.sidx, 10)];
+        const v = sv ? (parseFloat(sv.allocations && sv.allocations[t]) || 0) : 0;
+        if (!sv || !sv.ponderationActive || !(v > 0)) { el.textContent = ''; return; }
+        const f = sv.ponderationFactor || 1.1;
+        el.textContent = `pond. ${fmtHours(v * (f - 1), data, false, 2)}`;
+    });
+}
+
+// ============================================================
+// Export : choix + PDF des services par enseignant
+// ============================================================
+function openExportChoiceModal() { document.getElementById('exportChoiceModal').classList.add('active'); }
+function closeExportChoiceModal() { document.getElementById('exportChoiceModal').classList.remove('active'); }
+
+function openTeacherExportModal() {
+    const disciplines = Object.keys(dataStore);
+    document.getElementById('teacherPdfDisciplinesList').innerHTML = disciplines.length === 0
+        ? '<div class="empty-state" style="padding: 12px; font-size: 0.85rem;">Aucune discipline configurée.</div>'
+        : disciplines.map(d => `<label class="export-checkbox-item"><input type="checkbox" class="tpdf-disc" value="${d.replace(/"/g, '&quot;')}" checked> ${escapeStructureHtml(d)}</label>`).join('');
+    document.getElementById('teacherExportModal').classList.add('active');
+}
+function closeTeacherExportModal() { document.getElementById('teacherExportModal').classList.remove('active'); }
+function setAllTeacherPdfDisciplines(checked) {
+    document.querySelectorAll('.tpdf-disc').forEach(cb => { cb.checked = checked; });
+}
+
+// Calcule les services et totaux d'un enseignant dans une discipline
+function computeTeacherSummary(disc, t) {
+    const data = dataStore[disc];
+    const services = data.services.concat(getCrossListedOptions(disc).map(r => r.service));
+    const sums = {}; sums[t] = 0;
+    let raw = 0, otherPond = 0;
+    const rows = [];
+    services.forEach(sv => {
+        const v = parseFloat(sv.allocations && sv.allocations[t]) || 0;
+        if (!(v > 0)) return;
+        raw += v;
+        const f = sv.ponderationActive ? (sv.ponderationFactor || 1.1) : 1;
+        let pond = 0;
+        if (sv.ponderationActive) {
+            pond = v * (f - 1);
+            if (Math.abs(f - 1.25) < 0.01) sums['125:' + t] = (sums['125:' + t] || 0) + v;
+            else if (Math.abs(f - 1.1) < 0.01) sums[t] += v * 0.1;
+            else otherPond += v * (f - 1);
+        }
+        const levelLabel = sv.isOptionnel
+            ? (Array.isArray(sv.levels) ? sv.levels.join(', ') : (sv.level || ''))
+            : (sv.level || '');
+        rows.push({ level: levelLabel, name: sv.name || '', hours: v, active: !!sv.ponderationActive, factor: f, pond });
+    });
+    sums['raw:' + t] = raw;
+    const pond = otherPond + pondExtra(sums, t, data);
+    const apport = data.apports && data.apports[t] !== undefined ? data.apports[t] : 18;
+    const total = raw + pond;
+    return { rows, raw, pond, total, apport, hsa: total - apport, data };
+}
+
+function generateTeacherServicesPdf() {
+    const opt = {};
+    document.querySelectorAll('.tpdf-opt').forEach(cb => { opt[cb.value] = cb.checked; });
+    const discs = Array.from(document.querySelectorAll('.tpdf-disc')).filter(cb => cb.checked).map(cb => cb.value);
+    if (discs.length === 0) { alert('Veuillez sélectionner au moins une discipline.'); return; }
+
+    const esc = escapeStructureHtml;
+    const eple = epleIdentity && epleIdentity.name ? esc(epleIdentity.name) : '';
+    const dateStr = new Date().toLocaleDateString('fr-FR');
+    const fmtF = f => String(f).replace('.', ',');
+    const pages = [];
+
+    discs.forEach(disc => {
+        const data = dataStore[disc];
+        if (!data) return;
+        data.teachers.forEach(t => {
+            const sum = computeTeacherSummary(disc, t);
+            const fh = (v, signed) => fmtHours(v, data, signed, 2);
+
+            const infos = [];
+            if (opt.discipline) infos.push(`<div><span>Discipline</span><strong>${esc(disc)}</strong></div>`);
+            if (opt.apport) infos.push(`<div><span>Apport</span><strong>${fh(sum.apport)}</strong></div>`);
+
+            const showService = opt.niveau || opt.heures || opt.pondService;
+            let table = '';
+            if (showService) {
+                const head = `<tr>${opt.niveau ? '<th>Niveau</th>' : ''}<th>Intitulé Service / Matière</th>${opt.heures ? '<th class="num">Heures</th>' : ''}${opt.pondService ? '<th class="num">Pondération</th>' : ''}</tr>`;
+                const body = sum.rows.length === 0
+                    ? `<tr><td colspan="4" class="empty">Aucun service attribué</td></tr>`
+                    : sum.rows.map(r => `<tr>${opt.niveau ? `<td>${esc(r.level)}</td>` : ''}<td>${esc(r.name)}</td>${opt.heures ? `<td class="num">${fh(r.hours)}</td>` : ''}${opt.pondService ? `<td class="num">${r.active ? `${fh(r.pond)} <small>(× ${fmtF(r.factor)})</small>` : '—'}</td>` : ''}</tr>`).join('');
+                table = `<table class="tpdf-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+            }
+
+            const totals = [];
+            if (opt.totalHeures) totals.push(['Total des heures enseignées', fh(sum.raw)]);
+            if (opt.pondTotal) totals.push(['Pondérations', fh(sum.pond)]);
+            if (opt.total) totals.push(['Total (heures + pondérations)', fh(sum.total)]);
+            if (opt.hsa) totals.push(['HSA (Total − Apport)', fh(sum.hsa, true)]);
+            const totalsHtml = totals.length
+                ? `<table class="tpdf-totals">${totals.map(([l, v]) => `<tr><td>${l}</td><td class="num"><strong>${v}</strong></td></tr>`).join('')}</table>`
+                : '';
+
+            pages.push(`<section class="tpdf-page">
+                <div class="tpdf-meta">${eple}${eple ? ' · ' : ''}Édité le ${dateStr}</div>
+                <h1>${esc(t)}</h1>
+                ${infos.length ? `<div class="tpdf-infos">${infos.join('')}</div>` : ''}
+                ${table}
+                ${totalsHtml}
+            </section>`);
+        });
+    });
+
+    if (pages.length === 0) { alert('Aucun enseignant dans les disciplines sélectionnées.'); return; }
+
+    const container = document.getElementById('teacherPdfPrint');
+    container.innerHTML = pages.join('');
+    closeTeacherExportModal();
+    document.body.classList.add('printing-teachers');
+    const cleanup = () => {
+        document.body.classList.remove('printing-teachers');
+        container.innerHTML = '';
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    triggerPrint();
+}
+
+// ============================================================
+// Barre de menus (Fichier, Édition, Autonomie, Structure, Paramètres)
+// ============================================================
+function closeAllMenus() {
+    document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'));
+}
+
+function toggleMenu(event, btn) {
+    event.stopPropagation();
+    const menu = btn.closest('.menu');
+    const wasOpen = menu.classList.contains('open');
+    closeAllMenus();
+    if (!wasOpen) menu.classList.add('open');
+}
+
+function toggleMenuGroup(event, btn) {
+    event.stopPropagation();
+    btn.classList.toggle('open');
+    const group = btn.nextElementSibling;
+    if (group) group.classList.toggle('open');
+    const caret = btn.querySelector('.menu-caret');
+    if (caret) caret.textContent = btn.classList.contains('open') ? '▾' : '▸';
+}
+
+document.addEventListener('click', () => setTimeout(closeAllMenus, 0));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllMenus(); });
+// Survol : si un menu est ouvert, passer à un autre menu en le survolant
+document.addEventListener('mouseover', e => {
+    const menu = e.target.closest && e.target.closest('.menu');
+    if (!menu || menu.classList.contains('open')) return;
+    if (document.querySelector('.menu.open')) {
+        closeAllMenus();
+        menu.classList.add('open');
+    }
+});
+
+// Affiche le rappel du nom des enseignants sous le tableau lorsque l'en-tête (noms) est sorti de l'écran par le haut
+function updateTeacherNameReminders() {
+    document.querySelectorAll('.tab-content.active table').forEach(table => {
+        const th = table.querySelector('thead th.draggable-teacher');
+        if (!th) { table.classList.remove('header-out'); return; }
+        const headerGone = th.getBoundingClientRect().bottom <= 0;
+        const rect = table.getBoundingClientRect();
+        table.classList.toggle('header-out', headerGone && rect.bottom > 0);
+    });
+}
+window.addEventListener('scroll', updateTeacherNameReminders, { passive: true });
+window.addEventListener('resize', updateTeacherNameReminders);
