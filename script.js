@@ -2786,7 +2786,8 @@ async function handleFileUpload(e) {
         rows.forEach(r => {
             const discipline = (r.Discipline || "Non spécifié").trim();
             const teacher = `${(r.Nom || "").trim().toUpperCase()} ${(r.Prénom || r.Prenom || "").trim()}`;
-            const apportVal = parseFloat(r.Apport !== undefined ? r.Apport : (r.apport !== undefined ? r.apport : 18)) || 0;
+            const orsRaw = r.ORS !== undefined ? r.ORS : (r.Ors !== undefined ? r.Ors : (r.ors !== undefined ? r.ors : (r.Apport !== undefined ? r.Apport : (r.apport !== undefined ? r.apport : 18))));
+            const apportVal = parseFloat(orsRaw) || 0;
             
             if (!dataStore[discipline]) {
                 dataStore[discipline] = { deleteMode: false, enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false, sortCol: null, sortAsc: true, teachers: [], apports: {}, services: [] };
@@ -3278,7 +3279,8 @@ function refreshDisciplineTotals(table, data, disc) {
                 } else if (Math.abs(factor - 1.1) < 0.01) {
                     teacher11RawSums[t] += tVal * 0.1;
                 } else {
-                    teacherTotalsPond[t] += tVal * (factor - 1);
+                    teacher11RawSums['x:' + t] = teacher11RawSums['x:' + t] || {};
+                    teacher11RawSums['x:' + t][factor] = (teacher11RawSums['x:' + t][factor] || 0) + tVal;
                 }
             }
         });
@@ -3383,7 +3385,7 @@ function createTable(disc) {
                 <div class="teacher-header-box">
                     <div class="teacher-header-title">${deleteColBtn}⋮ ${t}</div>
                     <div class="apport-input-wrapper">
-                        <label>Apport :</label>
+                        <label>ORS :</label>
                         <input type="number" step="0.5" min="0" value="${currentApport}" 
                             oninput="updateApport('${disc}', '${t.replace(/'/g, "\\'")}', this.value, this)">
                     </div>
@@ -3438,7 +3440,8 @@ function createTable(disc) {
                 } else if (Math.abs(factor - 1.1) < 0.01) {
                     teacher11RawSums[t] += val * 0.1;
                 } else {
-                    teacherTotalsPond[t] += val * (factor - 1);
+                    teacher11RawSums['x:' + t] = teacher11RawSums['x:' + t] || {};
+                    teacher11RawSums['x:' + t][factor] = (teacher11RawSums['x:' + t][factor] || 0) + val;
                 }
             }
         });
@@ -3683,7 +3686,7 @@ function createTable(disc) {
     });
     tfootHtml += '</tr>';
 
-    tfootHtml += '<tr class="totals-row hsa-row"><td colspan="7">HSA (Total général - Apport)</td>';
+    tfootHtml += '<tr class="totals-row hsa-row"><td colspan="7">HSA (Total général - ORS)</td>';
     data.teachers.forEach(t => {
         const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t];
         const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
@@ -3757,7 +3760,8 @@ function renderTrmdContent() {
                     } else if (Math.abs(factor - 1.1) < 0.01) {
                         teacherPond11Sums[t] += val * 0.1;
                     } else {
-                        teacherRawTotals[t] += val * (factor - 1);
+                        teacherPond11Sums['x:' + t] = teacherPond11Sums['x:' + t] || {};
+                        teacherPond11Sums['x:' + t][factor] = (teacherPond11Sums['x:' + t][factor] || 0) + val;
                     }
                 }
             });
@@ -3853,7 +3857,8 @@ function renderTrmdContent() {
                         } else if (Math.abs(factor - 1.1) < 0.01) {
                             teacherPond11Sums[t] += val * 0.1;
                         } else {
-                            teacherRawTotals[t] += val * (factor - 1);
+                            teacherPond11Sums['x:' + t] = teacherPond11Sums['x:' + t] || {};
+                            teacherPond11Sums['x:' + t][factor] = (teacherPond11Sums['x:' + t][factor] || 0) + val;
                         }
                     }
                 });
@@ -3953,7 +3958,8 @@ function buildTrmdSheetData() {
                     } else if (Math.abs(factor - 1.1) < 0.01) {
                         teacherPond11Sums[t] += val * 0.1;
                     } else {
-                        teacherRawTotals[t] += val * (factor - 1);
+                        teacherPond11Sums['x:' + t] = teacherPond11Sums['x:' + t] || {};
+                        teacherPond11Sums['x:' + t][factor] = (teacherPond11Sums['x:' + t][factor] || 0) + val;
                     }
                 }
             });
@@ -4086,7 +4092,8 @@ function buildDisciplineSheetData(disc) {
                 } else if (Math.abs(factor - 1.1) < 0.01) {
                     teacher11RawSums[t] += val * 0.1;
                 } else {
-                    teacherTotalsPond[t] += val * (factor - 1);
+                    teacher11RawSums['x:' + t] = teacher11RawSums['x:' + t] || {};
+                    teacher11RawSums['x:' + t][factor] = (teacher11RawSums['x:' + t][factor] || 0) + val;
                 }
             }
         });
@@ -4106,7 +4113,7 @@ function buildDisciplineSheetData(disc) {
     teachers.forEach(t => grandTotalRow.push(parseFloat((teacherTotalsRaw[t] + teacherTotalsPond[t]).toFixed(2))));
     rows.push(grandTotalRow);
 
-    const apportRow = ['', '', '', '', '', 'Apport (h)'];
+    const apportRow = ['', '', '', '', '', 'ORS (h)'];
     teachers.forEach(t => apportRow.push(data.apports[t] !== undefined ? data.apports[t] : 18));
     rows.push(apportRow);
 
@@ -5141,18 +5148,31 @@ function printHistoryContent() {
     triggerPrint();
 }
 
-// Pondération : règle 1,1 (0,1h/h, plafonné à 1h) ; si l'enseignant a au moins un service en 1,25 :
-// (min(H1,1 × 0,1 ; 1) + H1,25 × 0,25) / Σ heures des services × Apport, uniquement si Σ heures > Apport
+// Pondération d'un enseignant (méthode alignée sur STSWeb) :
+//  - le coefficient 1,1 ne s'applique qu'aux 10 premières heures (soit 1 h de pondération au maximum) ;
+//  - les autres coefficients (1,25, 1,5…) donnent (coefficient − 1) × heures ;
+//  - si le nombre d'heures pondérées (P) dépasse l'ORS, la pondération est réduite au prorata ORS / P
+//    (les heures supplémentaires ne sont pas pondérées).
 function pondExtra(sums, t, data) {
-    const s11 = sums[t] || 0;
+    const ors = (data && data.apports && data.apports[t] !== undefined) ? data.apports[t] : 18;
+    const h11 = Math.min((sums[t] || 0) / 0.1, 10);
+    let weightedHours = Math.max(h11, 0);
+    let pond = Math.max(h11, 0) * 0.1;
+
     const h125 = sums['125:' + t] || 0;
-    const totalRaw = sums['raw:' + t] || 0;
-    const apport = (data && data.apports && data.apports[t] !== undefined) ? data.apports[t] : 18;
-    if (h125 > 0 && totalRaw > apport) {
-        return (Math.min(s11, 1.0) + h125 * 0.25) / totalRaw * apport;
+    weightedHours += h125;
+    pond += h125 * 0.25;
+
+    const others = sums['x:' + t] || {};
+    Object.keys(others).forEach(k => {
+        weightedHours += others[k];
+        pond += others[k] * (parseFloat(k) - 1);
+    });
+
+    if (weightedHours > ors && weightedHours > 0) {
+        pond = pond * Math.max(ors, 0) / weightedHours;
     }
-    // Sinon : pondération 1,1 plafonnée à 1 h, les pondérations 1,25 (0,25 h par heure) s'ajoutent
-    return Math.min(s11, 1.0) + h125 * 0.25;
+    return pond;
 }
 
 // Affichage des heures : décimal (1,25 h) ou sexagésimal (1h15), par discipline
@@ -5184,39 +5204,35 @@ function openPondInfoModal() {
                 <h3>Règles de calcul</h3>
                 <div class="pond-rule">
                     <div class="pond-rule-title"><span class="pond-chip">1,1</span> Pondération 1,1</div>
-                    <p>+0,1 h par heure enseignée sur le service concerné.</p>
-                    <p>Le cumul des pondérations 1,1 d'un enseignant est <strong>plafonné à 1 h</strong>.</p>
+                    <p>+0,1 h par heure enseignée, <strong>limité aux 10 premières heures</strong> : la pondération 1,1 est donc plafonnée à 1 h.</p>
                 </div>
                 <div class="pond-rule">
-                    <div class="pond-rule-title"><span class="pond-chip">1,25</span> Pondération 1,25</div>
-                    <p>Si un enseignant a au moins un service pondéré à 1,25 <strong>et</strong> que son total des heures attribuées est <strong>strictement supérieur à son Apport</strong>, ses pondérations 1,1 et 1,25 se calculent ainsi :</p>
-                    <div class="pond-formula">(min(H<sub>1,1</sub> × 0,1 ; 1) + H<sub>1,25</sub> × 0,25) ÷ Σ heures × Apport</div>
-                    <ul>
-                        <li><strong>H<sub>1,1</sub></strong> et <strong>H<sub>1,25</sub></strong> : heures sur les services pondérés 1,1 et 1,25</li>
-                        <li><strong>min(H<sub>1,1</sub> × 0,1 ; 1)</strong> : la pondération totale des services à 1,1 est <strong>plafonnée à 1 h</strong>, y compris dans la formule</li>
-                        <li><strong>Σ heures</strong> : total des heures attribuées à l'enseignant, services pondérés ou non</li>
-                        <li><strong>Apport</strong> : apport de l'enseignant (18 h par défaut)</li>
-                    </ul>
-                    <p>Si le total des heures attribuées est <strong>inférieur ou égal à l'Apport</strong>, la formule ne s'applique pas : la pondération 1,1 reste plafonnée à 1 h et les pondérations 1,25 (0,25 h par heure) s'y <strong>ajoutent</strong>.</p>
+                    <div class="pond-rule-title"><span class="pond-chip">1,25</span> Pondération 1,25 et autres coefficients</div>
+                    <p>+0,25 h par heure pour le coefficient 1,25, soit + (coefficient − 1) × heures pour tout autre coefficient (1,5, etc.), sans plafond.</p>
                 </div>
                 <div class="pond-rule">
-                    <div class="pond-rule-title"><span class="pond-chip">Autre</span> Autres coefficients (ex. 1,2)</div>
-                    <p>+ (coefficient − 1) × heures du service, sans plafond.</p>
+                    <div class="pond-rule-title"><span class="pond-chip">ORS</span> Limite du maximum de service</div>
+                    <p>On note <strong>P</strong> le nombre d'heures pondérées : heures en 1,1 (10 au maximum) + heures en 1,25 + heures aux autres coefficients.</p>
+                    <p>Si <strong>P est inférieur ou égal à l'ORS</strong>, la pondération n'est pas modifiée.</p>
+                    <p>Si <strong>P dépasse l'ORS</strong>, la pondération est réduite au prorata :</p>
+                    <div class="pond-formula">Pondération × ORS ÷ P</div>
+                    <p>Les heures non pondérées n'entrent pas dans P.</p>
                 </div>
                 <div class="pond-rule">
                     <div class="pond-rule-title"><span class="pond-chip">Total</span> Totaux</div>
                     <p><strong>Total (brut + pondération)</strong> = heures attribuées + pondérations.</p>
-                    <p><strong>HSA</strong> = Total − Apport.</p>
+                    <p><strong>HSA</strong> = Total − ORS.</p>
                 </div>
             </section>
 
             <section class="pond-info-section">
-                <h3>Exemple 1 : sans pondération 1,25</h3>
-                <p class="pond-example-intro">Apport 18 h. Services : <strong>14 h</strong> en 1,1 · <strong>5 h</strong> en 1,2 · <strong>3 h</strong> non pondérées.</p>
+                <h3>Exemple 1 : plafond du 1,1 et autre coefficient</h3>
+                <p class="pond-example-intro">ORS 18 h. Services : <strong>14 h</strong> en 1,1 · <strong>5 h</strong> en 1,2 · <strong>3 h</strong> non pondérées.</p>
                 <table class="pond-info-table">
                     <tr><td>Heures attribuées</td><td>14 + 5 + 3 = <strong>22 h</strong></td></tr>
-                    <tr><td>Pondération 1,1</td><td>14 × 0,1 = 1,4 h → plafonné à <strong>1,00 h</strong></td></tr>
+                    <tr><td>Pondération 1,1</td><td>10 premières heures : 10 × 0,1 = <strong>1,00 h</strong></td></tr>
                     <tr><td>Pondération 1,2</td><td>5 × 0,2 = <strong>1,00 h</strong></td></tr>
+                    <tr><td>Heures pondérées (P)</td><td>10 + 5 = 15 h, inférieur à l'ORS (18 h) : pas de réduction</td></tr>
                     <tr><td>Pondérations</td><td>1,00 + 1,00 = <strong>2,00 h</strong></td></tr>
                     <tr><td>Total (brut + pondération)</td><td>22 + 2,00 = <strong>24,00 h</strong></td></tr>
                     <tr><td>HSA</td><td>24,00 − 18 = <strong>+6,00 h</strong></td></tr>
@@ -5224,18 +5240,33 @@ function openPondInfoModal() {
             </section>
 
             <section class="pond-info-section">
-                <h3>Exemple 2 : avec pondérations 1,1 et 1,25</h3>
-                <p class="pond-example-intro">Apport 18 h. Services : <strong>6 h</strong> en 1,1 · <strong>4 h</strong> en 1,25 · <strong>10 h</strong> non pondérées.</p>
+                <h3>Exemple 2 : 1,1 et 1,25 avec heures pondérées dans l'ORS</h3>
+                <p class="pond-example-intro">ORS 15 h (agrégé). Services : <strong>14,5 h</strong> en 1,1 · <strong>3 h</strong> en 1,25.</p>
                 <table class="pond-info-table">
-                    <tr><td>Heures attribuées (Σ)</td><td>6 + 4 + 10 = <strong>20 h</strong>, supérieur à l'Apport (18 h) : la formule s'applique</td></tr>
-                    <tr><td>Pondérations (1,1 : 0,6 h, sous le plafond de 1 h)</td><td>(6 × 0,1 + 4 × 0,25) ÷ 20 × 18<br>= 1,6 ÷ 20 × 18 = <strong>1,44 h</strong></td></tr>
-                    <tr><td>Total (brut + pondération)</td><td>20 + 1,44 = <strong>21,44 h</strong></td></tr>
-                    <tr><td>HSA</td><td>21,44 − 18 = <strong>+3,44 h</strong></td></tr>
+                    <tr><td>Heures attribuées</td><td>14,5 + 3 = <strong>17,5 h</strong></td></tr>
+                    <tr><td>Pondération 1,1</td><td>10 premières heures : 10 × 0,1 = <strong>1,00 h</strong></td></tr>
+                    <tr><td>Pondération 1,25</td><td>3 × 0,25 = <strong>0,75 h</strong></td></tr>
+                    <tr><td>Heures pondérées (P)</td><td>10 + 3 = 13 h, inférieur à l'ORS (15 h) : pas de réduction</td></tr>
+                    <tr><td>Pondérations</td><td>1,00 + 0,75 = <strong>1,75 h</strong></td></tr>
+                    <tr><td>Total (brut + pondération)</td><td>17,5 + 1,75 = <strong>19,25 h</strong></td></tr>
+                    <tr><td>HSA</td><td>19,25 − 15 = <strong>+4,25 h</strong></td></tr>
                 </table>
             </section>
 
-            <p class="pond-info-note">Si, dans l'exemple 2, l'enseignant n'avait que 18 h attribuées (ou moins), la formule ne s'appliquerait pas : 6 × 0,1 = 0,6 h (1,1, plafonné à 1 h) + 4 × 0,25 = 1,00 h (1,25) = 1,60 h.</p>
-            <p class="pond-info-note">En affichage sexagésimal, 1,44 h s'écrit 1h26 (arrondi à la minute).</p>
+            <section class="pond-info-section">
+                <h3>Exemple 3 : heures pondérées au-delà de l'ORS (réduction au prorata)</h3>
+                <p class="pond-example-intro">ORS 15 h (agrégé). Services : <strong>10 h</strong> en 1,25 · <strong>6 h</strong> en 1,1.</p>
+                <table class="pond-info-table">
+                    <tr><td>Heures attribuées</td><td>10 + 6 = <strong>16 h</strong></td></tr>
+                    <tr><td>Pondération brute</td><td>10 × 0,25 + 6 × 0,1 = 2,5 + 0,6 = <strong>3,10 h</strong></td></tr>
+                    <tr><td>Heures pondérées (P)</td><td>10 + 6 = 16 h, supérieur à l'ORS (15 h)</td></tr>
+                    <tr><td>Pondérations</td><td>3,10 × 15 ÷ 16 = 2,90625 h, soit <strong>2,91 h</strong></td></tr>
+                    <tr><td>Total (brut + pondération)</td><td>16 + 2,91 = <strong>18,91 h</strong></td></tr>
+                    <tr><td>HSA</td><td>18,91 − 15 = <strong>+3,91 h</strong></td></tr>
+                </table>
+            </section>
+
+            <p class="pond-info-note">En affichage sexagésimal, 1,75 h s'écrit 1h45 (arrondi à la minute).</p>
         </div>`;
     document.getElementById('pondInfoModal').classList.add('active');
 }
@@ -5543,7 +5574,7 @@ function computeTeacherSummary(disc, t) {
             pond = v * (f - 1);
             if (Math.abs(f - 1.25) < 0.01) sums['125:' + t] = (sums['125:' + t] || 0) + v;
             else if (Math.abs(f - 1.1) < 0.01) sums[t] += v * 0.1;
-            else otherPond += v * (f - 1);
+            else { sums['x:' + t] = sums['x:' + t] || {}; sums['x:' + t][f] = (sums['x:' + t][f] || 0) + v; }
         }
         const levelLabel = sv.isOptionnel
             ? (Array.isArray(sv.levels) ? sv.levels.join(', ') : (sv.level || ''))
@@ -5551,7 +5582,7 @@ function computeTeacherSummary(disc, t) {
         rows.push({ level: levelLabel, name: sv.name || '', hours: v, active: !!sv.ponderationActive, factor: f, pond });
     });
     sums['raw:' + t] = raw;
-    const pond = otherPond + pondExtra(sums, t, data);
+    const pond = pondExtra(sums, t, data);
     const apport = data.apports && data.apports[t] !== undefined ? data.apports[t] : 18;
     const total = raw + pond;
     return { rows, raw, pond, total, apport, hsa: total - apport, data };
@@ -5578,7 +5609,7 @@ function generateTeacherServicesPdf() {
 
             const infos = [];
             if (opt.discipline) infos.push(`<div><span>Discipline</span><strong>${esc(disc)}</strong></div>`);
-            if (opt.apport) infos.push(`<div><span>Apport</span><strong>${fh(sum.apport)}</strong></div>`);
+            if (opt.apport) infos.push(`<div><span>ORS</span><strong>${fh(sum.apport)}</strong></div>`);
 
             const showService = opt.niveau || opt.heures || opt.pondService;
             let table = '';
@@ -5594,7 +5625,7 @@ function generateTeacherServicesPdf() {
             if (opt.totalHeures) totals.push(['Total des heures enseignées', fh(sum.raw)]);
             if (opt.pondTotal) totals.push(['Pondérations', fh(sum.pond)]);
             if (opt.total) totals.push(['Total (heures + pondérations)', fh(sum.total)]);
-            if (opt.hsa) totals.push(['HSA (Total − Apport)', fh(sum.hsa, true)]);
+            if (opt.hsa) totals.push(['HSA (Total − ORS)', fh(sum.hsa, true)]);
             const totalsHtml = totals.length
                 ? `<table class="tpdf-totals">${totals.map(([l, v]) => `<tr><td>${l}</td><td class="num"><strong>${v}</strong></td></tr>`).join('')}</table>`
                 : '';
