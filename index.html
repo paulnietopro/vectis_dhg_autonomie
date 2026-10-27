@@ -31,6 +31,7 @@
                     <div class="menu-group">
                         <button class="menu-item menu-sub-item" type="button" onclick="openTableExportModal()">🗂️ Exporter par discipline</button>
                         <button class="menu-item menu-sub-item" type="button" onclick="openTeacherExportModal()">📄 Exporter les services des enseignants</button>
+                        <button class="menu-item menu-sub-item" type="button" onclick="generatePresentationPdf()">🖥️ Exporter pour la présentation</button>
                     </div>
                 </div>
             </div>
@@ -508,6 +509,10 @@
                     <strong>📄 Exporter les services des enseignants</strong>
                     <span>PDF : une page par enseignant avec ses services, ses heures et ses totaux.</span>
                 </button>
+                <button class="export-choice-btn" onclick="closeExportChoiceModal(); generatePresentationPdf()">
+                    <strong>🖥️ Exporter pour la présentation</strong>
+                    <span>PDF paysage pour une instance : dotation, TRMD et détail par discipline et par niveau.</span>
+                </button>
             </div>
         </div>
     </div>
@@ -552,6 +557,7 @@
 
     <!-- Contenu imprimé : services par enseignant -->
     <div id="teacherPdfPrint"></div>
+    <div id="presentationPrint"></div>
 
     <!-- Script externe -->
     <script src="script.js"></script>

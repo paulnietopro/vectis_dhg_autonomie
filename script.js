@@ -2916,6 +2916,10 @@ function createActionBar(disc) {
     discTitle.className = 'discipline-table-title';
     discTitle.textContent = disc;
     titleRow.appendChild(discTitle);
+    const summaryBox = document.createElement('div');
+    summaryBox.className = 'disc-summary';
+    summaryBox.dataset.disc = disc;
+    summaryBox.innerHTML = buildDisciplineSummaryHtml(disc);
 
     bar.appendChild(titleRow);
 
@@ -3001,6 +3005,7 @@ function createActionBar(disc) {
         mainRow.appendChild(deleteDiscBtn);
     }
 
+    mainRow.appendChild(summaryBox);
     bar.appendChild(mainRow);
 
     const togglesRow = document.createElement('div');
@@ -3318,6 +3323,8 @@ function refreshDisciplineTotals(table, data, disc) {
     });
 
     refreshCellPonds(table, data, disc);
+    const scope = table.closest('.tab-content') || document;
+    scope.querySelectorAll('.disc-summary').forEach(el => { el.innerHTML = buildDisciplineSummaryHtml(el.dataset.disc); });
 }
 
 function getCrossListedOptions(disc) {
@@ -5703,3 +5710,235 @@ function updateTeacherNameReminders() {
 }
 window.addEventListener('scroll', updateTeacherNameReminders, { passive: true });
 window.addEventListener('resize', updateTeacherNameReminders);
+
+// Récapitulatif de la discipline (mêmes valeurs que dans le TRMD)
+function getDisciplineTotals(disc) {
+    const data = dataStore[disc];
+    const totals = { raw: 0, hsa: 0, grand: 0 };
+    if (!data) return totals;
+    data.teachers.forEach(t => {
+        const sm = computeTeacherSummary(disc, t);
+        totals.raw += sm.raw;
+        totals.hsa += sm.hsa;
+        totals.grand += sm.total;
+    });
+    return totals;
+}
+
+function buildDisciplineSummaryHtml(disc) {
+    const data = dataStore[disc];
+    const t = getDisciplineTotals(disc);
+    const hsaClass = t.hsa >= 0 ? 'success' : 'danger';
+    return `
+        <div class="disc-summary-item"><span>Volume ventilé</span><strong>${fmtHours(t.raw, data, false, 1)}</strong></div>
+        <div class="disc-summary-item"><span>HSA</span><strong><span class="badge ${hsaClass}">${fmtHours(t.hsa, data, true, 2)}</span></strong></div>
+        <div class="disc-summary-item" title="Total pondérations comprises"><span>Total</span><strong>${fmtHours(t.grand, data, false, 2)}</strong></div>`;
+}
+
+// ============================================================
+// Export pour la présentation (PDF paysage avec numérotation n/X)
+// ============================================================
+function generatePresentationPdf() {
+    const esc = escapeStructureHtml;
+    const disciplines = Object.keys(dataStore);
+    if (disciplines.length === 0) { alert('Aucune discipline à exporter.'); return; }
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR');
+    const epleName = epleIdentity && epleIdentity.name ? epleIdentity.name : '';
+    const epleSub = [epleIdentity && epleIdentity.commune, epleIdentity && epleIdentity.uai ? `UAI ${epleIdentity.uai}` : '']
+        .filter(Boolean).join(' · ');
+    const fmt1 = v => (v || 0).toFixed(1);
+
+    // Hauteur utile d'une page (px) : 188 mm moins le pied de page et une marge de sécurité
+    const PAGE_INNER_PX = Math.floor(188 * 96 / 25.4) - 52;
+
+    const measureBox = document.createElement('div');
+    measureBox.className = 'pres-measure';
+    document.body.appendChild(measureBox);
+
+    // Découpe un tableau en pages : renvoie une liste de listes de lignes HTML
+    function paginateTable(headHtml, rows, titleReserve) {
+        measureBox.innerHTML = `<table class="pres-table"><thead>${headHtml}</thead><tbody>${rows.map(r => r.html).join('')}</tbody></table>`;
+        const theadH = measureBox.querySelector('thead').offsetHeight;
+        const trs = measureBox.querySelectorAll('tbody tr');
+        const avail = PAGE_INNER_PX - titleReserve - theadH;
+        const pages = [[]];
+        let used = 0;
+        rows.forEach((r, i) => {
+            const rh = trs[i].offsetHeight;
+            const cur = pages[pages.length - 1];
+            if (cur.length > 0 && used + rh > avail) {
+                // un titre de niveau ne reste pas seul en bas de page
+                const last = cur[cur.length - 1];
+                const carry = last && last.level ? [cur.pop()] : [];
+                pages.push(carry);
+                used = carry.reduce((s, x) => s + x.h, 0);
+            }
+            pages[pages.length - 1].push({ html: r.html, level: r.level, h: rh });
+            used += rh;
+        });
+        return pages;
+    }
+    const TITLE_RESERVE = 70;
+
+    const pages = []; // chaque page : fonction (n, total) => html
+    const sectionStart = {}; // numéro de la première page de chaque rubrique du sommaire
+
+    // 1. Couverture
+    pages.push(() => `
+        <div class="pres-cover" style="height: 100%;">
+            <div class="pres-eple">${esc(epleName || 'Établissement')}</div>
+            ${epleSub ? `<div class="pres-eple-sub">${esc(epleSub)}</div>` : ''}
+            <div class="pres-main-title">Ventilation de la DHG - Version du ${dateStr}</div>
+        </div>`);
+
+    // 2. Sommaire (le contenu est évalué à la fin, quand les numéros de page sont connus)
+    pages.push(() => `
+        <h1 class="pres-title">Sommaire</h1>
+        <div class="pres-toc">
+            ${[['dotation', '1 - Rappel de la dotation'], ['trmd', '2 - TRMD'], ['disciplines', '3 - Ventilation par discipline'], ['autonomie', '4 - Autonomie par niveau']]
+                .map(([k, label]) => `<div class="pres-toc-row"><span class="pres-toc-label">${label}</span><span class="pres-toc-dots"></span><span class="pres-toc-page">${sectionStart[k] !== undefined ? sectionStart[k] : ''}</span></div>`).join('')}
+        </div>`);
+
+    // 3. Rappel de la dotation
+    sectionStart.dotation = pages.length + 1;
+    const hp = dotationGlobal.hp || 0, hsa = dotationGlobal.hsa || 0;
+    pages.push(() => `
+        <h1 class="pres-title">Rappel de la dotation</h1>
+        <div class="pres-dotation">
+            <div class="pres-dotation-item"><span>HP</span><strong>${fmt1(hp)} h</strong></div>
+            <div class="pres-dotation-item"><span>HSA</span><strong>${fmt1(hsa)} h</strong></div>
+            <div class="pres-dotation-item"><span>DHG totale</span><strong>${fmt1(hp + hsa)} h</strong></div>
+        </div>`);
+
+    // 4. TRMD
+    sectionStart.trmd = pages.length + 1;
+    let gTeachers = 0, gRaw = 0, gHsa = 0, gTotal = 0;
+    const trmdRows = disciplines.map(disc => {
+        const d = dataStore[disc];
+        const t = getDisciplineTotals(disc);
+        gTeachers += d.teachers.length; gRaw += t.raw; gHsa += t.hsa; gTotal += t.grand;
+        return { html: `<tr><td><strong>${esc(disc)}</strong></td><td class="num">${d.teachers.length}</td><td class="num">${fmt1(t.raw)} h</td><td class="num">${t.hsa > 0 ? '+' : ''}${t.hsa.toFixed(2)} h</td><td class="num"><strong>${t.grand.toFixed(2)} h</strong></td></tr>` };
+    });
+    trmdRows.push({ html: `<tr class="pres-total"><td>TOTAL EPLE</td><td class="num">${gTeachers}</td><td class="num">${fmt1(gRaw)} h</td><td class="num">${gHsa > 0 ? '+' : ''}${gHsa.toFixed(2)} h</td><td class="num">${gTotal.toFixed(2)} h</td></tr>` });
+    const trmdHead = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (pondérations comprises)</th></tr>';
+    const trmdPages = paginateTable(trmdHead, trmdRows, TITLE_RESERVE);
+    trmdPages.forEach((rows, i) => {
+        pages.push(() => `
+            <h1 class="pres-title">TRMD${trmdPages.length > 1 ? ` <small>(${i + 1}/${trmdPages.length})</small>` : ''}</h1>
+            <table class="pres-table"><thead>${trmdHead}</thead><tbody>${rows.map(r => r.html).join('')}</tbody></table>`);
+    });
+
+    // 5. Disciplines, niveaux regroupés
+    sectionStart.disciplines = pages.length + 1;
+    const discHead = '<tr><th>Intitulé du service</th><th class="num">Horaire plancher</th><th class="num">Nb classes / groupes</th><th class="num">Vol. classe</th><th class="num">À ventiler</th></tr>';
+    disciplines.forEach(disc => {
+        const d = dataStore[disc];
+        const groups = {};
+        d.services.forEach(sv => {
+            const lv = getServiceLevels(sv);
+            const key = lv.join(', ');
+            if (!groups[key]) groups[key] = { levels: lv, services: [] };
+            groups[key].services.push(sv);
+        });
+        const order = lv => { const i = levels.indexOf(lv[0]); return i === -1 ? 999 : i; };
+        const rows = [];
+        Object.values(groups).sort((a, b) => order(a.levels) - order(b.levels)).forEach(g => {
+            rows.push({ level: true, html: `<tr class="pres-level"><td colspan="5">${esc(g.levels.join(', '))}</td></tr>` });
+            g.services.forEach(sv => {
+                const base = baseHoursStore[getBaseHourKey(g.levels[0], sv.name || '')];
+                const baseVal = base !== undefined && base !== '' ? fmtHours(parseFloat(base) || 0, d, false, 1) : '—';
+                const target = (sv.classes || 0) * (sv.hours || 0);
+                rows.push({ html: `<tr><td>${esc(sv.name || '')}</td><td class="num">${baseVal}</td><td class="num">${sv.classes || 0}</td><td class="num">${fmtHours(sv.hours || 0, d, false, 1)}</td><td class="num"><strong>${fmtHours(target, d, false, 1)}</strong></td></tr>` });
+            });
+        });
+        if (rows.length === 0) {
+            pages.push(() => `<h1 class="pres-title">${esc(disc)}</h1><p>Aucun service dans cette discipline.</p>`);
+            return;
+        }
+        const dPages = paginateTable(discHead, rows, TITLE_RESERVE);
+        dPages.forEach((pg, i) => {
+            pages.push(() => `
+                <h1 class="pres-title">${esc(disc)}${dPages.length > 1 ? ` <small>(suite ${i + 1}/${dPages.length})</small>` : ''}</h1>
+                <table class="pres-table"><thead>${discHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>`);
+        });
+    });
+
+    // 6. Autonomie par niveau : synthèse puis une page par niveau
+    sectionStart.autonomie = pages.length + 1;
+    const levelData = levels.map(lvl => {
+        const byTitle = {};
+        Object.keys(dataStore).forEach(dn => {
+            dataStore[dn].services.forEach(sv => {
+                if (serviceMatchesLevel(sv, lvl) && sv.name && sv.name.trim() !== '') {
+                    const name = sv.name.trim();
+                    if (!byTitle[name]) byTitle[name] = { classes: 0, hours: 0, isCoEns: false };
+                    byTitle[name].classes += (sv.classes || 0);
+                    byTitle[name].hours = (sv.hours || 0);
+                    if (sv.isCoEnseignement) byTitle[name].isCoEns = true;
+                }
+            });
+        });
+        const rows = [];
+        let total = 0;
+        Object.keys(byTitle).sort().forEach(name => {
+            const sd = byTitle[name];
+            const base = parseFloat(baseHoursStore[getBaseHourKey(lvl, name)]) || 0;
+            const cell = computeAutonomieCell(sd.classes, sd.hours, base);
+            total += cell.clamped;
+            if (cell.clamped > 0) rows.push({ name, base, hours: sd.hours, classes: sd.isCoEns ? `${sd.classes / 2} (Co-E)` : `${sd.classes}`, autonomie: cell.clamped });
+        });
+        return { lvl, hasServices: Object.keys(byTitle).length > 0, rows, total };
+    }).filter(l => l.hasServices);
+
+    // 6a. Utilisation de la marge d'autonomie par niveau
+    const margeHead = '<tr><th>Niveau</th><th class="num">Nombre de services avec autonomie</th><th class="num">Autonomie utilisée</th></tr>';
+    const margeRows = levelData.map(l => ({ html: `<tr><td><strong>${esc(l.lvl)}</strong></td><td class="num">${l.rows.length}</td><td class="num"><strong>${l.total > 0 ? '+' : ''}${l.total.toFixed(1)} h</strong></td></tr>` }));
+    const margeTotal = levelData.reduce((a, l) => a + l.total, 0);
+    margeRows.push({ html: `<tr class="pres-total"><td>TOTAL EPLE</td><td class="num">${levelData.reduce((a, l) => a + l.rows.length, 0)}</td><td class="num">${margeTotal > 0 ? '+' : ''}${margeTotal.toFixed(1)} h</td></tr>` });
+    if (levelData.length === 0) {
+        pages.push(() => `<h1 class="pres-title">Utilisation de la marge d'autonomie par niveau</h1><p>Aucun service défini.</p>`);
+    } else {
+        const mPages = paginateTable(margeHead, margeRows, TITLE_RESERVE);
+        mPages.forEach((pg, i) => {
+            pages.push(() => `
+                <h1 class="pres-title">Utilisation de la marge d'autonomie par niveau${mPages.length > 1 ? ` <small>(suite ${i + 1}/${mPages.length})</small>` : ''}</h1>
+                <table class="pres-table"><thead>${margeHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>`);
+        });
+    }
+
+    // 6b. Une page par niveau
+    const lvlHead = '<tr><th>Intitulé du service</th><th class="num">Horaire plancher</th><th class="num">Volume classe</th><th class="num">Nombre de classes</th><th class="num">Autonomie</th></tr>';
+    levelData.forEach(l => {
+        const rows = l.rows.map(r => ({ html: `<tr><td>${esc(r.name)}</td><td class="num">${r.base.toFixed(1)} h</td><td class="num">${r.hours.toFixed(1)} h</td><td class="num">${esc(r.classes)}</td><td class="num"><strong>+${r.autonomie.toFixed(1)} h</strong></td></tr>` }));
+        if (rows.length === 0) rows.push({ html: '<tr><td colspan="5" class="num" style="font-style: italic;">Aucun service avec une autonomie supérieure à 0</td></tr>' });
+        rows.push({ html: `<tr class="pres-total"><td colspan="4" style="text-align: right;">Total Autonomie pour ${esc(l.lvl)}</td><td class="num">${l.total > 0 ? '+' : ''}${l.total.toFixed(1)} h</td></tr>` });
+        const lPages = paginateTable(lvlHead, rows, TITLE_RESERVE);
+        lPages.forEach((pg, i) => {
+            pages.push(() => `
+                <h1 class="pres-title">Autonomie - ${esc(l.lvl)}${lPages.length > 1 ? ` <small>(suite ${i + 1}/${lPages.length})</small>` : ''}</h1>
+                <table class="pres-table"><thead>${lvlHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>`);
+        });
+    });
+
+    document.body.removeChild(measureBox);
+
+    const total = pages.length;
+    const footerLabel = `${esc(epleName)}${epleName ? ' · ' : ''}Ventilation de la DHG - ${dateStr}`;
+    const container = document.getElementById('presentationPrint');
+    container.innerHTML = pages.map((fn, i) => `
+        <section class="pres-page">
+            ${fn()}
+            <div class="pres-footer"><span>${footerLabel}</span><span>${i + 1}/${total}</span></div>
+        </section>`).join('');
+
+    document.body.classList.add('printing-presentation');
+    const cleanup = () => {
+        document.body.classList.remove('printing-presentation');
+        container.innerHTML = '';
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    triggerPrint();
+}

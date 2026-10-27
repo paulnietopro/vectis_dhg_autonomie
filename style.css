@@ -828,6 +828,13 @@ table.header-out .teacher-name-row { display: table-row; }
 }
 .export-link-btn:hover { color: var(--primary-hover); }
 
+.disc-summary { display: flex; align-items: center; gap: 3px; margin-left: auto; flex-wrap: nowrap; }
+.disc-summary-item { display: inline-flex; flex-direction: row; align-items: center; gap: 4px; padding: 2px 5px; background: var(--bg-secondary, #f8fafc); border: 1px solid var(--border, #e5e7eb); border-radius: 6px; font-size: 0.72rem; white-space: nowrap; }
+.disc-summary-item > span { font-size: 0.66rem; color: var(--text-muted); }
+.disc-summary-item strong { font-size: 0.75rem; }
+.tab-content .actions-row .btn-secondary, .tab-content .actions-row .btn-danger-mode { padding: 5px 6px; font-size: 0.76rem; }
+.tab-content .actions-row { gap: 6px !important; }
+.disc-summary-item .badge { padding: 1px 7px; font-size: 0.75rem; }
 .discipline-title-row { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 12px; flex-wrap: wrap; }
 .pond-info-btn { margin-left: 6px; width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 1px solid var(--primary); background: transparent; color: var(--primary); font-size: 0.7rem; font-weight: 700; font-style: italic; line-height: 1; cursor: pointer; vertical-align: middle; }
 .pond-info-btn:hover { background: var(--primary); color: #fff; }
@@ -881,6 +888,33 @@ table.header-out .teacher-name-row { display: table-row; }
 .export-choice-btn span { font-size: 0.82rem; color: var(--text-muted); }
 .export-choice-btn:hover { border-color: var(--primary); background: #f5f8ff; }
 #teacherPdfPrint { display: none; }
+#presentationPrint { display: none; }
+.pres-measure { position: absolute; left: -10000px; top: 0; width: 277mm; visibility: hidden; }
+.pres-page { position: relative; width: 277mm; height: 188mm; box-sizing: border-box; overflow: hidden; background: #fff; color: #111; font-family: inherit; page-break-after: always; break-after: page; }
+.pres-page:last-child { page-break-after: auto; break-after: auto; }
+.pres-title { font-size: 20pt; font-weight: 700; color: #1d4ed8; margin: 0 0 6mm; padding-bottom: 3mm; border-bottom: 2px solid #1d4ed8; }
+.pres-title small { font-size: 12pt; font-weight: 500; color: #555; margin-left: 8px; }
+.pres-footer { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; font-size: 9pt; color: #666; border-top: 1px solid #ccc; padding-top: 2mm; }
+.pres-cover { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 10mm; }
+.pres-cover .pres-eple { font-size: 30pt; font-weight: 700; color: #1d4ed8; }
+.pres-cover .pres-eple-sub { font-size: 13pt; color: #555; margin-top: -6mm; }
+.pres-cover .pres-main-title { font-size: 24pt; font-weight: 600; color: #111; padding-top: 8mm; border-top: 3px solid #1d4ed8; }
+.pres-toc { width: 70%; margin: 18mm auto 0; font-size: 16pt; }
+.pres-toc-row { display: flex; align-items: center; padding: 4mm 0; }
+.pres-toc-label { white-space: nowrap; }
+.pres-toc-dots { flex: 1; height: 0; border-bottom: 2px dotted #888; margin: 0 3mm; }
+.pres-toc-page { font-weight: 700; color: #1d4ed8; white-space: nowrap; }
+.pres-dotation { display: flex; gap: 14mm; justify-content: center; margin-top: 25mm; }
+.pres-dotation-item { min-width: 62mm; text-align: center; padding: 10mm 6mm; border: 2px solid #1d4ed8; border-radius: 4mm; }
+.pres-dotation-item span { display: block; font-size: 13pt; color: #555; margin-bottom: 4mm; }
+.pres-dotation-item strong { font-size: 28pt; color: #111; }
+.pres-table { width: 100%; border-collapse: collapse; font-size: 10.5pt; }
+.pres-table th, .pres-table td { border: 1px solid #999; padding: 1.6mm 3mm; text-align: left; }
+.pres-table th { background: #e8eefc; }
+.pres-table .num { text-align: center; white-space: nowrap; }
+.pres-table tr.pres-level td { background: #f1f5f9; font-weight: 700; color: #1d4ed8; }
+.pres-table tr.pres-total td { background: #e8eefc; font-weight: 700; }
+
 
  .menu-bar { display: flex; flex-wrap: wrap; gap: 2px; background: var(--surface); padding: 4px 8px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: -12px 0 20px; position: relative; z-index: 50; }
 .menu { position: relative; }
@@ -913,7 +947,9 @@ table.header-out .teacher-name-row { display: table-row; }
        réserve aucun espace), pour que la modale à imprimer redevienne le
        seul contenu, en position normale (static) : c'est le navigateur qui
        se charge alors, nativement, de la caler après la marge @page. */
-    body > *:not(#trmdModal):not(#coEnseignementModal):not(#historyModal):not(#teacherPdfPrint) { display: none !important; }
+    body > *:not(#trmdModal):not(#coEnseignementModal):not(#historyModal):not(#teacherPdfPrint):not(#presentationPrint) { display: none !important; }
+    #presentationPrint { display: none !important; }
+    body.printing-presentation #presentationPrint { display: block !important; }
     #teacherPdfPrint { display: none !important; }
     body.printing-teachers #teacherPdfPrint { display: block !important; }
     .tpdf-page { page-break-after: always; break-after: page; font-family: inherit; color: #111; padding: 4mm 2mm; }
