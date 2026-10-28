@@ -23,15 +23,16 @@
             <div class="menu">
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Fichier</button>
                 <div class="menu-panel">
-                    <label class="menu-item"><span>📂 Ouvrir (charger une sauvegarde)</span><input type="file" id="jsonFileInput" accept=".json"></label>
-                    <button class="menu-item" type="button" onclick="saveState()">💾 Enregistrer (sauvegarder)</button>
+                    <button class="menu-item" type="button" onclick="newEmptyProject()">📄 Nouveau</button>
+                    <label class="menu-item"><span>📂 Ouvrir</span><input type="file" id="jsonFileInput" accept=".json"></label>
+                    <button class="menu-item" type="button" onclick="saveState()">💾 Enregistrer</button>
                     <label class="menu-item" title="Format : Nom Prénom Discipline ORS"><span>📊 Importer</span> <span class="menu-hint">Nom Prénom Discipline ORS</span><input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv"></label>
                     <div class="menu-sep"></div>
                     <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📤 Exporter <span class="menu-caret">▸</span></button>
                     <div class="menu-group">
                         <button class="menu-item menu-sub-item" type="button" onclick="openTableExportModal()">🗂️ Exporter par discipline</button>
                         <button class="menu-item menu-sub-item" type="button" onclick="openTeacherExportModal()">📄 Exporter les services des enseignants</button>
-                        <button class="menu-item menu-sub-item" type="button" onclick="generatePresentationPdf()">🖥️ Exporter pour la présentation</button>
+                        <button class="menu-item menu-sub-item" type="button" onclick="openPresentationExportModal()">🖥️ Exporter pour la présentation</button>
                     </div>
                 </div>
             </div>
@@ -509,7 +510,7 @@
                     <strong>📄 Exporter les services des enseignants</strong>
                     <span>PDF : une page par enseignant avec ses services, ses heures et ses totaux.</span>
                 </button>
-                <button class="export-choice-btn" onclick="closeExportChoiceModal(); generatePresentationPdf()">
+                <button class="export-choice-btn" onclick="closeExportChoiceModal(); openPresentationExportModal()">
                     <strong>🖥️ Exporter pour la présentation</strong>
                     <span>PDF paysage pour une instance : dotation, TRMD et détail par discipline et par niveau.</span>
                 </button>
@@ -551,6 +552,51 @@
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
                 <button class="btn-secondary" onclick="closeTeacherExportModal()">Annuler</button>
                 <button class="btn-header-export" onclick="generateTeacherServicesPdf()">📄 Générer le PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale export pour la présentation -->
+    <div id="presentationExportModal" class="modal-overlay">
+        <div class="modal-card modal-sm">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🖥️ Export pour la présentation</h2>
+                <button class="modal-close" onclick="closePresentationExportModal()">&times;</button>
+            </div>
+            <p class="settings-tab-hint" style="margin-top: 0;">La couverture et le sommaire sont toujours inclus. Le sommaire est renuméroté selon les rubriques choisies.</p>
+            <div class="export-form-section">
+                <div class="export-form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                    <span>Rubriques à inclure</span>
+                    <span style="display: flex; gap: 8px;">
+                        <button type="button" class="export-link-btn" onclick="setAllPresChecks('pres-sec', true)">Tout sélectionner</button>
+                        <button type="button" class="export-link-btn" onclick="setAllPresChecks('pres-sec', false)">Tout désélectionner</button>
+                    </span>
+                </div>
+                <div id="presSectionsList" class="export-checkbox-list" style="max-height: none;"></div>
+            </div>
+            <div class="export-form-section">
+                <div class="export-form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                    <span>Disciplines (rubriques 3 et 5)</span>
+                    <span style="display: flex; gap: 8px;">
+                        <button type="button" class="export-link-btn" onclick="setAllPresChecks('pres-disc', true)">Tout sélectionner</button>
+                        <button type="button" class="export-link-btn" onclick="setAllPresChecks('pres-disc', false)">Tout désélectionner</button>
+                    </span>
+                </div>
+                <div id="presDisciplinesList" class="export-checkbox-list"></div>
+            </div>
+            <div class="export-form-section">
+                <div class="export-form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                    <span>Niveaux (rubrique 4)</span>
+                    <span style="display: flex; gap: 8px;">
+                        <button type="button" class="export-link-btn" onclick="setAllPresChecks('pres-lvl', true)">Tout sélectionner</button>
+                        <button type="button" class="export-link-btn" onclick="setAllPresChecks('pres-lvl', false)">Tout désélectionner</button>
+                    </span>
+                </div>
+                <div id="presLevelsList" class="export-checkbox-list"></div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+                <button class="btn-secondary" onclick="closePresentationExportModal()">Annuler</button>
+                <button class="btn-header-export" onclick="startPresentationExport()">🖥️ Générer le PDF</button>
             </div>
         </div>
     </div>

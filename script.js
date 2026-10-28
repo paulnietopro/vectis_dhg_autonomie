@@ -983,7 +983,11 @@ async function exportCoEnseignementToExcel() {
     XLSX.utils.book_append_sheet(wb, ws, 'Co-enseignement');
 
     const epleLabel = epleIdentity && epleIdentity.name ? `_${sanitizeFileName(epleIdentity.name)}` : '';
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}_${pad(now.getMonth() + 1)}_${pad(now.getDate())}`;
+    const epleName = ((epleIdentity && epleIdentity.name) || '').trim()
+        .replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').replace(/^_+|_+$/g, '') || 'EPLE';
     XLSX.writeFile(wb, `Co-enseignement${epleLabel}_${dateStr}.xlsx`);
 }
 
@@ -2656,10 +2660,14 @@ function saveState() {
     const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
     const blobUrl = URL.createObjectURL(blob);
     const downloadAnchor = document.createElement('a');
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}_${pad(now.getMonth() + 1)}_${pad(now.getDate())}`;
+    const epleName = ((epleIdentity && epleIdentity.name) || '').trim()
+        .replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').replace(/^_+|_+$/g, '') || 'EPLE';
 
     downloadAnchor.setAttribute("href", blobUrl);
-    downloadAnchor.setAttribute("download", `VectisDHG_sauvegarde_${dateStr}.json`);
+    downloadAnchor.setAttribute("download", `${dateStr}_DHG_${epleName}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -3730,6 +3738,7 @@ function renderTrmdContent() {
     const container = document.getElementById('trmdContent');
     const disciplines = Object.keys(dataStore);
 
+    let grandHP = 0;
     let grandRaw = 0;
     let grandHsa = 0;
     let grandEpleTotalGeneral = 0;
@@ -3739,6 +3748,7 @@ function renderTrmdContent() {
         const data = dataStore[disc];
         if (!data.apports) data.apports = {};
         grandTeachersCount += data.teachers.length;
+        grandHP += getDisciplineHP(disc);
 
         const teacherPond11Sums = {};
         const teacherRawTotals = {};
@@ -3822,6 +3832,7 @@ function renderTrmdContent() {
                     <tr>
                         <th>Discipline</th>
                         <th style="text-align: center;">Nb Ens.</th>
+                        <th style="text-align: center;">HP (ORS)</th>
                         <th style="text-align: center;">Volume ventilé</th>
                         <th style="text-align: center;">HSA</th>
                         <th style="text-align: center;">Total (pondérations comprises)</th>
@@ -3884,6 +3895,7 @@ function renderTrmdContent() {
                 <tr>
                     <td><strong>${disc}</strong></td>
                     <td style="text-align: center;">${data.teachers.length}</td>
+                    <td style="text-align: center;">${getDisciplineHP(disc).toFixed(1)} h</td>
                     <td style="text-align: center;">${allocatedRaw.toFixed(1)} h</td>
                     <td style="text-align: center;">
                         <span class="badge ${hsaBadgeClass}">${discHsaTotal > 0 ? '+' : ''}${discHsaTotal.toFixed(2)} h</span>
@@ -3901,6 +3913,7 @@ function renderTrmdContent() {
                 <tr class="totals-row grand-total">
                     <td>TOTAL EPLE</td>
                     <td style="text-align: center;">${grandTeachersCount}</td>
+                    <td style="text-align: center;">${grandHP.toFixed(1)} h</td>
                     <td style="text-align: center;">${grandRaw.toFixed(1)} h</td>
                     <td style="text-align: center;">
                         <span class="badge ${grandHsaBadgeClass}">${grandHsa > 0 ? '+' : ''}${grandHsa.toFixed(2)} h</span>
@@ -3923,6 +3936,7 @@ function updateDotation(key, value) {
 function buildTrmdSheetData() {
     const disciplines = Object.keys(dataStore);
 
+    let grandHP = 0;
     let grandRaw = 0;
     let grandHsa = 0;
     let grandEpleTotalGeneral = 0;
@@ -3983,10 +3997,12 @@ function buildTrmdSheetData() {
         grandHsa += discHsaTotal;
         grandEpleTotalGeneral += discGrandTotal;
         grandTeachersCount += data.teachers.length;
+        grandHP += getDisciplineHP(disc);
 
         tableRows.push([
             disc,
             data.teachers.length,
+            parseFloat(getDisciplineHP(disc).toFixed(1)),
             parseFloat(allocatedRaw.toFixed(1)),
             parseFloat(discHsaTotal.toFixed(2)),
             parseFloat(discGrandTotal.toFixed(2))
@@ -3996,6 +4012,7 @@ function buildTrmdSheetData() {
     tableRows.push([
         'TOTAL EPLE',
         grandTeachersCount,
+        parseFloat(grandHP.toFixed(1)),
         parseFloat(grandRaw.toFixed(1)),
         parseFloat(grandHsa.toFixed(2)),
         parseFloat(grandEpleTotalGeneral.toFixed(2))
@@ -4017,7 +4034,7 @@ function buildTrmdSheetData() {
         ['DGH totale (h)', parseFloat(totalDgh.toFixed(1))],
         ['Norvégien (h)', parseFloat(norvegien.toFixed(2))],
         [],
-        ['Discipline', 'Nb Ens.', 'Volume ventilé (h)', 'HSA (h)', 'Total (pondérations comprises) (h)'],
+        ['Discipline', 'Nb Ens.', 'HP (ORS) (h)', 'Volume ventilé (h)', 'HSA (h)', 'Total (pondérations comprises) (h)'],
         ...tableRows
     ];
 }
@@ -4025,11 +4042,11 @@ function buildTrmdSheetData() {
 function buildTrmdSheet() {
     const ws = XLSX.utils.aoa_to_sheet(buildTrmdSheetData());
     ws['!cols'] = [
-        { wch: 28 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 26 }
+        { wch: 28 }, { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 12 }, { wch: 26 }
     ];
     ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } }
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } }
     ];
     return ws;
 }
@@ -5738,9 +5755,50 @@ function buildDisciplineSummaryHtml(disc) {
 // ============================================================
 // Export pour la présentation (PDF paysage avec numérotation n/X)
 // ============================================================
-function generatePresentationPdf() {
+const PRESENTATION_SECTIONS = [
+    ['dotation', 'Rappel de la dotation'],
+    ['trmd', 'TRMD'],
+    ['disciplines', 'Ventilation par discipline'],
+    ['niveaux', 'Autonomie par niveau'],
+    ['autDisc', 'Autonomie par discipline']
+];
+
+function openPresentationExportModal() {
+    const escAttr = v => v.replace(/"/g, '&quot;');
+    document.getElementById('presSectionsList').innerHTML = PRESENTATION_SECTIONS.map(([k, label]) =>
+        `<label class="export-checkbox-item"><input type="checkbox" class="pres-sec" value="${k}" checked> ${label}</label>`).join('');
+    document.getElementById('presDisciplinesList').innerHTML = Object.keys(dataStore).map(d =>
+        `<label class="export-checkbox-item"><input type="checkbox" class="pres-disc" value="${escAttr(d)}" checked> ${escapeStructureHtml(d)}</label>`).join('')
+        || '<div class="empty-state" style="padding: 12px; font-size: 0.85rem;">Aucune discipline configurée.</div>';
+    document.getElementById('presLevelsList').innerHTML = levels.map(l =>
+        `<label class="export-checkbox-item"><input type="checkbox" class="pres-lvl" value="${escAttr(l)}" checked> ${escapeStructureHtml(l)}</label>`).join('');
+    document.getElementById('presentationExportModal').classList.add('active');
+}
+function closePresentationExportModal() { document.getElementById('presentationExportModal').classList.remove('active'); }
+function setAllPresChecks(cls, checked) { document.querySelectorAll('.' + cls).forEach(cb => { cb.checked = checked; }); }
+
+function startPresentationExport() {
+    const sections = {};
+    document.querySelectorAll('.pres-sec').forEach(cb => { sections[cb.value] = cb.checked; });
+    if (!Object.values(sections).some(Boolean)) { alert('Veuillez sélectionner au moins une rubrique.'); return; }
+    const opts = {
+        sections,
+        disciplines: Array.from(document.querySelectorAll('.pres-disc')).filter(cb => cb.checked).map(cb => cb.value),
+        levels: Array.from(document.querySelectorAll('.pres-lvl')).filter(cb => cb.checked).map(cb => cb.value)
+    };
+    closePresentationExportModal();
+    generatePresentationPdf(opts);
+}
+
+function generatePresentationPdf(opts) {
     const esc = escapeStructureHtml;
-    const disciplines = Object.keys(dataStore);
+    const allDisciplines = Object.keys(dataStore);
+    const allSections = {}; PRESENTATION_SECTIONS.forEach(([k]) => { allSections[k] = true; });
+    opts = opts || { sections: allSections, disciplines: allDisciplines, levels: levels.slice() };
+    const sel = opts.sections;
+    const disciplines = allDisciplines;                       // le TRMD porte toujours sur l'ensemble de l'EPLE
+    const selDisciplines = allDisciplines.filter(d => opts.disciplines.includes(d));
+    const selLevels = levels.filter(l => opts.levels.includes(l));
     if (disciplines.length === 0) { alert('Aucune discipline à exporter.'); return; }
 
     const now = new Date();
@@ -5794,35 +5852,52 @@ function generatePresentationPdf() {
         </div>`);
 
     // 2. Sommaire (le contenu est évalué à la fin, quand les numéros de page sont connus)
+    const tocEntries = PRESENTATION_SECTIONS.filter(([k]) => sel[k]);
+    // Page de titre qui introduit une rubrique
+    const pushDivider = key => {
+        const idx = tocEntries.findIndex(([k]) => k === key);
+        const label = tocEntries[idx][1];
+        pages.push(() => `
+            <div class="pres-divider">
+                <div class="pres-divider-num">${idx + 1}</div>
+                <div class="pres-divider-title">${label}</div>
+            </div>`);
+    };
     pages.push(() => `
         <h1 class="pres-title">Sommaire</h1>
         <div class="pres-toc">
-            ${[['dotation', '1 - Rappel de la dotation'], ['trmd', '2 - TRMD'], ['disciplines', '3 - Ventilation par discipline'], ['autonomie', '4 - Autonomie par niveau']]
-                .map(([k, label]) => `<div class="pres-toc-row"><span class="pres-toc-label">${label}</span><span class="pres-toc-dots"></span><span class="pres-toc-page">${sectionStart[k] !== undefined ? sectionStart[k] : ''}</span></div>`).join('')}
+            ${tocEntries.map(([k, label], i) => `<div class="pres-toc-row"><span class="pres-toc-label">${i + 1} - ${label}</span><span class="pres-toc-dots"></span><span class="pres-toc-page">${sectionStart[k] !== undefined ? sectionStart[k] : ''}</span></div>`).join('')}
         </div>`);
 
     // 3. Rappel de la dotation
+    if (sel.dotation) {
     sectionStart.dotation = pages.length + 1;
+    pushDivider('dotation');
     const hp = dotationGlobal.hp || 0, hsa = dotationGlobal.hsa || 0;
     pages.push(() => `
         <h1 class="pres-title">Rappel de la dotation</h1>
         <div class="pres-dotation">
             <div class="pres-dotation-item"><span>HP</span><strong>${fmt1(hp)} h</strong></div>
             <div class="pres-dotation-item"><span>HSA</span><strong>${fmt1(hsa)} h</strong></div>
-            <div class="pres-dotation-item"><span>DHG totale</span><strong>${fmt1(hp + hsa)} h</strong></div>
+            <div class="pres-dotation-item"><span>DHG</span><strong>${fmt1(hp + hsa)} h</strong></div>
         </div>`);
 
+    }
+
     // 4. TRMD
+    if (sel.trmd) {
     sectionStart.trmd = pages.length + 1;
-    let gTeachers = 0, gRaw = 0, gHsa = 0, gTotal = 0;
+    pushDivider('trmd');
+    let gTeachers = 0, gHp = 0, gRaw = 0, gHsa = 0, gTotal = 0;
     const trmdRows = disciplines.map(disc => {
         const d = dataStore[disc];
         const t = getDisciplineTotals(disc);
-        gTeachers += d.teachers.length; gRaw += t.raw; gHsa += t.hsa; gTotal += t.grand;
-        return { html: `<tr><td><strong>${esc(disc)}</strong></td><td class="num">${d.teachers.length}</td><td class="num">${fmt1(t.raw)} h</td><td class="num">${t.hsa > 0 ? '+' : ''}${t.hsa.toFixed(2)} h</td><td class="num"><strong>${t.grand.toFixed(2)} h</strong></td></tr>` };
+        const dHp = getDisciplineHP(disc);
+        gTeachers += d.teachers.length; gHp += dHp; gRaw += t.raw; gHsa += t.hsa; gTotal += t.grand;
+        return { html: `<tr><td><strong>${esc(disc)}</strong></td><td class="num">${d.teachers.length}</td><td class="num">${fmt1(dHp)} h</td><td class="num">${fmt1(t.raw)} h</td><td class="num">${t.hsa > 0 ? '+' : ''}${t.hsa.toFixed(2)} h</td><td class="num"><strong>${t.grand.toFixed(2)} h</strong></td></tr>` };
     });
-    trmdRows.push({ html: `<tr class="pres-total"><td>TOTAL EPLE</td><td class="num">${gTeachers}</td><td class="num">${fmt1(gRaw)} h</td><td class="num">${gHsa > 0 ? '+' : ''}${gHsa.toFixed(2)} h</td><td class="num">${gTotal.toFixed(2)} h</td></tr>` });
-    const trmdHead = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (pondérations comprises)</th></tr>';
+    trmdRows.push({ html: `<tr class="pres-total"><td>Total</td><td class="num">${gTeachers}</td><td class="num">${fmt1(gHp)} h</td><td class="num">${fmt1(gRaw)} h</td><td class="num">${gHsa > 0 ? '+' : ''}${gHsa.toFixed(2)} h</td><td class="num" style="white-space:nowrap">${gTotal.toFixed(2)} h - Norvégien : ${(() => { const nv = (dotationGlobal.hp || 0) + (dotationGlobal.hsa || 0) - gTotal; return (nv > 0 ? '+' : '') + nv.toFixed(2); })()} h</td></tr>` });
+    const trmdHead = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">HP (ORS)</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (pondérations comprises)</th></tr>';
     const trmdPages = paginateTable(trmdHead, trmdRows, TITLE_RESERVE);
     trmdPages.forEach((rows, i) => {
         pages.push(() => `
@@ -5830,10 +5905,14 @@ function generatePresentationPdf() {
             <table class="pres-table"><thead>${trmdHead}</thead><tbody>${rows.map(r => r.html).join('')}</tbody></table>`);
     });
 
+    }
+
     // 5. Disciplines, niveaux regroupés
+    if (sel.disciplines) {
     sectionStart.disciplines = pages.length + 1;
+    pushDivider('disciplines');
     const discHead = '<tr><th>Intitulé du service</th><th class="num">Horaire plancher</th><th class="num">Nb classes / groupes</th><th class="num">Vol. classe</th><th class="num">À ventiler</th></tr>';
-    disciplines.forEach(disc => {
+    selDisciplines.forEach(disc => {
         const d = dataStore[disc];
         const groups = {};
         d.services.forEach(sv => {
@@ -5865,9 +5944,13 @@ function generatePresentationPdf() {
         });
     });
 
+    }
+
     // 6. Autonomie par niveau : synthèse puis une page par niveau
-    sectionStart.autonomie = pages.length + 1;
-    const levelData = levels.map(lvl => {
+    if (sel.niveaux) {
+    sectionStart.niveaux = pages.length + 1;
+    pushDivider('niveaux');
+    const levelData = selLevels.map(lvl => {
         const byTitle = {};
         Object.keys(dataStore).forEach(dn => {
             dataStore[dn].services.forEach(sv => {
@@ -5922,6 +6005,41 @@ function generatePresentationPdf() {
         });
     });
 
+    }
+
+    // 7. Autonomie par discipline
+    if (sel.autDisc) {
+        sectionStart.autDisc = pages.length + 1;
+        pushDivider('autDisc');
+        const adHead = '<tr><th>Intitulé du service</th><th class="num">Horaire plancher</th><th class="num">Volume classe</th><th class="num">Nombre de classes</th><th class="num">Autonomie</th></tr>';
+        selDisciplines.forEach(disc => {
+            const d = dataStore[disc];
+            const items = [];
+            let total = 0;
+            const names = {};
+            d.services.forEach(sv => { if (sv.name && sv.name.trim() !== '') { (names[sv.name.trim()] = names[sv.name.trim()] || []).push(sv); } });
+            Object.keys(names).sort().forEach(name => {
+                names[name].forEach(sv => {
+                    getServiceLevels(sv).forEach(lvl => {
+                        const base = parseFloat(baseHoursStore[getBaseHourKey(lvl, name)]) || 0;
+                        const cell = computeAutonomieCell(sv.classes || 0, sv.hours || 0, base);
+                        total += cell.clamped;
+                        if (cell.clamped > 0) items.push({ label: `${name} (${lvl})`, base, hours: sv.hours || 0, classes: sv.isCoEnseignement ? `${sv.classes || 0} (Co-E)` : `${sv.classes || 0}`, autonomie: cell.clamped });
+                    });
+                });
+            });
+            const rows = items.map(r => ({ html: `<tr><td>${esc(r.label)}</td><td class="num">${r.base.toFixed(1)} h</td><td class="num">${r.hours.toFixed(1)} h</td><td class="num">${esc(r.classes)}</td><td class="num"><strong>+${r.autonomie.toFixed(1)} h</strong></td></tr>` }));
+            if (rows.length === 0) rows.push({ html: '<tr><td colspan="5" class="num" style="font-style: italic;">Aucun service avec une autonomie supérieure à 0</td></tr>' });
+            rows.push({ html: `<tr class="pres-total"><td colspan="4" style="text-align: right;">Total Autonomie pour ${esc(disc)}</td><td class="num">${total > 0 ? '+' : ''}${total.toFixed(1)} h</td></tr>` });
+            const dPages = paginateTable(adHead, rows, TITLE_RESERVE);
+            dPages.forEach((pg, i) => {
+                pages.push(() => `
+                    <h1 class="pres-title">Autonomie - ${esc(disc)}${dPages.length > 1 ? ` <small>(suite ${i + 1}/${dPages.length})</small>` : ''}</h1>
+                    <table class="pres-table"><thead>${adHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>`);
+            });
+        });
+    }
+
     document.body.removeChild(measureBox);
 
     const total = pages.length;
@@ -5941,4 +6059,29 @@ function generatePresentationPdf() {
     };
     window.addEventListener('afterprint', cleanup);
     triggerPrint();
+}
+
+// Heures postes (HP) d'une discipline : somme des ORS de ses enseignants
+function getDisciplineHP(disc) {
+    const data = dataStore[disc];
+    if (!data) return 0;
+    return data.teachers.reduce((sum, t) => sum + (data.apports && data.apports[t] !== undefined ? data.apports[t] : 18), 0);
+}
+
+// Nouveau : repart d'une base totalement vide (aucune discipline, aucun enseignant, aucun service)
+function newEmptyProject() {
+    if (!confirm("Créer un nouveau projet vide ? Toutes les données actuelles (disciplines, enseignants, services, historique…) seront effacées. Pensez à sauvegarder votre travail avant de continuer.")) {
+        return;
+    }
+    Object.keys(structureRowState).forEach(k => delete structureRowState[k]);
+    Object.keys(structureLevelChoice).forEach(k => delete structureLevelChoice[k]);
+    applyLoadedData({
+        dataStore: {},
+        dotation: { hp: 0, hsa: 0 },
+        levels: ["6ème", "5ème", "4ème", "3ème", "2nde", "1ère", "Terminale"],
+        baseHoursStore: {},
+        coEnseignementGroups: [],
+        changeHistory: [],
+        epleIdentity: { name: "", uai: "", commune: "", enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false }
+    });
 }

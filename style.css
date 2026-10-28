@@ -904,6 +904,9 @@ table.header-out .teacher-name-row { display: table-row; }
 .pres-toc-label { white-space: nowrap; }
 .pres-toc-dots { flex: 1; height: 0; border-bottom: 2px dotted #888; margin: 0 3mm; }
 .pres-toc-page { font-weight: 700; color: #1d4ed8; white-space: nowrap; }
+.pres-divider { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; text-align: center; }
+.pres-divider-num { width: 28mm; height: 28mm; border-radius: 50%; border: 3px solid #1d4ed8; color: #1d4ed8; font-size: 40pt; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.pres-divider-title { font-size: 32pt; font-weight: 700; color: #1d4ed8; }
 .pres-dotation { display: flex; gap: 14mm; justify-content: center; margin-top: 25mm; }
 .pres-dotation-item { min-width: 62mm; text-align: center; padding: 10mm 6mm; border: 2px solid #1d4ed8; border-radius: 4mm; }
 .pres-dotation-item span { display: block; font-size: 13pt; color: #555; margin-bottom: 4mm; }
