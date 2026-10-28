@@ -1018,3 +1018,44 @@ table.header-out .teacher-name-row { display: table-row; }
 .are-add-btn:hover { background: #f1f5f9; }
 .are-field { display: block; margin-bottom: 12px; font-weight: 600; font-size: 0.85rem; }
 .are-field select, .are-field input { display: block; width: 100%; margin-top: 4px; padding: 8px; box-sizing: border-box; font-size: 0.9rem; }
+
+.spe-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.spe-table th { background: #f5f3ff; color: var(--purple-text); text-align: left; padding: 10px 12px; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+.spe-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.9rem; }
+.spe-table th.num, .spe-table td.num { text-align: center; width: 140px; }
+.spe-table tfoot td { font-weight: 700; background: #faf5ff; border-bottom: none; }
+.spe-table .spe-teachers-list { margin-top: 0; }
+.spe-note { margin: 12px 2px 0; font-size: 0.8rem; color: var(--text-muted); }
+
+.pres-table-opt { table-layout: fixed; font-size: 9.5pt; }
+.pres-table-opt th, .pres-table-opt td { padding: 1.4mm 2mm; overflow-wrap: anywhere; word-break: normal; }
+.pres-table-opt .num { white-space: nowrap; }
+@media print {
+    table.pres-table.pres-table-opt { table-layout: fixed !important; }
+}
+@media print {
+    table.pres-table.pres-table-opt th, table.pres-table.pres-table-opt td { white-space: normal; overflow-wrap: anywhere; }
+    table.pres-table.pres-table-opt td.num, table.pres-table.pres-table-opt th.num { white-space: nowrap; }
+}
+.pres-measure table.pres-table-opt { table-layout: fixed; }
+.pres-measure table.pres-table-opt th, .pres-measure table.pres-table-opt td { white-space: normal; overflow-wrap: anywhere; }
+.pres-measure table.pres-table-opt .num { white-space: nowrap; }
+
+.are-list-table { width: 100%; border-collapse: collapse; background: #fff; }
+.are-list-table th { background: #eef2ff; color: var(--indigo-text, #4338ca); text-align: left; padding: 10px 12px; font-size: 0.85rem; }
+.are-list-table td { padding: 8px 12px; vertical-align: top; font-size: 0.9rem; white-space: normal; }
+.are-list-table th.num, .are-list-table td.num { text-align: center; width: 130px; white-space: nowrap; }
+.are-list-table tr.are-list-first td { border-top: 2px solid var(--border); }
+.are-list-name small { display: block; margin-top: 2px; color: var(--text-muted); font-size: 0.75rem; font-weight: 500; }
+.are-list-person span { color: var(--text-muted); font-size: 0.85rem; }
+
+.are-list-table th.are-list-name, .are-list-table td.are-list-name { text-align: center; vertical-align: middle; width: 24%; }
+.are-list-table td.are-list-hours { vertical-align: middle; font-weight: 600; }
+.pres-are-table th.are-list-name, .pres-are-table td.are-list-name { text-align: center; vertical-align: middle; width: 26%; }
+.pres-are-table td.are-list-hours { vertical-align: middle; font-weight: 600; width: 14%; }
+.pres-are-table td { vertical-align: top; }
+.pres-are-table td.are-list-name small { display: block; margin-top: 1mm; font-size: 8.5pt; font-weight: 400; color: #555; }
+.pres-are-table .are-list-person span { color: #555; }
+.pres-measure .pres-are-table td.are-list-name small { display: block; }
+
+.are-list-table tr.are-list-total td { background: #eef2ff; font-weight: 700; border-top: 2px solid var(--border); vertical-align: middle; }

@@ -11,7 +11,8 @@ let epleIdentity = {
     enableSpecialites: false,
     enableOptionnels: false,
     enableCoEnseignement: false,
-    enableMultiNiveau: false
+    enableMultiNiveau: false,
+    enablePonderations: false
 };
 
 let dotationGlobal = {
@@ -42,7 +43,8 @@ const testDataset = {
         "commune": "Saint-Étienne",
         "enableSpecialites": true,
         "enableOptionnels": true,
-        "enableCoEnseignement": true
+        "enableCoEnseignement": true,
+        "enablePonderations": true
     },
     "dotation": {
         "hp": 900,
@@ -510,6 +512,21 @@ function toggleMultiNiveauGlobal(enabled) {
     renderApp();
 }
 
+// Gestion des pondérations : désactivée, aucune pondération n'est calculée ni affichée
+function pondEnabled() {
+    return !!(epleIdentity && epleIdentity.enablePonderations);
+}
+
+function togglePonderationsGlobal(enabled) {
+    epleIdentity.enablePonderations = enabled;
+    renderApp();
+}
+
+// Libellé du total selon que les pondérations sont gérées ou non
+function totalLabelSuffix() {
+    return pondEnabled() ? 'pondérations et ARE compris' : 'ARE compris';
+}
+
 function toggleDisciplineSpecialite(disc, enabled) {
     if (dataStore[disc]) {
         dataStore[disc].enableSpecialites = enabled;
@@ -557,23 +574,18 @@ function updateSpecialiteButtonVisibility() {
     const speBtn = document.getElementById('btnSpecialites');
     const optBtn = document.getElementById('btnOptionnels');
     const coEnsBtn = document.getElementById('btnCoEnseignement');
+    const hintBtn = document.getElementById('btnEditionHint');
 
-    const showSpe = hasAnySpecialite();
-    const showOpt = hasAnyOptionnel();
-    const showCoEns = epleIdentity.enableCoEnseignement || false;
+    // Les entrées apparaissent dès que l'option correspondante est activée dans les paramètres
+    const showSpe = !!epleIdentity.enableSpecialites;
+    const showOpt = !!epleIdentity.enableOptionnels;
+    const showCoEns = !!epleIdentity.enableCoEnseignement;
 
-    if (speRow) {
-        speRow.style.display = (showSpe || showOpt || showCoEns) ? 'block' : 'none';
-    }
-    if (speBtn) {
-        speBtn.style.display = showSpe ? 'flex' : 'none';
-    }
-    if (optBtn) {
-        optBtn.style.display = showOpt ? 'flex' : 'none';
-    }
-    if (coEnsBtn) {
-        coEnsBtn.style.display = showCoEns ? 'flex' : 'none';
-    }
+    if (speRow) speRow.style.display = 'block';
+    if (speBtn) speBtn.style.display = showSpe ? 'flex' : 'none';
+    if (optBtn) optBtn.style.display = showOpt ? 'flex' : 'none';
+    if (coEnsBtn) coEnsBtn.style.display = showCoEns ? 'flex' : 'none';
+    if (hintBtn) hintBtn.style.display = (showOpt || showCoEns) ? 'none' : 'flex';
 }
 
 // 🎓 MODALE SPÉCIALITÉS
@@ -584,6 +596,27 @@ function openSpecialiteModal() {
 
 function closeSpecialiteModal() {
     document.getElementById('specialiteModal').classList.remove('active');
+}
+
+// Spécialités d'un niveau regroupées par matière (même intitulé, toutes disciplines confondues) :
+// le nombre de groupes est la somme des classes saisies, les enseignants et disciplines sont réunis.
+function getSpecialiteRows(lvl) {
+    const byName = {};
+    Object.keys(dataStore).forEach(disc => {
+        dataStore[disc].services.filter(s => s.level === lvl && s.isSpecialite).forEach(s => {
+            const name = (s.name || '').trim() || '(sans intitulé)';
+            const key = name.toLowerCase();
+            if (!byName[key]) byName[key] = { name, groups: 0, teachers: [], discs: [] };
+            const g = byName[key];
+            g.groups += parseFloat(s.classes) || 0;
+            if (!g.discs.includes(disc)) g.discs.push(disc);
+            dataStore[disc].teachers.forEach(t => {
+                const h = parseFloat(s.allocations && s.allocations[t]) || 0;
+                if (h > 0) g.teachers.push({ t, h, disc });
+            });
+        });
+    });
+    return Object.values(byName).sort((x, y) => x.name.localeCompare(y.name, 'fr'));
 }
 
 function renderSpecialiteContent() {
@@ -615,38 +648,24 @@ function renderSpecialiteContent() {
         contentDiv.className = `tab-content ${idx === 0 ? 'active' : ''}`;
         contentDiv.id = `spe-tab-${idx}`;
 
-        let levelSpeHtml = '';
-
-        Object.keys(dataStore).forEach(disc => {
-            const speServices = dataStore[disc].services.filter(s => s.level === lvl && s.isSpecialite);
-
-            speServices.forEach(s => {
-                const activeTeachers = dataStore[disc].teachers.filter(t => (parseFloat(s.allocations[t]) || 0) > 0);
-
-                let teachersListHtml = '';
-                if (activeTeachers.length > 0) {
-                    teachersListHtml = activeTeachers.map(t => {
-                        const h = parseFloat(s.allocations[t]) || 0;
-                        return `<span class="spe-teacher-badge">👤 ${t} (${h.toFixed(1)} h)</span>`;
-                    }).join('');
-                } else {
-                    teachersListHtml = '<span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Aucun enseignant affecté</span>';
-                }
-
-                levelSpeHtml += `
-                    <div class="spe-card">
-                        <div class="spe-card-title">${s.name} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">(${disc})</span></div>
-                        <div class="spe-card-info">
-                            Volume horaire : <strong>${(s.hours || 0).toFixed(1)} h</strong> par classe (Total : <strong>${((s.classes || 0) * (s.hours || 0)).toFixed(1)} h</strong>)
-                        </div>
-                        <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-top: 6px;">Intervenants :</div>
-                        <div class="spe-teachers-list">
-                            ${teachersListHtml}
-                        </div>
-                    </div>
-                `;
-            });
-        });
+        const esc = escapeStructureHtml;
+        const fmtG = n => String(Math.round(n * 100) / 100).replace('.', ',');
+        const speRows = getSpecialiteRows(lvl);
+        let totalGroups = 0;
+        const bodyHtml = speRows.map(g => {
+            totalGroups += g.groups;
+            const tHtml = g.teachers.length
+                ? g.teachers.map(x => `<span class="spe-teacher-badge" title="${esc(x.disc)}">👤 ${esc(x.t)} (${x.h.toFixed(1)} h)</span>`).join('')
+                : '<span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Aucun enseignant affecté</span>';
+            return `<tr><td><strong>${esc(g.name)}</strong></td><td class="num">${fmtG(g.groups)}</td><td><div class="spe-teachers-list">${tHtml}</div></td></tr>`;
+        }).join('');
+        const levelSpeHtml = `
+            <table class="spe-table">
+                <thead><tr><th>Matière</th><th class="num">Nombre de groupes</th><th>Enseignants</th></tr></thead>
+                <tbody>${bodyHtml}</tbody>
+                <tfoot><tr><td>Total</td><td class="num">${fmtG(totalGroups)}</td><td></td></tr></tfoot>
+            </table>
+            <p class="spe-note">Une même matière partagée entre plusieurs enseignants (sans co-enseignement) doit être saisie en fractions de classe dans chaque service (par exemple 0,5 + 0,5 pour une classe répartie à parts égales), afin que le nombre de groupes ne soit pas compté deux fois.</p>`;
 
         contentDiv.innerHTML = levelSpeHtml;
         contentsContainer.appendChild(contentDiv);
@@ -1292,17 +1311,18 @@ function renderOptionnelContent() {
                 <td style="width: 140px;">${levelDropdownHtml}</td>
                 <td style="width: 160px;">${discDropdownHtml}</td>
                 <td style="width: 80px;">
-                    <input type="number" min="0" step="1" value="${item.classes}" oninput="updateOptServiceProperty('${disc.replace(/'/g, "\\'")}', ${sIndex}, 'classes', parseFloat(this.value)||0)">
+                    <input type="number" min="0" step="0.5" value="${item.classes}" oninput="updateOptServiceProperty('${disc.replace(/'/g, "\\'")}', ${sIndex}, 'classes', parseFloat(this.value)||0)">
                 </td>
                 <td style="width: 80px;">
                     <input type="number" min="0" step="0.5" value="${item.hours}" oninput="updateOptServiceProperty('${disc.replace(/'/g, "\\'")}', ${sIndex}, 'hours', parseFloat(this.value)||0)">
                 </td>
-                <td style="text-align: center; width: 120px;">
+                ${pondEnabled() ? `                <td style="text-align: center; width: 120px;">
                     <div class="checkbox-container">
                         <input type="checkbox" ${item.ponderationActive ? 'checked' : ''} onchange="updateOptServiceProperty('${disc.replace(/'/g, "\\'")}', ${sIndex}, 'ponderationActive', this.checked)">
                         <input type="number" step="0.05" min="1" value="${item.ponderationFactor}" style="width: 55px;" ${!item.ponderationActive ? 'disabled' : ''} onchange="updateOptServiceProperty('${disc.replace(/'/g, "\\'")}', ${sIndex}, 'ponderationFactor', parseFloat(this.value)||1)">
                     </div>
                 </td>
+` : ''}
                 <td style="text-align: center; font-weight: 700;">${item.vol.toFixed(1)} h</td>
                 <td style="text-align: center; width: 140px;">
                     <input type="number" min="0" step="0.5" value="${item.financed}" style="width: 90px; text-align: center; font-weight: 600;" oninput="updateOptServiceProperty('${disc.replace(/'/g, "\\'")}', ${sIndex}, 'optFinancedHours', parseFloat(this.value)||0)">
@@ -1351,7 +1371,7 @@ function renderOptionnelContent() {
                         ${makeHeader('disc', 'Discipline rattachée')}
                         ${makeHeader('classes', 'Nbr. Classe')}
                         ${makeHeader('hours', 'Vol. Classe')}
-                        <th>Pondération</th>
+                        ${pondEnabled() ? '<th>Pondération</th>' : ''}
                         ${makeHeader('vol', 'Total')}
                         ${makeHeader('financed', 'Vol. horaire financé par la dotation')}
                     </tr>
@@ -1361,7 +1381,7 @@ function renderOptionnelContent() {
                 </tbody>
                 <tfoot>
                     <tr class="totals-row grand-total">
-                        <td colspan="6" style="text-align: right;">Total des enseignements optionnels :</td>
+                        <td colspan="${pondEnabled() ? 6 : 5}" style="text-align: right;">Total des enseignements optionnels :</td>
                         <td style="text-align: center; font-size: 0.95rem; color: var(--primary);"><strong>${grandTotalVol.toFixed(1)} h</strong></td>
                         <td style="text-align: center; font-size: 0.95rem; color: var(--teal-text);"><strong>${grandTotalFinanced.toFixed(1)} h</strong></td>
                     </tr>
@@ -1443,27 +1463,14 @@ function closeHelpModal() {
 
 function updateAppTitle() {
     const mainTitleEl = document.getElementById('appMainTitle');
-    const autonomieLabelEl = document.getElementById('autonomieBtnLabel');
-    const autonomieModalTitleEl = document.getElementById('autonomieModalTitle');
-    if (epleIdentity && epleIdentity.name && epleIdentity.name.trim() !== '') {
+    const hasName = epleIdentity && epleIdentity.name && epleIdentity.name.trim() !== '';
+    if (hasName) {
         mainTitleEl.textContent = `VectisDHG Autonomie - ${epleIdentity.name}`;
-        if (autonomieLabelEl) {
-            autonomieLabelEl.textContent = `Autonomie ${epleIdentity.name}`;
-            autonomieLabelEl.title = `Autonomie ${epleIdentity.name}`;
-        }
-        if (autonomieModalTitleEl) {
-            autonomieModalTitleEl.textContent = `Autonomie ${epleIdentity.name}`;
-        }
     } else {
         mainTitleEl.textContent = "VectisDHG Autonomie";
-        if (autonomieLabelEl) {
-            autonomieLabelEl.textContent = 'Autonomie EPLE';
-            autonomieLabelEl.title = '';
-        }
-        if (autonomieModalTitleEl) {
-            autonomieModalTitleEl.textContent = 'Autonomie EPLE';
-        }
     }
+    // Titre de l'onglet du navigateur
+    document.title = hasName ? `Ventilation DHG ${epleIdentity.name.trim()}` : 'Ventilation DHG';
 }
 
 async function searchEpleOpenData() {
@@ -1563,6 +1570,11 @@ function renderEpleSelectedCard() {
     const toggleMultiNiveauInput = document.getElementById('toggleMultiNiveauInput');
     if (toggleMultiNiveauInput) {
         toggleMultiNiveauInput.checked = epleIdentity.enableMultiNiveau || false;
+    }
+
+    const togglePondInput = document.getElementById('togglePonderationsInput');
+    if (togglePondInput) {
+        togglePondInput.checked = pondEnabled();
     }
 }
 
@@ -1668,7 +1680,7 @@ function updateBaseHour(level, serviceName, inputEl) {
     const row = inputEl.closest('tr');
     if (row) {
         const volHours = parseFloat(row.dataset.volhours) || 0;
-        const classes = parseInt(row.dataset.classes, 10) || 0;
+        const classes = parseFloat(row.dataset.classes) || 0;
 
         const cell = computeAutonomieCell(classes, volHours, val);
         const autonomieCellContainer = row.querySelector('.autonomie-cell');
@@ -1683,7 +1695,7 @@ function updateBaseHour(level, serviceName, inputEl) {
                 const rInput = r.querySelector('input[type="number"]');
                 const rVal = parseFloat(rInput ? rInput.value : 0) || 0;
                 const rVolHours = parseFloat(r.dataset.volhours) || 0;
-                const rClasses = parseInt(r.dataset.classes, 10) || 0;
+                const rClasses = parseFloat(r.dataset.classes) || 0;
                 totalAutonomie += Math.max(0, rClasses * (rVolHours - rVal));
             });
 
@@ -2725,6 +2737,10 @@ function applyLoadedData(loadedData) {
             if (epleIdentity.enableMultiNiveau === undefined) {
                 epleIdentity.enableMultiNiveau = false;
             }
+            if (epleIdentity.enablePonderations === undefined) {
+                // Anciennes sauvegardes : on active la gestion si des services pondérés existent
+                epleIdentity.enablePonderations = Object.values(dataStore).some(d => d && Array.isArray(d.services) && d.services.some(sv => sv.ponderationActive));
+            }
         }
     } else if (typeof loadedData === 'object' && loadedData !== null) {
         dataStore = loadedData;
@@ -3362,7 +3378,7 @@ function createTable(disc) {
         { key: 'name', label: 'Intitulé Service / Matière' },
         { key: 'classes', label: 'Nbr. Classe' },
         { key: 'hours', label: 'Vol. Classe' },
-        { key: 'ponderation', label: 'Pondération' },
+        ...(pondEnabled() ? [{ key: 'ponderation', label: 'Pondération' }] : []),
         { key: 'target', label: 'À ventiler' }
     ];
 
@@ -3623,12 +3639,12 @@ function createTable(disc) {
                     ${horairePlancherCellHtml}
                 </td>
                 <td>
-                    <input type="number" class="classes-input" min="0" step="1" value="${service.classes}" ${isLocked ? 'disabled' : ''} oninput="updateService('${anchorDisc}', ${sIndex}, 'classes', parseFloat(this.value)||0, this)">
+                    <input type="number" class="classes-input" min="0" step="0.5" value="${service.classes}" ${isLocked ? 'disabled' : ''} oninput="updateService('${anchorDisc}', ${sIndex}, 'classes', parseFloat(this.value)||0, this)">
                 </td>
                 <td>
                     <input type="number" class="hours-input" min="0" step="0.5" value="${service.hours}" ${isLocked ? 'disabled' : ''} oninput="updateService('${anchorDisc}', ${sIndex}, 'hours', parseFloat(this.value)||0, this)">
                 </td>
-                <td>
+                ${pondEnabled() ? `                <td>
                     <div class="checkbox-container">
                         <input type="checkbox" ${service.ponderationActive ? 'checked' : ''} ${isLocked ? 'disabled' : ''}
                             onchange="updateService('${anchorDisc}', ${sIndex}, 'ponderationActive', this.checked, null)">
@@ -3638,6 +3654,7 @@ function createTable(disc) {
                     </div>
                     ${service.ponderationActive ? `<div class="ponderation-box">+${rawLineSurplus.toFixed(2)}h pond.</div>` : ''}
                 </td>
+` : ''}
                 <td style="text-align: center;">
                     <span class="badge service-target-badge ${badgeClass}">${targetVolume.toFixed(1)} h</span>
                 </td>
@@ -3657,7 +3674,7 @@ function createTable(disc) {
                 <td class="teacher-cell">
                     <input type="number" min="0" step="0.5" value="${val}" 
                         oninput="updateAllocation('${anchorDisc}', ${sIndex}, '${t.replace(/'/g, "\\'")}', this.value, this, '${disc.replace(/'/g, "\\'")}')">
-                    <div class="cell-pond" data-anchor="${anchorDisc.replace(/"/g, '&quot;')}" data-sidx="${sIndex}" data-teacher="${t.replace(/"/g, '&quot;')}"></div>
+                    ${pondEnabled() ? `<div class="cell-pond" data-anchor="${anchorDisc.replace(/"/g, '&quot;')}" data-sidx="${sIndex}" data-teacher="${t.replace(/"/g, '&quot;')}"></div>` : ''}
                     ${coEnsBadgesHtml}
                 </td>
             `;
@@ -3682,26 +3699,29 @@ function createTable(disc) {
 
     let tfootHtml = '<tfoot>';
     
-    tfootHtml += '<tr class="totals-row"><td colspan="7">Total des heures attribuées</td>';
+    const fixedCols = pondEnabled() ? 7 : 6;
+    tfootHtml += `<tr class="totals-row"><td colspan="${fixedCols}">Total des heures attribuées</td>`;
     data.teachers.forEach(t => {
         tfootHtml += `<td class="raw-total-cell" data-teacher="${t}">${fmtHours(teacherTotalsRaw[t], data, false, 1)}</td>`;
     });
     tfootHtml += '</tr>';
 
+    if (pondEnabled()) {
     tfootHtml += '<tr class="totals-row"><td colspan="7">Pondérations <button type="button" class="pond-info-btn" title="Voir les paramètres de calcul des pondérations" onclick="openPondInfoModal()">i</button></td>';
     data.teachers.forEach(t => {
         tfootHtml += `<td class="pond-total-cell" data-teacher="${t}">${fmtHours(teacherTotalsPond[t], data, false, 2)}</td>`;
     });
     tfootHtml += '</tr>';
+    }
 
-    tfootHtml += '<tr class="totals-row grand-total"><td colspan="7">Total des heures (brut + pondération + ARE)</td>';
+    tfootHtml += `<tr class="totals-row grand-total"><td colspan="${fixedCols}">Total des heures (${pondEnabled() ? 'brut + pondération + ARE' : 'brut + ARE'})</td>`;
     data.teachers.forEach(t => {
         const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t] + areTotal(data, t);
         tfootHtml += `<td class="grand-total-cell" data-teacher="${t}" data-grandtotal="${grandTotal}">${fmtHours(grandTotal, data, false, 2)}</td>`;
     });
     tfootHtml += '</tr>';
 
-    tfootHtml += '<tr class="totals-row hsa-row"><td colspan="7">HSA (Total général - ORS)</td>';
+    tfootHtml += `<tr class="totals-row hsa-row"><td colspan="${fixedCols}">HSA (Total général - ORS)</td>`;
     data.teachers.forEach(t => {
         const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t] + areTotal(data, t);
         const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
@@ -3714,14 +3734,14 @@ function createTable(disc) {
     });
     tfootHtml += '</tr>';
 
-    tfootHtml += '<tr class="totals-row are-row"><td colspan="7">ARE (allègements / missions)</td>';
+    tfootHtml += `<tr class="totals-row are-row"><td colspan="${fixedCols}">ARE (allègements / missions)</td>`;
     data.teachers.forEach(t => {
         tfootHtml += `<td class="are-cell" data-teacher="${escapeStructureHtml(t)}">${buildAreCellHtml(disc, t)}</td>`;
     });
     tfootHtml += '</tr>';
 
     // Rappel du nom des enseignants, affiché sous la ligne HSA quand l'en-tête n'est plus visible
-    tfootHtml += '<tr class="teacher-name-row"><td colspan="7"></td>';
+    tfootHtml += `<tr class="teacher-name-row"><td colspan="${fixedCols}"></td>`;
     data.teachers.forEach(t => {
         tfootHtml += `<td class="teacher-name-cell">${escapeStructureHtml(t)}</td>`;
     });
@@ -3841,7 +3861,7 @@ function renderTrmdContent() {
                         <th style="text-align: center;">HP (ORS)</th>
                         <th style="text-align: center;">Volume ventilé</th>
                         <th style="text-align: center;">HSA</th>
-                        <th style="text-align: center;">Total (pondérations et ARE compris)</th>
+                        <th style="text-align: center;">Total (${totalLabelSuffix()})</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -4040,7 +4060,7 @@ function buildTrmdSheetData() {
         ['DGH totale (h)', parseFloat(totalDgh.toFixed(1))],
         ['Norvégien (h)', parseFloat(norvegien.toFixed(2))],
         [],
-        ['Discipline', 'Nb Ens.', 'HP (ORS) (h)', 'Volume ventilé (h)', 'HSA (h)', 'Total (pondérations et ARE compris) (h)'],
+        ['Discipline', 'Nb Ens.', 'HP (ORS) (h)', 'Volume ventilé (h)', 'HSA (h)', `Total (${totalLabelSuffix()}) (h)`],
         ...tableRows
     ];
 }
@@ -4162,6 +4182,9 @@ function buildDisciplineSheetData(disc) {
     });
     rows.push(hsaRow);
 
+    if (!pondEnabled()) {
+        return rows.map(r => (r.length >= 6 ? r.filter((_, i) => i !== 4) : r));
+    }
     return rows;
 }
 
@@ -5196,6 +5219,7 @@ function printHistoryContent() {
 //  - si le nombre d'heures pondérées (P) dépasse l'ORS, la pondération est réduite au prorata ORS / P
 //    (les heures supplémentaires ne sont pas pondérées).
 function pondExtra(sums, t, data) {
+    if (!pondEnabled()) return 0;
     const ors = (data && data.apports && data.apports[t] !== undefined) ? data.apports[t] : 18;
     const h11 = Math.min((sums[t] || 0) / 0.1, 10);
     let weightedHours = Math.max(h11, 0);
@@ -5589,6 +5613,10 @@ function closeExportChoiceModal() { document.getElementById('exportChoiceModal')
 
 function openTeacherExportModal() {
     const disciplines = Object.keys(dataStore);
+    document.querySelectorAll('.tpdf-opt').forEach(cb => {
+        if (cb.value === 'pondService' || cb.value === 'pondTotal') cb.closest('label').style.display = pondEnabled() ? '' : 'none';
+        if (cb.value === 'total') cb.parentElement.lastChild.textContent = pondEnabled() ? ' Total (heures + pondérations + ARE)' : ' Total (heures + ARE)';
+    });
     document.getElementById('teacherPdfDisciplinesList').innerHTML = disciplines.length === 0
         ? '<div class="empty-state" style="padding: 12px; font-size: 0.85rem;">Aucune discipline configurée.</div>'
         : disciplines.map(d => `<label class="export-checkbox-item"><input type="checkbox" class="tpdf-disc" value="${d.replace(/"/g, '&quot;')}" checked> ${escapeStructureHtml(d)}</label>`).join('');
@@ -5635,6 +5663,7 @@ function computeTeacherSummary(disc, t) {
 function generateTeacherServicesPdf() {
     const opt = {};
     document.querySelectorAll('.tpdf-opt').forEach(cb => { opt[cb.value] = cb.checked; });
+    if (!pondEnabled()) { opt.pondService = false; opt.pondTotal = false; }
     const discs = Array.from(document.querySelectorAll('.tpdf-disc')).filter(cb => cb.checked).map(cb => cb.value);
     if (discs.length === 0) { alert('Veuillez sélectionner au moins une discipline.'); return; }
 
@@ -5669,7 +5698,7 @@ function generateTeacherServicesPdf() {
             if (opt.totalHeures) totals.push(['Total des heures enseignées', fh(sum.raw)]);
             if (opt.pondTotal) totals.push(['Pondérations', fh(sum.pond)]);
             if (opt.are) sum.ares.forEach(a => totals.push([`ARE : ${esc(a.label)} (${esc(a.short)})`, fh(a.hours)]));
-            if (opt.total) totals.push(['Total (heures + pondérations + ARE)', fh(sum.total)]);
+            if (opt.total) totals.push([pondEnabled() ? 'Total (heures + pondérations + ARE)' : 'Total (heures + ARE)', fh(sum.total)]);
             if (opt.hsa) totals.push(['HSA (Total − ORS)', fh(sum.hsa, true)]);
             const totalsHtml = totals.length
                 ? `<table class="tpdf-totals">${totals.map(([l, v]) => `<tr><td>${l}</td><td class="num"><strong>${v}</strong></td></tr>`).join('')}</table>`
@@ -5770,7 +5799,7 @@ function buildDisciplineSummaryHtml(disc) {
     return `
         <div class="disc-summary-item"><span>Volume ventilé</span><strong>${fmtHours(t.raw, data, false, 1)}</strong></div>
         <div class="disc-summary-item"><span>HSA</span><strong><span class="badge ${hsaClass}">${fmtHours(t.hsa, data, true, 2)}</span></strong></div>
-        <div class="disc-summary-item" title="Total pondérations et ARE compris"><span>Total</span><strong>${fmtHours(t.grand, data, false, 2)}</strong></div>`;
+        <div class="disc-summary-item" title="Total ${totalLabelSuffix()}"><span>Total</span><strong>${fmtHours(t.grand, data, false, 2)}</strong></div>`;
 }
 
 // ============================================================
@@ -5781,12 +5810,21 @@ const PRESENTATION_SECTIONS = [
     ['trmd', 'TRMD'],
     ['disciplines', 'Ventilation par discipline'],
     ['niveaux', 'Autonomie par niveau'],
-    ['autDisc', 'Autonomie par discipline']
+    ['autDisc', 'Autonomie par discipline'],
+    ['focusSpe', 'Focus sur les spécialités'],
+    ['focusOpt', 'Focus sur les options']
 ];
+
+// Les rubriques « Focus » n'existent que si l'option correspondante est activée
+function presSectionAvailable(k) {
+    if (k === 'focusSpe') return !!epleIdentity.enableSpecialites;
+    if (k === 'focusOpt') return !!epleIdentity.enableOptionnels;
+    return true;
+}
 
 function openPresentationExportModal() {
     const escAttr = v => v.replace(/"/g, '&quot;');
-    document.getElementById('presSectionsList').innerHTML = PRESENTATION_SECTIONS.map(([k, label]) =>
+    document.getElementById('presSectionsList').innerHTML = PRESENTATION_SECTIONS.filter(([k]) => presSectionAvailable(k)).map(([k, label]) =>
         `<label class="export-checkbox-item"><input type="checkbox" class="pres-sec" value="${k}" checked> ${label}</label>`).join('');
     document.getElementById('presDisciplinesList').innerHTML = Object.keys(dataStore).map(d =>
         `<label class="export-checkbox-item"><input type="checkbox" class="pres-disc" value="${escAttr(d)}" checked> ${escapeStructureHtml(d)}</label>`).join('')
@@ -5816,7 +5854,8 @@ function generatePresentationPdf(opts) {
     const allDisciplines = Object.keys(dataStore);
     const allSections = {}; PRESENTATION_SECTIONS.forEach(([k]) => { allSections[k] = true; });
     opts = opts || { sections: allSections, disciplines: allDisciplines, levels: levels.slice() };
-    const sel = opts.sections;
+    const sel = Object.assign({}, opts.sections);
+    PRESENTATION_SECTIONS.forEach(([k]) => { if (!presSectionAvailable(k)) sel[k] = false; });
     const disciplines = allDisciplines;                       // le TRMD porte toujours sur l'ensemble de l'EPLE
     const selDisciplines = allDisciplines.filter(d => opts.disciplines.includes(d));
     const selLevels = levels.filter(l => opts.levels.includes(l));
@@ -5837,8 +5876,8 @@ function generatePresentationPdf(opts) {
     document.body.appendChild(measureBox);
 
     // Découpe un tableau en pages : renvoie une liste de listes de lignes HTML
-    function paginateTable(headHtml, rows, titleReserve) {
-        measureBox.innerHTML = `<table class="pres-table"><thead>${headHtml}</thead><tbody>${rows.map(r => r.html).join('')}</tbody></table>`;
+    function paginateTable(headHtml, rows, titleReserve, tableClass) {
+        measureBox.innerHTML = `<table class="pres-table${tableClass ? ' ' + tableClass : ''}"><thead>${headHtml}</thead><tbody>${rows.map(r => r.html).join('')}</tbody></table>`;
         const theadH = measureBox.querySelector('thead').offsetHeight;
         const trs = measureBox.querySelectorAll('tbody tr');
         const avail = PAGE_INNER_PX - titleReserve - theadH;
@@ -5918,7 +5957,7 @@ function generatePresentationPdf(opts) {
         return { html: `<tr><td><strong>${esc(disc)}</strong></td><td class="num">${d.teachers.length}</td><td class="num">${fmt1(dHp)} h</td><td class="num">${fmt1(t.raw)} h</td><td class="num">${t.hsa > 0 ? '+' : ''}${t.hsa.toFixed(2)} h</td><td class="num"><strong>${t.grand.toFixed(2)} h</strong></td></tr>` };
     });
     trmdRows.push({ html: `<tr class="pres-total"><td>Total</td><td class="num">${gTeachers}</td><td class="num">${fmt1(gHp)} h</td><td class="num">${fmt1(gRaw)} h</td><td class="num">${gHsa > 0 ? '+' : ''}${gHsa.toFixed(2)} h</td><td class="num" style="white-space:nowrap">${gTotal.toFixed(2)} h - Norvégien : ${(() => { const nv = (dotationGlobal.hp || 0) + (dotationGlobal.hsa || 0) - gTotal; return (nv > 0 ? '+' : '') + nv.toFixed(2); })()} h</td></tr>` });
-    const trmdHead = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">HP (ORS)</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (pondérations et ARE compris)</th></tr>';
+    const trmdHead = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">HP (ORS)</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (' + totalLabelSuffix() + ')</th></tr>';
     const trmdPages = paginateTable(trmdHead, trmdRows, TITLE_RESERVE);
     trmdPages.forEach((rows, i) => {
         pages.push(() => `
@@ -6061,6 +6100,76 @@ function generatePresentationPdf(opts) {
         });
     }
 
+    // 8. Focus sur les spécialités : un tableau par niveau (1ère × 4 h, Terminale × 6 h)
+    if (sel.focusSpe) {
+    sectionStart.focusSpe = pages.length + 1;
+    pushDivider('focusSpe');
+    const fmtG = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const speHead = '<tr><th>Matière</th><th class="num">Nombre de groupes</th><th>Disciplines concernées</th></tr>';
+    let anySpe = false;
+    levels.forEach(lvl => {
+        const speRows = getSpecialiteRows(lvl);
+        if (speRows.length === 0) return;
+        anySpe = true;
+        const perGroup = /^(1\s*(ère|ere|re|ere)\b|premi)/i.test(lvl.trim()) ? 4 : (/^(term|tle)/i.test(lvl.trim()) ? 6 : 0);
+        let totalGroups = 0;
+        const rows = speRows.map(r => {
+            totalGroups += r.groups;
+            return { html: `<tr><td><strong>${esc(r.name)}</strong></td><td class="num">${fmtG(r.groups)}</td><td>${esc(r.discs.join(', '))}</td></tr>` };
+        });
+        const totalText = perGroup
+            ? `${fmtG(totalGroups)} groupe${totalGroups > 1 ? 's' : ''} × ${perGroup} h = <strong>${fmtG(totalGroups * perGroup)} h</strong>`
+            : '';
+        rows.push({ html: `<tr class="pres-total"><td>Total</td><td class="num">${fmtG(totalGroups)}</td><td>${totalText}</td></tr>` });
+        const sPages = paginateTable(speHead, rows, TITLE_RESERVE);
+        sPages.forEach((pg, i) => {
+            pages.push(() => `
+                <h1 class="pres-title">Spécialités - ${esc(lvl)}${sPages.length > 1 ? ` <small>(suite ${i + 1}/${sPages.length})</small>` : ''}</h1>
+                <table class="pres-table"><thead>${speHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>`);
+        });
+    });
+    if (!anySpe) pages.push(() => '<h1 class="pres-title">Focus sur les spécialités</h1><p>Aucune spécialité cochée pour le moment.</p>');
+    }
+
+    // 9. Focus sur les options : tableau de la gestion des enseignements optionnels
+    if (sel.focusOpt) {
+    sectionStart.focusOpt = pages.length + 1;
+    pushDivider('focusOpt');
+    const fmtN = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const optHead = '<tr><th style="width:16%">Niveau</th><th style="width:22%">Matière</th><th style="width:20%">Discipline rattachée</th><th class="num" style="width:11%">Nbr. groupes</th><th class="num" style="width:11%">Vol. horaire</th><th class="num" style="width:9%">Total</th><th class="num" style="width:11%">Vol. financé</th></tr>';
+    const optItems = [];
+    Object.keys(dataStore).forEach(disc => {
+        dataStore[disc].services.forEach(sv => {
+            if (!sv.isOptionnel) return;
+            const lv = getServiceLevels(sv);
+            const ds = (sv.assignedDisciplines && sv.assignedDisciplines.length) ? sv.assignedDisciplines : [disc];
+            const vol = (sv.classes || 0) * (sv.hours || 0);
+            const fin = sv.optFinancedHours !== undefined ? (parseFloat(sv.optFinancedHours) || 0) : 0;
+            optItems.push({ levels: lv, name: sv.name || '', discs: ds, classes: sv.classes || 0, hours: sv.hours || 0, vol, fin });
+        });
+    });
+    const lvlIdx = lv => { const i = levels.indexOf(lv[0]); return i === -1 ? 999 : i; };
+    optItems.sort((x, y) => lvlIdx(x.levels) - lvlIdx(y.levels) || x.name.localeCompare(y.name, 'fr'));
+    let optVol = 0, optFin = 0;
+    const optRows = optItems.map(r => {
+        optVol += r.vol; optFin += r.fin;
+        return { html: `<tr><td>${esc(r.levels.join(', '))}</td><td><strong>${esc(r.name)}</strong></td><td>${esc(r.discs.join(', '))}</td><td class="num">${fmtN(r.classes)}</td><td class="num">${fmtN(r.hours)} h</td><td class="num">${fmtN(r.vol)} h</td><td class="num">${fmtN(r.fin)} h</td></tr>` };
+    });
+    if (optRows.length === 0) {
+        pages.push(() => '<h1 class="pres-title">Focus sur les options</h1><p>Aucun enseignement optionnel pour le moment.</p>');
+    } else {
+        const marge = optVol - optFin;
+        optRows.push({ html: `<tr class="pres-total"><td colspan="5" style="text-align: right;">Total des heures / total financé</td><td class="num">${fmtN(optVol)} h</td><td class="num">${fmtN(optFin)} h</td></tr>` });
+        optRows.push({ html: `<tr class="pres-total"><td colspan="5" style="text-align: right;">Marge utilisée</td><td class="num" colspan="2">${marge > 0 ? '+' : ''}${fmtN(marge)} h</td></tr>` });
+        const oPages = paginateTable(optHead, optRows, TITLE_RESERVE, 'pres-table-opt');
+        oPages.forEach((pg, i) => {
+            pages.push(() => `
+                <h1 class="pres-title">Focus sur les options${oPages.length > 1 ? ` <small>(suite ${i + 1}/${oPages.length})</small>` : ''}</h1>
+                <table class="pres-table pres-table-opt"><thead>${optHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>`);
+        });
+    }
+    }
+
     document.body.removeChild(measureBox);
 
     const total = pages.length;
@@ -6103,7 +6212,7 @@ function newEmptyProject() {
         baseHoursStore: {},
         coEnseignementGroups: [],
         changeHistory: [],
-        epleIdentity: { name: "", uai: "", commune: "", enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false }
+        epleIdentity: { name: "", uai: "", commune: "", enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false, enablePonderations: false }
     });
 }
 
@@ -6221,4 +6330,127 @@ function deleteAre(disc, teacher, index) {
     data.ares[teacher].splice(index, 1);
     if (data.ares[teacher].length === 0) delete data.ares[teacher];
     renderApp();
+}
+
+
+// ============================================================
+// Fenêtre ARE : récapitulatif par ARE, regroupé par volume horaire
+// ============================================================
+function openAreListModal() {
+    renderAreList();
+    document.getElementById('areListModal').classList.add('active');
+}
+
+function closeAreListModal() {
+    document.getElementById('areListModal').classList.remove('active');
+}
+
+// Regroupe les ARE saisis : une entrée par ARE, puis par volume horaire (les plus grands d'abord)
+function buildAreGroups() {
+    const byAre = {};
+    Object.keys(dataStore).forEach(disc => {
+        const ares = dataStore[disc].ares || {};
+        Object.keys(ares).forEach(t => {
+            (ares[t] || []).forEach(a => {
+                const hours = parseFloat(a.hours) || 0;
+                const key = (a.short || '').trim().toLowerCase();
+                if (!byAre[key]) byAre[key] = { short: a.short, label: a.label || '', byHours: {} };
+                const g = byAre[key];
+                if (!g.byHours[hours]) g.byHours[hours] = [];
+                g.byHours[hours].push({ t, disc });
+            });
+        });
+    });
+    return Object.values(byAre).sort((x, y) => x.short.localeCompare(y.short, 'fr'));
+}
+
+// Lignes <tr> d'un ARE (nom et volume centrés, enseignants les uns sous les autres)
+function areGroupRowsHtml(g) {
+    const esc = escapeStructureHtml;
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const hourKeys = Object.keys(g.byHours).map(Number).sort((a, b) => b - a);
+    return hourKeys.map((hv, i) => {
+        const people = g.byHours[hv].slice().sort((x, y) => x.t.localeCompare(y.t, 'fr'));
+        const peopleHtml = people.map(p => `<div class="are-list-person">${esc(p.t)} <span>(${esc(p.disc)})</span></div>`).join('');
+        return `<tr${i === 0 ? ' class="are-list-first"' : ''}>`
+            + (i === 0 ? `<td rowspan="${hourKeys.length}" class="are-list-name"><strong>${esc(g.short)}</strong><small>${esc(g.label)}</small></td>` : '')
+            + `<td class="num are-list-hours">${fmt(hv)} h</td><td>${peopleHtml}</td><td class="num are-list-hours">${fmt(hv * people.length)} h</td></tr>`;
+    }).join('');
+}
+
+// Total général : somme, pour chaque ARE, du volume horaire × nombre d'enseignants
+function areTotalRowHtml(list) {
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    let total = 0, nbTeachers = 0;
+    list.forEach(g => Object.keys(g.byHours).forEach(hv => {
+        total += parseFloat(hv) * g.byHours[hv].length;
+        nbTeachers += g.byHours[hv].length;
+    }));
+    return `<tr class="are-list-total pres-total"><td colspan="3" style="text-align: center;">Total</td><td class="num">${fmt(total)} h</td></tr>`;
+}
+
+const ARE_LIST_HEAD = '<tr><th class="are-list-name">ARE</th><th class="num">Volume horaire</th><th>Nom de l\'enseignant</th><th class="num">Total</th></tr>';
+
+function renderAreList() {
+    const list = buildAreGroups();
+    const container = document.getElementById('areListContent');
+    if (list.length === 0) {
+        container.innerHTML = '<p class="empty-state">Aucun ARE saisi pour le moment. Ils s\'ajoutent sous la ligne HSA de chaque discipline.</p>';
+        return;
+    }
+    container.innerHTML = `
+        <table class="are-list-table">
+            <thead>${ARE_LIST_HEAD}</thead>
+            <tbody>${list.map(areGroupRowsHtml).join('')}</tbody>
+            <tfoot>${areTotalRowHtml(list)}</tfoot>
+        </table>`;
+}
+
+// Export PDF paysage de la synthèse des ARE, dans le style du PDF de présentation
+function exportAreListPdf() {
+    const list = buildAreGroups();
+    if (list.length === 0) { alert('Aucun ARE à exporter.'); return; }
+    const esc = escapeStructureHtml;
+    const dateStr = new Date().toLocaleDateString('fr-FR');
+    const epleName = epleIdentity && epleIdentity.name ? epleIdentity.name : '';
+    const PAGE_INNER_PX = Math.floor(188 * 96 / 25.4) - 52;
+    const TITLE_RESERVE = 70;
+
+    const measureBox = document.createElement('div');
+    measureBox.className = 'pres-measure';
+    document.body.appendChild(measureBox);
+    const groupsHtml = list.map(areGroupRowsHtml).concat([areTotalRowHtml(list)]);
+    measureBox.innerHTML = `<table class="pres-table pres-are-table"><thead>${ARE_LIST_HEAD}</thead>${groupsHtml.map(g => `<tbody>${g}</tbody>`).join('')}</table>`;
+    const theadH = measureBox.querySelector('thead').offsetHeight;
+    const heights = Array.from(measureBox.querySelectorAll('tbody')).map(tb => tb.offsetHeight);
+    document.body.removeChild(measureBox);
+
+    const avail = PAGE_INNER_PX - TITLE_RESERVE - theadH;
+    const pagesRows = [[]];
+    let used = 0;
+    groupsHtml.forEach((g, i) => {
+        const cur = pagesRows[pagesRows.length - 1];
+        if (cur.length > 0 && used + heights[i] > avail) { pagesRows.push([]); used = 0; }
+        pagesRows[pagesRows.length - 1].push(g);
+        used += heights[i];
+    });
+
+    const total = pagesRows.length;
+    const footerLabel = `${esc(epleName)}${epleName ? ' · ' : ''}Synthèse des ARE - ${dateStr}`;
+    const container = document.getElementById('presentationPrint');
+    container.innerHTML = pagesRows.map((rows, i) => `
+        <section class="pres-page">
+            <h1 class="pres-title">Synthèse des ARE${total > 1 ? ` <small>(suite ${i + 1}/${total})</small>` : ''}</h1>
+            <table class="pres-table pres-are-table"><thead>${ARE_LIST_HEAD}</thead>${rows.map(r => `<tbody>${r}</tbody>`).join('')}</table>
+            <div class="pres-footer"><span>${footerLabel}</span><span>${i + 1}/${total}</span></div>
+        </section>`).join('');
+
+    document.body.classList.add('printing-presentation');
+    const cleanup = () => {
+        document.body.classList.remove('printing-presentation');
+        container.innerHTML = '';
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    triggerPrint();
 }

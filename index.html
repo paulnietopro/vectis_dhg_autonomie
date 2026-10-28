@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VectisDHG Autonomie - Ventilation DHG EPLE</title>
+    <title>Ventilation DHG</title>
     <!-- Préconnexion au CDN de la librairie Excel (chargée à la demande, voir script.js) -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <!-- Feuille de style externe -->
@@ -36,20 +36,22 @@
                     </div>
                 </div>
             </div>
-            <div class="menu" id="menuEdition" style="display: none;">
+            <div class="menu" id="menuEdition">
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Édition</button>
                 <div class="menu-panel">
-                    <button class="menu-item" id="btnSpecialites" type="button" onclick="openSpecialiteModal()">🎓 Spécialités</button>
                     <button class="menu-item" id="btnOptionnels" type="button" style="display: none;" onclick="openOptionnelModal()">🎨 Options</button>
+                    <button class="menu-item" id="btnEditionHint" type="button" onclick="openSettingsModal()" style="color: var(--text-muted); font-style: italic;">Aucune option activée — Paramètres › Identité EPLE</button>
                     <button class="menu-item" id="btnCoEnseignement" type="button" style="display: none;" onclick="openCoEnseignementModal()">🤝 Co-enseignement</button>
                 </div>
             </div>
             <div class="menu">
-                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Autonomie</button>
+                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Autonomie de l'EPLE</button>
                 <div class="menu-panel">
+                    <button class="menu-item" id="btnSpecialites" type="button" style="display: none;" onclick="openSpecialiteModal()">🎓 Spécialités</button>
                     <button class="menu-item" type="button" onclick="openTrmdModal()">📊 TRMD</button>
                     <button class="menu-item" type="button" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
-                    <button class="menu-item" type="button" onclick="openAutonomieModal()">🏛️ <span id="autonomieBtnLabel" class="autonomie-btn-label">Autonomie EPLE</span></button>
+                    <button class="menu-item" type="button" onclick="openAutonomieModal()">🏛️ <span id="autonomieBtnLabel" class="autonomie-btn-label">Utilisation de la marge d'autonomie</span></button>
+                    <button class="menu-item" type="button" onclick="openAreListModal()">🧾 Synthèse des ARE</button>
                 </div>
             </div>
             <div class="menu">
@@ -202,7 +204,7 @@
                         <ul style="margin-top: 6px; padding-left: 20px;">
                             <li><strong>TRMD</strong> : Vue synthétique globale de la répartition des moyens par discipline.</li>
                             <li><strong>Ventilation / Niveau</strong> : Analyse croisée des affectations par niveau d'enseignement.</li>
-                            <li><strong>Autonomie EPLE</strong> : Calcul et suivi des heures d'autonomie mobilisées.</li>
+                            <li><strong>Autonomie de l'EPLE › Utilisation de la marge d'autonomie</strong> : Calcul et suivi des heures d'autonomie mobilisées.</li>
                             <li><strong>Spécialités & Options</strong> : Bilans des cours de spécialité et des enseignements optionnels.</li>
                         </ul>
                     </div>
@@ -266,6 +268,19 @@
                 </div>
             </div>
             <div id="historyContent"></div>
+        </div>
+    </div>
+
+    <div id="areListModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🧾 Synthèse des ARE</h2>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button class="btn-secondary" type="button" onclick="exportAreListPdf()">📄 Exporter en PDF</button>
+                    <button class="modal-close" onclick="closeAreListModal()">&times;</button>
+                </div>
+            </div>
+            <div id="areListContent"></div>
         </div>
     </div>
 
@@ -392,7 +407,7 @@
     <div id="autonomieModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header">
-                <h2><span>🏛️</span> <span id="autonomieModalTitle">Autonomie EPLE</span></h2>
+                <h2><span>🏛️</span> <span id="autonomieModalTitle">Utilisation de la marge d'autonomie</span></h2>
                 <button class="modal-close" onclick="closeAutonomieModal()">&times;</button>
             </div>
             <div class="mode-selector">
@@ -464,6 +479,18 @@
                                 <div>Activer la gestion du co-enseignement</div>
                                 <div style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 2px;">
                                     Permet de repérer les services en co-enseignement par discipline et de les associer entre eux.
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="settings-item" style="align-items: flex-start; cursor: pointer;">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox" id="togglePonderationsInput" style="width: auto; margin-top: 2px;" onchange="togglePonderationsGlobal(this.checked)">
+                            <div>
+                                <div>Activer la gestion des pondérations</div>
+                                <div style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 2px;">
+                                    Affiche la colonne Pondération des services et la ligne Pondérations du tableau, et intègre les pondérations aux totaux et aux exports. À laisser désactivé pour les établissements sans pondération (collèges hors éducation prioritaire, lycées professionnels…).
                                 </div>
                             </div>
                         </div>
