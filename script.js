@@ -3314,7 +3314,7 @@ function refreshDisciplineTotals(table, data, disc) {
             pondCell.textContent = fmtHours(teacherTotalsPond[t], data, false, 2);
         }
 
-        const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t];
+        const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t] + areTotal(data, t);
         const grandTotalCell = table.querySelector(`.grand-total-cell[data-teacher="${t}"]`);
         if (grandTotalCell) {
             grandTotalCell.dataset.grandtotal = grandTotal;
@@ -3694,16 +3694,16 @@ function createTable(disc) {
     });
     tfootHtml += '</tr>';
 
-    tfootHtml += '<tr class="totals-row grand-total"><td colspan="7">Total des heures (brut + pondération)</td>';
+    tfootHtml += '<tr class="totals-row grand-total"><td colspan="7">Total des heures (brut + pondération + ARE)</td>';
     data.teachers.forEach(t => {
-        const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t];
+        const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t] + areTotal(data, t);
         tfootHtml += `<td class="grand-total-cell" data-teacher="${t}" data-grandtotal="${grandTotal}">${fmtHours(grandTotal, data, false, 2)}</td>`;
     });
     tfootHtml += '</tr>';
 
     tfootHtml += '<tr class="totals-row hsa-row"><td colspan="7">HSA (Total général - ORS)</td>';
     data.teachers.forEach(t => {
-        const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t];
+        const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t] + areTotal(data, t);
         const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
         const hsaVal = grandTotal - apportVal;
 
@@ -3711,6 +3711,12 @@ function createTable(disc) {
         tfootHtml += `<td class="hsa-cell" data-teacher="${t}">
             <span class="badge ${badgeClass}">${fmtHours(hsaVal, data, true, 2)}</span>
         </td>`;
+    });
+    tfootHtml += '</tr>';
+
+    tfootHtml += '<tr class="totals-row are-row"><td colspan="7">ARE (allègements / missions)</td>';
+    data.teachers.forEach(t => {
+        tfootHtml += `<td class="are-cell" data-teacher="${escapeStructureHtml(t)}">${buildAreCellHtml(disc, t)}</td>`;
     });
     tfootHtml += '</tr>';
 
@@ -3785,7 +3791,7 @@ function renderTrmdContent() {
         });
 
         data.teachers.forEach(t => {
-            const grandTotalTeacher = teacherRawTotals[t] + pondExtra(teacherPond11Sums, t, data);
+            const grandTotalTeacher = teacherRawTotals[t] + pondExtra(teacherPond11Sums, t, data) + areTotal(data, t);
             const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
             grandHsa += (grandTotalTeacher - apportVal);
             grandEpleTotalGeneral += grandTotalTeacher;
@@ -3835,7 +3841,7 @@ function renderTrmdContent() {
                         <th style="text-align: center;">HP (ORS)</th>
                         <th style="text-align: center;">Volume ventilé</th>
                         <th style="text-align: center;">HSA</th>
-                        <th style="text-align: center;">Total (pondérations comprises)</th>
+                        <th style="text-align: center;">Total (pondérations et ARE compris)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -3883,7 +3889,7 @@ function renderTrmdContent() {
             });
 
             data.teachers.forEach(t => {
-                const grandTotalTeacher = teacherRawTotals[t] + pondExtra(teacherPond11Sums, t, data);
+                const grandTotalTeacher = teacherRawTotals[t] + pondExtra(teacherPond11Sums, t, data) + areTotal(data, t);
                 const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
                 discHsaTotal += (grandTotalTeacher - apportVal);
                 discGrandTotal += grandTotalTeacher;
@@ -3987,7 +3993,7 @@ function buildTrmdSheetData() {
         });
 
         data.teachers.forEach(t => {
-            const grandTotalTeacher = teacherRawTotals[t] + pondExtra(teacherPond11Sums, t, data);
+            const grandTotalTeacher = teacherRawTotals[t] + pondExtra(teacherPond11Sums, t, data) + areTotal(data, t);
             const apportVal = data.apports[t] !== undefined ? data.apports[t] : 18;
             discHsaTotal += (grandTotalTeacher - apportVal);
             discGrandTotal += grandTotalTeacher;
@@ -4034,7 +4040,7 @@ function buildTrmdSheetData() {
         ['DGH totale (h)', parseFloat(totalDgh.toFixed(1))],
         ['Norvégien (h)', parseFloat(norvegien.toFixed(2))],
         [],
-        ['Discipline', 'Nb Ens.', 'HP (ORS) (h)', 'Volume ventilé (h)', 'HSA (h)', 'Total (pondérations comprises) (h)'],
+        ['Discipline', 'Nb Ens.', 'HP (ORS) (h)', 'Volume ventilé (h)', 'HSA (h)', 'Total (pondérations et ARE compris) (h)'],
         ...tableRows
     ];
 }
@@ -4133,8 +4139,15 @@ function buildDisciplineSheetData(disc) {
     teachers.forEach(t => totalRow.push(parseFloat(teacherTotalsRaw[t].toFixed(2))));
     rows.push(totalRow);
 
+    const areRow = ['', '', '', '', '', 'ARE (h)'];
+    teachers.forEach(t => {
+        const list = getTeacherAres(data, t);
+        areRow.push(list.length ? parseFloat(areTotal(data, t).toFixed(2)) : '');
+    });
+    rows.push(areRow);
+
     const grandTotalRow = ['', '', '', '', '', 'Total général (h)'];
-    teachers.forEach(t => grandTotalRow.push(parseFloat((teacherTotalsRaw[t] + teacherTotalsPond[t]).toFixed(2))));
+    teachers.forEach(t => grandTotalRow.push(parseFloat((teacherTotalsRaw[t] + teacherTotalsPond[t] + areTotal(data, t)).toFixed(2))));
     rows.push(grandTotalRow);
 
     const apportRow = ['', '', '', '', '', 'ORS (h)'];
@@ -4143,7 +4156,7 @@ function buildDisciplineSheetData(disc) {
 
     const hsaRow = ['', '', '', '', '', 'HSA (h)'];
     teachers.forEach(t => {
-        const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t];
+        const grandTotal = teacherTotalsRaw[t] + teacherTotalsPond[t] + areTotal(data, t);
         const apport = data.apports[t] !== undefined ? data.apports[t] : 18;
         hsaRow.push(parseFloat((grandTotal - apport).toFixed(2)));
     });
@@ -4941,6 +4954,10 @@ function renameTeacher(disc, tIndex) {
     }
 
     data.teachers[tIndex] = newName;
+    if (data.ares && data.ares[oldName] !== undefined) {
+        data.ares[newName] = data.ares[oldName];
+        delete data.ares[oldName];
+    }
     if (data.apports && data.apports[oldName] !== undefined) {
         data.apports[newName] = data.apports[oldName];
         delete data.apports[oldName];
@@ -4983,6 +5000,7 @@ function deleteTeacher(disc, tIndex) {
                 if (service.allocations) delete service.allocations[teacherName];
             });
             if (dataStore[d].apports) delete dataStore[d].apports[teacherName];
+            if (dataStore[d].ares) delete dataStore[d].ares[teacherName];
         });
         renderApp();
     }
@@ -5608,8 +5626,10 @@ function computeTeacherSummary(disc, t) {
     sums['raw:' + t] = raw;
     const pond = pondExtra(sums, t, data);
     const apport = data.apports && data.apports[t] !== undefined ? data.apports[t] : 18;
-    const total = raw + pond;
-    return { rows, raw, pond, total, apport, hsa: total - apport, data };
+    const ares = getTeacherAres(data, t).map(a => ({ short: a.short, label: a.label || a.short, hours: parseFloat(a.hours) || 0 }));
+    const are = ares.reduce((x, a) => x + a.hours, 0);
+    const total = raw + pond + are;
+    return { rows, raw, pond, are, ares, total, apport, hsa: total - apport, data };
 }
 
 function generateTeacherServicesPdf() {
@@ -5648,7 +5668,8 @@ function generateTeacherServicesPdf() {
             const totals = [];
             if (opt.totalHeures) totals.push(['Total des heures enseignées', fh(sum.raw)]);
             if (opt.pondTotal) totals.push(['Pondérations', fh(sum.pond)]);
-            if (opt.total) totals.push(['Total (heures + pondérations)', fh(sum.total)]);
+            if (opt.are) sum.ares.forEach(a => totals.push([`ARE : ${esc(a.label)} (${esc(a.short)})`, fh(a.hours)]));
+            if (opt.total) totals.push(['Total (heures + pondérations + ARE)', fh(sum.total)]);
             if (opt.hsa) totals.push(['HSA (Total − ORS)', fh(sum.hsa, true)]);
             const totalsHtml = totals.length
                 ? `<table class="tpdf-totals">${totals.map(([l, v]) => `<tr><td>${l}</td><td class="num"><strong>${v}</strong></td></tr>`).join('')}</table>`
@@ -5749,7 +5770,7 @@ function buildDisciplineSummaryHtml(disc) {
     return `
         <div class="disc-summary-item"><span>Volume ventilé</span><strong>${fmtHours(t.raw, data, false, 1)}</strong></div>
         <div class="disc-summary-item"><span>HSA</span><strong><span class="badge ${hsaClass}">${fmtHours(t.hsa, data, true, 2)}</span></strong></div>
-        <div class="disc-summary-item" title="Total pondérations comprises"><span>Total</span><strong>${fmtHours(t.grand, data, false, 2)}</strong></div>`;
+        <div class="disc-summary-item" title="Total pondérations et ARE compris"><span>Total</span><strong>${fmtHours(t.grand, data, false, 2)}</strong></div>`;
 }
 
 // ============================================================
@@ -5897,7 +5918,7 @@ function generatePresentationPdf(opts) {
         return { html: `<tr><td><strong>${esc(disc)}</strong></td><td class="num">${d.teachers.length}</td><td class="num">${fmt1(dHp)} h</td><td class="num">${fmt1(t.raw)} h</td><td class="num">${t.hsa > 0 ? '+' : ''}${t.hsa.toFixed(2)} h</td><td class="num"><strong>${t.grand.toFixed(2)} h</strong></td></tr>` };
     });
     trmdRows.push({ html: `<tr class="pres-total"><td>Total</td><td class="num">${gTeachers}</td><td class="num">${fmt1(gHp)} h</td><td class="num">${fmt1(gRaw)} h</td><td class="num">${gHsa > 0 ? '+' : ''}${gHsa.toFixed(2)} h</td><td class="num" style="white-space:nowrap">${gTotal.toFixed(2)} h - Norvégien : ${(() => { const nv = (dotationGlobal.hp || 0) + (dotationGlobal.hsa || 0) - gTotal; return (nv > 0 ? '+' : '') + nv.toFixed(2); })()} h</td></tr>` });
-    const trmdHead = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">HP (ORS)</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (pondérations comprises)</th></tr>';
+    const trmdHead = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">HP (ORS)</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (pondérations et ARE compris)</th></tr>';
     const trmdPages = paginateTable(trmdHead, trmdRows, TITLE_RESERVE);
     trmdPages.forEach((rows, i) => {
         pages.push(() => `
@@ -6084,4 +6105,120 @@ function newEmptyProject() {
         changeHistory: [],
         epleIdentity: { name: "", uai: "", commune: "", enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false }
     });
+}
+
+// ============================================================
+// ARE (allègements / missions) : heures ajoutées au total de l'enseignant
+// ============================================================
+const ARE_CATALOG = [
+    ['2 ETB.CD', 'EXERCICE DANS 2 ETAB DE 2 COMMUNES'],
+    ['3 ETB.', 'EXERCICE DANS 3 ETABLISSEMENTS'],
+    ['8H SPH', '8H OU PLUS EN SCIENCES PHYSIQUES'],
+    ['8H SVT', '8H OU PLUS EN SVT ART 9 D.2014'],
+    ['A.ELE.SH', 'ME PEDAGO/EDU : AIDE ÉLÈVES SH'],
+    ['AC.ELE.DIF', 'ME PEDAGO/EDU : ACC ÉLÈVES EN DIFFICULTÉ'],
+    ['AC.ELE.MIG', 'ME PEDAGO/EDU : ACC ÉLÈVES MIGRANTS'],
+    ['ART/CULT', 'ME PEDAGO/EDU : ACTIVITÉS CULTURE OU ART'],
+    ['ASSO.EPS', 'HEURES ASSOCIATIONS SPORTIVES'],
+    ['AUTRE MISS', 'ME PEDAGO/EDU : AUTRES MISSIONS'],
+    ['AUTRES.EP', 'AUTRES MISSIONS ÉDUCATION PRIORITAIRE'],
+    ['CO.TECHNO', 'COORDINATION DISCIPLINE TECHNOLOGIE'],
+    ['COOR.APSA', 'COORDINATION ACTIVITÉS PHYS SPORT ARTS'],
+    ['COOR.CYENS', "COORDINATION DE CYCLE D'ENSEIGNEMENT"],
+    ['COOR.DISC', 'COORDINATION DE DISCIPLINE(S)'],
+    ['COOR.NIVEN', "COORDINATION DE NIVEAU D'ENSEIGNEMENT"],
+    ['COOR.REP', 'COORDINATION RÉSEAU ÉDUCATION PRIORITAIRE'],
+    ['MANIF/CHOR', 'ME PEDAGO/EDU : ORG MANIF CHORALE'],
+    ['PART', 'ME PEDAGO/EDU : AUTRES PARTENARIATS'],
+    ['PART.ENT', 'ME PEDAGO/EDU : PARTENARIATS ENTREPRISES'],
+    ['REF.CULT', 'RÉFÉRENT CULTURE'],
+    ['REF.DS', 'RÉFÉRENT DÉCROCHAGE SCOLAIRE'],
+    ['REF.NUM', 'RÉFÉRENT RESSOURCES PÉDAGO NUMÉRIQUES'],
+    ['TUT.LYCEE', 'TUTORAT DES ÉLÈVES EN LYCÉE']
+];
+
+function getTeacherAres(data, t) {
+    return (data && data.ares && Array.isArray(data.ares[t])) ? data.ares[t] : [];
+}
+
+function areTotal(data, t) {
+    return getTeacherAres(data, t).reduce((sum, a) => sum + (parseFloat(a.hours) || 0), 0);
+}
+
+function buildAreCellHtml(disc, t) {
+    const data = dataStore[disc];
+    const esc = escapeStructureHtml;
+    const jsDisc = disc.replace(/'/g, "\\'");
+    const jsT = t.replace(/'/g, "\\'");
+    const chips = getTeacherAres(data, t).map((a, i) => `
+        <div class="are-chip" title="${esc(a.label || a.short)}">
+            <span class="are-chip-name">${esc(a.short)}</span>
+            <input type="number" min="0" step="0.5" value="${a.hours}" oninput="updateAreHours('${jsDisc}', '${jsT}', ${i}, this.value, this)">
+            <button type="button" class="are-chip-del" title="Supprimer cet ARE" onclick="deleteAre('${jsDisc}', '${jsT}', ${i})">✕</button>
+        </div>`).join('');
+    return `${chips}<button type="button" class="are-add-btn" onclick="openAreModal('${jsDisc}', '${jsT}')">+ ARE</button>`;
+}
+
+let areModalCtx = null;
+
+function openAreModal(disc, teacher) {
+    areModalCtx = { disc, teacher };
+    document.getElementById('areModalTeacher').textContent = teacher;
+    const sel = document.getElementById('areSelect');
+    sel.innerHTML = ARE_CATALOG.map(([short, label], i) => `<option value="${i}">${escapeStructureHtml(short)} — ${escapeStructureHtml(label)}</option>`).join('')
+        + '<option value="custom">Autre (libellé personnalisé)…</option>';
+    document.getElementById('areCustomLabel').value = '';
+    document.getElementById('areCustomShort').value = '';
+    document.getElementById('areHours').value = '';
+    onAreSelectChange();
+    document.getElementById('areModal').classList.add('active');
+}
+
+function closeAreModal() {
+    document.getElementById('areModal').classList.remove('active');
+    areModalCtx = null;
+}
+
+function onAreSelectChange() {
+    const custom = document.getElementById('areSelect').value === 'custom';
+    document.getElementById('areCustomFields').style.display = custom ? 'block' : 'none';
+}
+
+function confirmAddAre() {
+    if (!areModalCtx) return;
+    const { disc, teacher } = areModalCtx;
+    const selVal = document.getElementById('areSelect').value;
+    let short, label;
+    if (selVal === 'custom') {
+        label = document.getElementById('areCustomLabel').value.trim();
+        short = document.getElementById('areCustomShort').value.trim();
+        if (!label || !short) { alert('Veuillez renseigner le libellé et le libellé court.'); return; }
+    } else {
+        [short, label] = ARE_CATALOG[parseInt(selVal, 10)];
+    }
+    const hours = parseFloat(String(document.getElementById('areHours').value).replace(',', '.'));
+    if (!(hours >= 0) || isNaN(hours)) { alert("Veuillez indiquer un nombre d'heures."); return; }
+    const data = dataStore[disc];
+    if (!data.ares) data.ares = {};
+    if (!data.ares[teacher]) data.ares[teacher] = [];
+    data.ares[teacher].push({ short, label, hours });
+    closeAreModal();
+    renderApp();
+}
+
+function updateAreHours(disc, teacher, index, value, inputEl) {
+    const data = dataStore[disc];
+    const a = data && data.ares && data.ares[teacher] && data.ares[teacher][index];
+    if (!a) return;
+    a.hours = parseFloat(value) || 0;
+    const table = inputEl.closest('table');
+    if (table) refreshDisciplineTotals(table, data, disc);
+}
+
+function deleteAre(disc, teacher, index) {
+    const data = dataStore[disc];
+    if (!data || !data.ares || !data.ares[teacher]) return;
+    data.ares[teacher].splice(index, 1);
+    if (data.ares[teacher].length === 0) delete data.ares[teacher];
+    renderApp();
 }

@@ -1006,3 +1006,15 @@ table.header-out .teacher-name-row { display: table-row; }
     #coEnseignementModal th:first-child,
     #coEnseignementModal td:first-child { display: none !important; }
 }
+/* ARE */
+.totals-row.are-row td { background: #fff; font-weight: 600; font-size: 0.8rem; }
+.totals-row.are-row td.are-cell { vertical-align: top; padding: 6px 4px; }
+.are-chip { display: flex; align-items: center; gap: 4px; margin: 0 auto 4px; padding: 2px 4px; border: 1px solid var(--indigo-border, #c7d2fe); background: var(--indigo-bg, #eef2ff); border-radius: 6px; font-size: 0.72rem; }
+.are-chip-name { font-weight: 700; color: var(--indigo-text, #4338ca); white-space: nowrap; }
+.are-chip input { width: 52px; padding: 2px 4px; font-size: 0.78rem; text-align: center; }
+.are-chip-del { border: none; background: transparent; color: #94a3b8; cursor: pointer; font-size: 0.75rem; padding: 0 2px; }
+.are-chip-del:hover { color: #dc2626; }
+.are-add-btn { border: 1px dashed #94a3b8; background: transparent; color: #475569; border-radius: 6px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+.are-add-btn:hover { background: #f1f5f9; }
+.are-field { display: block; margin-bottom: 12px; font-weight: 600; font-size: 0.85rem; }
+.are-field select, .are-field input { display: block; width: 100%; margin-top: 4px; padding: 8px; box-sizing: border-box; font-size: 0.9rem; }

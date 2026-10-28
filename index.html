@@ -269,6 +269,36 @@
         </div>
     </div>
 
+    <div id="areModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 560px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>Ajouter un ARE</h2>
+                <button class="modal-close" onclick="closeAreModal()">&times;</button>
+            </div>
+            <div style="padding: 4px 4px 0;">
+                <p style="margin: 0 0 12px; color: var(--text-muted);">Enseignant : <strong id="areModalTeacher"></strong></p>
+                <label class="are-field">ARE
+                    <select id="areSelect" onchange="onAreSelectChange()"></select>
+                </label>
+                <div id="areCustomFields" style="display:none;">
+                    <label class="are-field">Libellé
+                        <input type="text" id="areCustomLabel" placeholder="Ex. COORDINATION PROJET X">
+                    </label>
+                    <label class="are-field">Libellé court (affiché dans le tableau)
+                        <input type="text" id="areCustomShort" maxlength="14" placeholder="Ex. COOR.PROJ">
+                    </label>
+                </div>
+                <label class="are-field">Nombre d'heures
+                    <input type="number" id="areHours" min="0" step="0.5" placeholder="0">
+                </label>
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top: 16px;">
+                    <button class="btn-secondary" type="button" onclick="closeAreModal()">Annuler</button>
+                    <button class="btn-primary" type="button" onclick="confirmAddAre()">Ajouter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="pondInfoModal" class="modal-overlay">
         <div class="modal-card modal-lg" style="max-width: 800px;">
             <div class="modal-header" style="justify-content: space-between;">
@@ -535,7 +565,8 @@
                     <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="pondService" checked> Pondération de chaque service</label>
                     <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="totalHeures" checked> Total des heures enseignées</label>
                     <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="pondTotal" checked> Pondérations (total)</label>
-                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="total" checked> Total (heures + pondérations)</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="are" checked> ARE</label>
+                    <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="total" checked> Total (heures + pondérations + ARE)</label>
                     <label class="export-checkbox-item"><input type="checkbox" class="tpdf-opt" value="hsa" checked> HSA</label>
                 </div>
             </div>
