@@ -1,0 +1,20 @@
+name: Miroir vers la Forge Apps Edu
+
+on:
+  push:
+    branches:
+      - main
+      - master # couvre le cas où votre branche par défaut s'appelle main ou master
+
+jobs:
+  to_gitlab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # indispensable pour cloner tout l'historique
+
+      - name: Pousser vers la Forge
+        run: |
+          git push --prune --force https://oauth2:${{ secrets.FORGE_TOKEN }}@forge.apps.education.fr/nietopaul/vectisdhg_autonomie.git +refs/remotes/origin/*:refs/heads/* +refs/tags/*:refs/tags/*
