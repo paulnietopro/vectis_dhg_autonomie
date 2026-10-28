@@ -1,0 +1,13 @@
+pages:
+  stage: deploy
+  script:
+    - mkdir -p public
+    # Copie les fichiers statiques vers le dossier public attendu par GitLab Pages
+    - cp -r *.html *.css *.js public/ 2>/dev/null || true
+    # Si vous avez des dossiers de ressources (images, assets, data), ajoutez-les ici :
+    # - cp -r assets public/ 2>/dev/null || true
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
