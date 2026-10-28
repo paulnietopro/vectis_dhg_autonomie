@@ -1059,3 +1059,16 @@ table.header-out .teacher-name-row { display: table-row; }
 .pres-measure .pres-are-table td.are-list-name small { display: block; }
 
 .are-list-table tr.are-list-total td { background: #eef2ff; font-weight: 700; border-top: 2px solid var(--border); vertical-align: middle; }
+
+.tpg-sub { font-size: 10pt; color: #444; margin: -2mm 0 3mm; }
+.tpg-kvs { display: flex; flex-wrap: wrap; gap: 3mm 6mm; margin: 0 0 4mm; font-size: 10pt; }
+.tpg-kv span { color: #555; margin-right: 2mm; }
+.tpg-wrap { width: 277mm; }
+.pres-table.tpg-table { width: max-content; min-width: 100%; font-size: 9.5pt; }
+.pres-table.tpg-table th, .pres-table.tpg-table td { padding: 1.3mm 2mm; white-space: nowrap; }
+.pres-table.tpg-table tr.tpg-total td { background: #e8eefc; font-weight: 700; }
+.pres-table.tpg-table th.num, .pres-table.tpg-table td.num { text-align: center; }
+@media print {
+    table.pres-table.tpg-table { table-layout: auto !important; width: max-content; min-width: 100%; }
+}
+.pres-table.tpg-table thead th { white-space: normal; line-height: 1.2; }
