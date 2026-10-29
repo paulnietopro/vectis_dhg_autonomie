@@ -1060,15 +1060,15 @@ table.header-out .teacher-name-row { display: table-row; }
 
 .are-list-table tr.are-list-total td { background: #eef2ff; font-weight: 700; border-top: 2px solid var(--border); vertical-align: middle; }
 
-.tpg-sub { font-size: 10pt; color: #444; margin: -2mm 0 3mm; }
-.tpg-kvs { display: flex; flex-wrap: wrap; gap: 3mm 6mm; margin: 0 0 4mm; font-size: 10pt; }
-.tpg-kv span { color: #555; margin-right: 2mm; }
-.tpg-wrap { width: 277mm; }
-.pres-table.tpg-table { width: max-content; min-width: 100%; font-size: 9.5pt; }
-.pres-table.tpg-table th, .pres-table.tpg-table td { padding: 1.3mm 2mm; white-space: nowrap; }
-.pres-table.tpg-table tr.tpg-total td { background: #e8eefc; font-weight: 700; }
-.pres-table.tpg-table th.num, .pres-table.tpg-table td.num { text-align: center; }
+.pres-measure-portrait { width: 190mm; }
+.pres-page.pres-portrait { width: 190mm; height: 277mm; }
+.trmd-sub { font-size: 10.5pt; color: #444; margin: -2mm 0 4mm; }
+.trmd-strip { display: flex; gap: 4mm; margin: 0 0 6mm; }
+.trmd-strip > div { flex: 1; text-align: center; padding: 3mm 2mm; border: 1.5px solid #1d4ed8; border-radius: 2.5mm; }
+.trmd-strip span { display: block; font-size: 9.5pt; color: #555; margin-bottom: 1mm; }
+.trmd-strip strong { font-size: 14pt; color: #111; }
+.pres-table.trmd-pdf-table { font-size: 9.5pt; }
+.pres-table.trmd-pdf-table th, .pres-table.trmd-pdf-table td { padding: 1.6mm 2mm; }
 @media print {
-    table.pres-table.tpg-table { table-layout: auto !important; width: max-content; min-width: 100%; }
+    body.printing-presentation > #trmdModal, body.printing-presentation > #coEnseignementModal, body.printing-presentation > #historyModal { display: none !important; }
 }
-.pres-table.tpg-table thead th { white-space: normal; line-height: 1.2; }

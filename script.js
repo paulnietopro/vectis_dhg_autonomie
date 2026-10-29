@@ -4093,7 +4093,81 @@ async function exportTrmdToExcel() {
     XLSX.writeFile(wb, `TRMD${epleLabel}_${dateStr}.xlsx`);
 }
 
+// Export PDF du TRMD : même style que le PDF de présentation, mais en page portrait
 function exportTrmdToPdf() {
+    const esc = escapeStructureHtml;
+    const dateStr = new Date().toLocaleDateString('fr-FR');
+    const epleName = epleIdentity && epleIdentity.name ? epleIdentity.name : '';
+    const epleSub = [epleIdentity && epleIdentity.commune, epleIdentity && epleIdentity.uai ? `UAI ${epleIdentity.uai}` : '']
+        .filter(Boolean).join(' · ');
+    const disciplines = Object.keys(dataStore);
+    if (disciplines.length === 0) { alert('Aucune donnée à exporter.'); return; }
+    const fmt1 = v => (v || 0).toFixed(1);
+
+    let gTeachers = 0, gHp = 0, gRaw = 0, gHsa = 0, gTotal = 0;
+    const rows = disciplines.map(disc => {
+        const d = dataStore[disc];
+        const t = getDisciplineTotals(disc);
+        const dHp = getDisciplineHP(disc);
+        gTeachers += d.teachers.length; gHp += dHp; gRaw += t.raw; gHsa += t.hsa; gTotal += t.grand;
+        return { html: `<tr><td><strong>${esc(disc)}</strong></td><td class="num">${d.teachers.length}</td><td class="num">${fmt1(dHp)} h</td><td class="num">${fmt1(t.raw)} h</td><td class="num">${t.hsa > 0 ? '+' : ''}${t.hsa.toFixed(2)} h</td><td class="num"><strong>${t.grand.toFixed(2)} h</strong></td></tr>` };
+    });
+    const dhg = (dotationGlobal.hp || 0) + (dotationGlobal.hsa || 0);
+    const norv = dhg - gTotal;
+    rows.push({ html: `<tr class="pres-total"><td>Total</td><td class="num">${gTeachers}</td><td class="num">${fmt1(gHp)} h</td><td class="num">${fmt1(gRaw)} h</td><td class="num">${gHsa > 0 ? '+' : ''}${gHsa.toFixed(2)} h</td><td class="num">${gTotal.toFixed(2)} h</td></tr>` });
+    const head = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">HP (ORS)</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (' + totalLabelSuffix() + ')</th></tr>';
+    const strip = `<div class="trmd-strip">
+        <div><span>HP</span><strong>${fmt1(dotationGlobal.hp)} h</strong></div>
+        <div><span>HSA</span><strong>${fmt1(dotationGlobal.hsa)} h</strong></div>
+        <div><span>DHG</span><strong>${fmt1(dhg)} h</strong></div>
+        <div><span>Norvégien</span><strong>${norv > 0 ? '+' : ''}${norv.toFixed(2)} h</strong></div>
+    </div>`;
+
+    // Pagination (page A4 portrait : 190 x 277 mm utiles)
+    const PAGE_INNER_PX = Math.floor(277 * 96 / 25.4) - 70;
+    const TITLE_RESERVE = 70;
+    const measureBox = document.createElement('div');
+    measureBox.className = 'pres-measure pres-measure-portrait';
+    document.body.appendChild(measureBox);
+    measureBox.innerHTML = `${strip}<table class="pres-table trmd-pdf-table"><thead>${head}</thead><tbody>${rows.map(r => r.html).join('')}</tbody></table>`;
+    const stripH = measureBox.querySelector('.trmd-strip').offsetHeight + 16;
+    const theadH = measureBox.querySelector('thead').offsetHeight;
+    const trs = measureBox.querySelectorAll('tbody tr');
+    const avail = PAGE_INNER_PX - TITLE_RESERVE - theadH;
+    const pages = [[]];
+    let used = stripH;
+    rows.forEach((r, i) => {
+        const rh = trs[i].offsetHeight;
+        if (pages[pages.length - 1].length > 0 && used + rh > avail) { pages.push([]); used = 0; }
+        pages[pages.length - 1].push(r);
+        used += rh;
+    });
+    document.body.removeChild(measureBox);
+
+    const total = pages.length;
+    const container = document.getElementById('presentationPrint');
+    container.innerHTML = pages.map((pg, i) => `
+        <section class="pres-page pres-portrait">
+            <h1 class="pres-title">TRMD${total > 1 ? ` <small>(${i + 1}/${total})</small>` : ''}</h1>
+            ${i === 0 ? `<div class="trmd-sub">${esc(epleName)}${epleSub ? ' · ' + esc(epleSub) : ''}</div>${strip}` : ''}
+            <table class="pres-table trmd-pdf-table"><thead>${head}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>
+            <div class="pres-footer"><span>${esc(epleName)}${epleName ? ' · ' : ''}TRMD - ${dateStr}</span><span>${i + 1}/${total}</span></div>
+        </section>`).join('');
+
+    // Orientation portrait pour ce document uniquement
+    const orient = document.createElement('style');
+    orient.id = 'printOrientationStyle';
+    orient.textContent = '@media print { @page { size: A4 portrait; margin: 10mm; } }';
+    document.head.appendChild(orient);
+
+    document.body.classList.add('printing-presentation');
+    const cleanup = () => {
+        document.body.classList.remove('printing-presentation');
+        container.innerHTML = '';
+        if (orient.parentNode) orient.parentNode.removeChild(orient);
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     triggerPrint();
 }
 

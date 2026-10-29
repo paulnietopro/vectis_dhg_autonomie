@@ -155,17 +155,24 @@
     <div id="helpModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header" style="justify-content: space-between;">
-                <h2>💡 Notice d'utilisation & Conseils d'aide</h2>
+                <h2>💡 Notice d'utilisation & Conseils</h2>
                 <button class="modal-close" onclick="closeHelpModal()">&times;</button>
             </div>
             <div class="help-guide-container">
                 <div class="help-step-card">
                     <div class="help-step-header">
                         <div class="help-step-number">1</div>
-                        <div class="help-step-title">Importation Enseignants (.xlsx)</div>
+                        <div class="help-step-title">Démarrer un travail</div>
                     </div>
                     <div class="help-step-content">
-                        Importer un fichier <strong>.xlsx</strong> contenant la liste des enseignants avec impérativement les colonnes : <strong>Nom</strong>, <strong>Prénom</strong>, <strong>Discipline</strong> et <strong>ORS</strong>.
+                        Tout se passe dans le menu <strong>Fichier</strong> :
+                        <ul style="margin-top: 6px; padding-left: 20px;">
+                            <li><strong>Nouveau</strong> : repart d'une base totalement vide (les données actuelles sont effacées après confirmation).</li>
+                            <li><strong>Ouvrir</strong> : recharge une sauvegarde <strong>.json</strong> créée avec l'application.</li>
+                            <li><strong>Importer</strong> : charge un fichier <strong>.xlsx</strong> contenant la liste des enseignants avec impérativement les colonnes <strong>Nom</strong>, <strong>Prénom</strong>, <strong>Discipline</strong> et <strong>ORS</strong>.</li>
+                            <li><strong>Enregistrer</strong> : télécharge la sauvegarde <strong>.json</strong>, nommée automatiquement <em>AAAA_MM_JJ_DHG_Nom de l'EPLE</em>. Pensez à enregistrer régulièrement.</li>
+                            <li>Pour découvrir l'outil, <strong>Paramètres › Aide &amp; données</strong> permet de charger un <strong>jeu de test</strong>.</li>
+                        </ul>
                     </div>
                 </div>
 
@@ -175,11 +182,12 @@
                         <div class="help-step-title">Paramétrage de l'établissement</div>
                     </div>
                     <div class="help-step-content">
-                        Accédez aux <strong>Paramètres ⚙️</strong> pour configurer :
+                        Ouvrez <strong>Paramètres ⚙️</strong> pour configurer :
                         <ul style="margin-top: 6px; padding-left: 20px;">
-                            <li>L'<strong>Identité EPLE</strong> via l'annuaire Open Data et l'activation de la <strong>gestion des spécialités</strong>, des <strong>enseignements optionnels</strong> et du <strong>co-enseignement</strong>.</li>
+                            <li>L'<strong>Identité EPLE</strong> via l'annuaire Open Data, puis les fonctions à activer selon votre établissement : <strong>spécialités</strong>, <strong>enseignements optionnels</strong>, <strong>co-enseignement</strong>, <strong>pondérations</strong> (inutiles pour les collèges hors éducation prioritaire et les lycées professionnels) et <strong>services multi-niveaux</strong>.</li>
                             <li>Les <strong>Niveaux</strong> (niveaux classiques ou MEF), modifiables et réordonnables par glisser-déposer.</li>
-                            <li>Les <strong>Disciplines</strong> afin de personnaliser leurs intitulés, en ajouter ou en supprimer selon vos besoins.</li>
+                            <li>Les <strong>Disciplines</strong> : personnaliser leurs intitulés, en ajouter ou en supprimer.</li>
+                            <li><strong>Aide &amp; données</strong> : envoyer un retour (<strong>Contribuer</strong>) ou charger le jeu de test.</li>
                         </ul>
                     </div>
                 </div>
@@ -187,26 +195,90 @@
                 <div class="help-step-card">
                     <div class="help-step-header">
                         <div class="help-step-number">3</div>
-                        <div class="help-step-title">Saisie et ventilation des services</div>
+                        <div class="help-step-title">Construire les services depuis la structure</div>
                     </div>
                     <div class="help-step-content">
-                        Dans chaque discipline, saisissez chaque service ou matière en précisant le niveau, le nombre de classes (ou de groupes), le volume horaire attribué et la pondération éventuelle. Si la gestion des spécialités est activée au niveau global et sur la discipline, vous pouvez cocher l'option <strong>Spécialité</strong> pour chaque cours concerné. L'application calcule le volume d'heures à ventiler pour chaque enseignant.
+                        Le menu <strong>Structure</strong> vous aide à créer les services :
+                        <ul style="margin-top: 6px; padding-left: 20px;">
+                            <li><strong>Horaires réglementaires</strong> : tableaux de référence du collège (CLG), du lycée général et technologique (LGT) et du lycée professionnel (LP).</li>
+                            <li><strong>Construire les services avec la structure de l'EPLE</strong> : indiquez le nombre de classes ou de groupes par enseignement et la discipline concernée ; l'application crée les services avec le niveau, l'intitulé, l'horaire plancher, le nombre de classes et le volume par classe.</li>
+                        </ul>
                     </div>
                 </div>
 
                 <div class="help-step-card">
                     <div class="help-step-header">
                         <div class="help-step-number">4</div>
+                        <div class="help-step-title">Saisie et ventilation des services</div>
+                    </div>
+                    <div class="help-step-content">
+                        Dans chaque discipline, renseignez pour chaque service le niveau, l'intitulé, l'horaire plancher, le <strong>Nbr. Classe</strong>, le <strong>Vol. Classe</strong> et la pondération éventuelle. La colonne <strong>À ventiler</strong> indique le volume à répartir, puis vous saisissez les heures de chaque enseignant (dont l'<strong>ORS</strong>, modifiable).
+                        <ul style="margin-top: 6px; padding-left: 20px;">
+                            <li>Les cases <strong>Spé</strong> et <strong>Co-E</strong> marquent un service de spécialité ou en co-enseignement (si ces fonctions sont activées).</li>
+                            <li>Une matière <strong>partagée entre deux enseignants ou disciplines sans co-enseignement</strong> se saisit en fractions de classe (par exemple 0,5 + 0,5) pour ne pas compter deux fois les groupes.</li>
+                            <li>Boutons de la discipline : <strong>Ajouter un service</strong>, <strong>Ajouter un enseignant</strong>, <strong>Vider les heures ventilées</strong>, <strong>Heures décimales / sexagésimales</strong> et <strong>Suppression / Modification</strong> (qui permet aussi de renommer un enseignant).</li>
+                            <li>En haut à droite, un résumé affiche le <strong>volume ventilé</strong>, les <strong>HSA</strong> et le <strong>total</strong> de la discipline.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="help-step-card">
+                    <div class="help-step-header">
+                        <div class="help-step-number">5</div>
+                        <div class="help-step-title">Totaux, pondérations, HSA et ARE</div>
+                    </div>
+                    <div class="help-step-content">
+                        Sous le tableau de chaque discipline, pour chaque enseignant :
+                        <ul style="margin-top: 6px; padding-left: 20px;">
+                            <li><strong>Total des heures attribuées</strong> (heures brutes).</li>
+                            <li><strong>Pondérations</strong> (si la gestion est activée) : le bouton <strong>ℹ️</strong> détaille les règles de calcul et propose des exemples.</li>
+                            <li><strong>Total</strong> = heures brutes + pondérations + ARE, puis <strong>HSA</strong> = Total − ORS.</li>
+                            <li><strong>ARE</strong> : le bouton <strong>+ ARE</strong> permet de choisir un ARE dans la liste officielle ou de saisir votre propre libellé (avec un libellé court), puis d'indiquer les heures. Un enseignant peut en cumuler plusieurs ; leurs heures s'ajoutent au total et donc aux HSA.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="help-step-card">
+                    <div class="help-step-header">
+                        <div class="help-step-number">6</div>
                         <div class="help-step-title">Pilotage et analyses</div>
                     </div>
                     <div class="help-step-content">
                         Utilisez les fonctions de pilotage selon vos besoins :
                         <ul style="margin-top: 6px; padding-left: 20px;">
-                            <li><strong>TRMD</strong> : Vue synthétique globale de la répartition des moyens par discipline.</li>
-                            <li><strong>Ventilation / Niveau</strong> : Analyse croisée des affectations par niveau d'enseignement.</li>
-                            <li><strong>Autonomie de l'EPLE › Utilisation de la marge d'autonomie</strong> : Calcul et suivi des heures d'autonomie mobilisées.</li>
-                            <li><strong>Spécialités & Options</strong> : Bilans des cours de spécialité et des enseignements optionnels.</li>
+                            <li><strong>Autonomie de l'EPLE › Spécialités</strong> : bilan par niveau (matière, nombre de groupes, enseignants).</li>
+                            <li><strong>Autonomie de l'EPLE › TRMD</strong> : répartition des moyens par discipline (nombre d'enseignants, HP, volume ventilé, HSA, total) avec le rappel de la dotation et le <strong>Norvégien</strong> (DHG moins total).</li>
+                            <li><strong>Autonomie de l'EPLE › Ventilation / Niveau</strong> : analyse croisée des affectations par niveau d'enseignement.</li>
+                            <li><strong>Autonomie de l'EPLE › Utilisation de la marge d'autonomie</strong> : calcul et suivi des heures d'autonomie, par niveau, par matière, par discipline et en synthèse.</li>
+                            <li><strong>Autonomie de l'EPLE › Synthèse des ARE</strong> : tous les ARE regroupés par volume horaire, avec leurs totaux et un export PDF.</li>
+                            <li><strong>Édition › Options</strong> et <strong>Co-enseignement</strong> : gestion des enseignements optionnels (heures financées par la dotation, marge utilisée) et association des enseignants en co-enseignement.</li>
                         </ul>
+                    </div>
+                </div>
+
+                <div class="help-step-card">
+                    <div class="help-step-header">
+                        <div class="help-step-number">7</div>
+                        <div class="help-step-title">Exporter ses données</div>
+                    </div>
+                    <div class="help-step-content">
+                        Le menu <strong>Fichier › Exporter</strong> propose trois exports :
+                        <ul style="margin-top: 6px; padding-left: 20px;">
+                            <li><strong>Exporter par discipline</strong> : fichier tableur <strong>.xlsx</strong> ou <strong>.ods</strong>, en un seul fichier ou un fichier par discipline, avec le TRMD en option.</li>
+                            <li><strong>Exporter les services des enseignants</strong> : PDF d'une page par enseignant, avec les informations de votre choix (services, pondérations, ARE, total, HSA…).</li>
+                            <li><strong>Exporter pour la présentation</strong> : PDF paysage avec couverture, sommaire et rubriques au choix (rappel de la dotation, TRMD, ventilation par discipline, autonomie par niveau et par discipline, focus sur les spécialités et sur les options).</li>
+                            <li>Pour les PDF, choisissez <strong>Enregistrer au format PDF</strong> dans la fenêtre d'impression de votre navigateur.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="help-step-card">
+                    <div class="help-step-header">
+                        <div class="help-step-number">8</div>
+                        <div class="help-step-title">Conseils</div>
+                    </div>
+                    <div class="help-step-content">
+                        Pensez à <strong>enregistrer</strong> votre travail avant de fermer la page : il n'est pas conservé automatiquement. Le menu <strong>Paramètres › Historique</strong> garde, à chaque enregistrement, un résumé des modifications effectuées depuis la sauvegarde précédente ; il est conservé dans le fichier de sauvegarde.
                     </div>
                 </div>
 
