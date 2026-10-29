@@ -2308,104 +2308,54 @@ function renderLevelVentilationContent() {
         contentDiv.className = `tab-content ${idx === 0 ? 'active' : ''}`;
         contentDiv.id = `level-tab-${idx}`;
 
-        let levelHasServices = false;
-
+        // Regroupement : un service (même intitulé, toutes disciplines confondues), puis par nombre de classes
+        const esc = escapeStructureHtml;
+        const fmtN = n => String(Math.round(n * 100) / 100).replace('.', ',');
+        const services = {};
         Object.keys(dataStore).forEach(disc => {
             const data = dataStore[disc];
-            const levelServices = data.services
-                .map((s, sIndex) => ({ s, sIndex }))
-                .filter(entry => serviceMatchesLevel(entry.s, lvl));
-
-            if (levelServices.length > 0) {
-                levelHasServices = true;
-
-                const activeTeachers = data.teachers.filter(teacher => {
-                    return levelServices.some(entry => (parseFloat(entry.s.allocations[teacher]) || 0) > 0);
+            data.services.forEach((sv, sIndex) => {
+                if (!serviceMatchesLevel(sv, lvl)) return;
+                const name = (sv.name || '').trim() || '(sans intitulé)';
+                const key = name.toLowerCase();
+                if (!services[key]) services[key] = { name, levels: getServiceLevels(sv), byClasses: {} };
+                const g = services[key];
+                const classes = parseFloat(sv.classes) || 0;
+                if (!g.byClasses[classes]) g.byClasses[classes] = { teachers: [], coEns: false };
+                const cg = g.byClasses[classes];
+                if (sv.isCoEnseignement) cg.coEns = true;
+                data.teachers.forEach(t => {
+                    if ((parseFloat(sv.allocations && sv.allocations[t]) || 0) > 0 && !cg.teachers.some(x => x.t === t && x.disc === disc)) {
+                        cg.teachers.push({ t, disc });
+                    }
                 });
-
-                const card = document.createElement('div');
-                card.className = 'level-discipline-card';
-
-                let cardHtml = `<h3>${disc}</h3>`;
-
-                if (activeTeachers.length === 0) {
-                    cardHtml += '<p style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">Services définis mais aucune heure attribuée aux enseignants.</p>';
-                } else {
-                    cardHtml += `
-                        <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Intitulé Service</th>
-                                    <th style="text-align: center;">Nbr. Classe</th>
-                                    <th style="text-align: center;">Vol. Classe</th>
-                                    <th style="text-align: center;">À ventiler</th>
-                    `;
-
-                    activeTeachers.forEach(t => {
-                        cardHtml += `<th style="text-align: center;">${t}</th>`;
-                    });
-
-                    cardHtml += `</tr></thead><tbody>`;
-
-                    const teacherSums = {};
-                    activeTeachers.forEach(t => teacherSums[t] = 0);
-
-                    levelServices.forEach(entry => {
-                        const s = entry.s;
-                        const target = (s.classes || 0) * (s.hours || 0);
-                        const svcLevels = getServiceLevels(s);
-                        const linkedBadge = svcLevels.length > 1
-                            ? buildLinkedLevelsBadgeHtml(svcLevels.filter(l => l !== lvl))
-                            : '';
-                        cardHtml += `
-                            <tr>
-                                <td>
-                                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                                        <span>${s.name}</span>
-                                        ${linkedBadge}
-                                    </div>
-                                </td>
-                                <td style="text-align: center;">${s.classes || 0}</td>
-                                <td style="text-align: center;">${s.hours || 0} h</td>
-                                <td style="text-align: center;"><strong>${target.toFixed(1)} h</strong></td>
-                        `;
-
-                        activeTeachers.forEach(t => {
-                            const val = parseFloat(s.allocations[t]) || 0;
-                            teacherSums[t] += val;
-                            let cellContent = val > 0 ? `${val.toFixed(1)} h` : '-';
-                            if (val > 0 && s.isCoEnseignement) {
-                                const partners = getCoEnseignementPartnersForRow(disc, entry.sIndex, t);
-                                if (partners.length > 0) {
-                                    cellContent = `
-                                        <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
-                                            <span>${val.toFixed(1)} h</span>
-                                            ${buildCoEnsPartnerBadgesHtml(partners)}
-                                        </div>
-                                    `;
-                                }
-                            }
-                            cardHtml += `<td style="text-align: center;" class="teacher-cell">${cellContent}</td>`;
-                        });
-
-                        cardHtml += `</tr>`;
-                    });
-
-                    cardHtml += `</tbody><tfoot><tr class="totals-row"><td colspan="4" style="text-align: right;"><strong>Total affecté sur ${lvl} :</strong></td>`;
-                    activeTeachers.forEach(t => {
-                        cardHtml += `<td style="text-align: center;"><strong>${teacherSums[t].toFixed(1)} h</strong></td>`;
-                    });
-                    cardHtml += `</tr></tfoot></table></div>`;
-                }
-
-                card.innerHTML = cardHtml;
-                contentDiv.appendChild(card);
-            }
+            });
         });
+        const svcList = Object.values(services).sort((x, y) => x.name.localeCompare(y.name, 'fr'));
 
-        if (!levelHasServices) {
-            contentDiv.innerHTML = `<p class="empty-state">Aucun service n'a été créé pour le niveau <strong>${lvl}</strong>.</p>`;
+        if (svcList.length === 0) {
+            contentDiv.innerHTML = `<p class="empty-state">Aucun service n'a été créé pour le niveau <strong>${esc(lvl)}</strong>.</p>`;
+        } else {
+            let body = '';
+            svcList.forEach(g => {
+                const classKeys = Object.keys(g.byClasses).map(Number).sort((a, b) => b - a);
+                const linkedBadge = g.levels.length > 1 ? buildLinkedLevelsBadgeHtml(g.levels.filter(l => l !== lvl)) : '';
+                classKeys.forEach((ck, i) => {
+                    const cg = g.byClasses[ck];
+                    const people = cg.teachers.slice().sort((x, y) => x.t.localeCompare(y.t, 'fr'));
+                    const peopleHtml = people.length
+                        ? people.map(p => `<div class="are-list-person">${esc(p.t)} <span>(${esc(p.disc)})</span></div>`).join('')
+                        : '<span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">Aucun enseignant affecté</span>';
+                    body += `<tr${i === 0 ? ' class="are-list-first"' : ''}>`
+                        + (i === 0 ? `<td rowspan="${classKeys.length}" class="are-list-name"><strong>${esc(g.name)}</strong>${linkedBadge ? `<div style="margin-top:4px;">${linkedBadge}</div>` : ''}</td>` : '')
+                        + `<td class="num are-list-hours">${fmtN(ck)}${cg.coEns ? ' <span class="coens-inline-badge">Co-E</span>' : ''}</td><td>${peopleHtml}</td></tr>`;
+                });
+            });
+            contentDiv.innerHTML = `
+                <table class="are-list-table level-svc-table">
+                    <thead><tr><th class="are-list-name">Service</th><th class="num">Nbr. classe</th><th>Enseignants</th></tr></thead>
+                    <tbody>${body}</tbody>
+                </table>`;
         }
 
         contentsContainer.appendChild(contentDiv);
@@ -3028,6 +2978,18 @@ function createActionBar(disc) {
         deleteDiscBtn.onclick = () => deleteDiscipline(disc);
         mainRow.appendChild(deleteDiscBtn);
     }
+
+    // Fonction en cours de développement : bouton non cliquable avec bulle d'information
+    const magicWrap = document.createElement('span');
+    magicWrap.className = 'magic-wrap';
+    magicWrap.setAttribute('data-tip', 'En cours de développement');
+    const magicBtn = document.createElement('button');
+    magicBtn.className = 'btn-secondary magic-btn';
+    magicBtn.textContent = '🪄';
+    magicBtn.disabled = true;
+    magicBtn.setAttribute('aria-label', 'Ventilation automatique des heures (en cours de développement)');
+    magicWrap.appendChild(magicBtn);
+    mainRow.appendChild(magicWrap);
 
     mainRow.appendChild(summaryBox);
     bar.appendChild(mainRow);
@@ -5479,6 +5441,15 @@ function extractStructureRows(tables, colIndex, annual) {
             if (annual) hours = Math.round(hours / STRUCTURE_LP_WEEKS * 10) / 10;
             pendingHeadings.forEach(h => rows.push({ heading: h.text, level: h.level }));
             pendingHeadings = [];
+            // Enseignements artistiques (arts plastiques + éducation musicale) : une ligne par enseignement
+            if (!annual && /enseignements?\s+artistiques/i.test(name) && raw.includes('+')) {
+                const parts = raw.split('+').map(p => parseStructureWeeklyHours(p.trim()));
+                if (parts.length === 2 && parts.every(p => p !== null)) {
+                    rows.push({ name: 'Éducation musicale', hours: parts[1], raw: `${parts[1]} h` });
+                    rows.push({ name: 'Arts plastiques', hours: parts[0], raw: `${parts[0]} h` });
+                    return;
+                }
+            }
             rows.push({ name, hours, raw: annual ? `${raw} h annuelles ÷ ${STRUCTURE_LP_WEEKS} semaines` : raw });
         });
     });
@@ -5516,7 +5487,43 @@ function getStructureLevels(type) {
         L.push({ id: 'cap1', label: 'CAP - 1re année', hint: '1', annual: true, rows: extractStructureRows(cap, 1, true) });
         L.push({ id: 'cap2', label: 'CAP - 2e année', hint: '2', annual: true, rows: extractStructureRows(cap, 4, true) });
     }
-    return L.filter(l => l.rows.some(r => !r.heading));
+    // Ajustements propres à l'application : pas de sous-titres, EMC et LVA / LVB distinguées au lycée
+    L.forEach(l => {
+        l.rows = l.rows.filter(r => !(r.heading !== undefined && r.level === 2));
+        if (type === 'lgt') l.rows = adjustLgtStructureRows(l.rows);
+    });
+    return L.filter(l => l.rows.some(r => r.heading === undefined));
+}
+
+// LGT : LVA et LVB sur deux lignes (3 h et 2,5 h pour 5 h 30 en seconde, répartition proportionnelle sinon,
+// à arrondir à la demi-heure) et ajout de l'EMC (0,5 h) dans les enseignements communs.
+function adjustLgtStructureRows(rows) {
+    const out = [];
+    rows.forEach(r => {
+        if (r.heading === undefined && /^LVA\s*(et|\+)\s*LVB/i.test(r.name) && !/enseignement technologique/i.test(r.name)) {
+            const lva = Math.abs(r.hours - 5.5) < 0.01 ? 3 : Math.round(r.hours * 3 / 5.5 * 2) / 2;
+            out.push({ name: 'LVA', hours: lva, raw: `${r.raw} pour LVA + LVB` });
+            out.push({ name: 'LVB', hours: Math.round((r.hours - lva) * 100) / 100, raw: `${r.raw} pour LVA + LVB` });
+        } else {
+            out.push(r);
+        }
+    });
+    // EMC en fin de chaque rubrique « Enseignements communs »
+    const res = [];
+    for (let i = 0; i < out.length; i++) {
+        res.push(out[i]);
+        const h = out[i];
+        const isCommon = h.heading !== undefined && /communs/i.test(h.heading);
+        if (isCommon) {
+            let j = i + 1;
+            while (j < out.length && out[j].heading === undefined) { res.push(out[j]); j++; }
+            if (!out.slice(i + 1, j).some(x => /morale et civique/i.test(x.name))) {
+                res.push({ name: 'Éducation morale et civique (EMC)', hours: 0.5, raw: '0h30' });
+            }
+            i = j - 1;
+        }
+    }
+    return res;
 }
 
 function guessStructureAppLevel(hint) {
@@ -6527,4 +6534,159 @@ function exportAreListPdf() {
     };
     window.addEventListener('afterprint', cleanup);
     triggerPrint();
+}
+
+
+// ============================================================
+// 🪄 Ventilation automatique des heures d'une discipline
+// ============================================================
+let magicCtx = null;
+
+// Calcule (sans rien modifier) la répartition proposée.
+// - seuls les services non verrouillés et hors co-enseignement sont traités
+// - les heures déjà ventilées sont conservées : on ne répartit que le reste à ventiler
+// - chaque classe (bloc d'un « Vol. classe ») est confiée à un seul enseignant
+// - priorité aux enseignants qui ont déjà des heures au même niveau, puis à celui qui a le plus de marge avant son ORS
+function planMagicVentilation(disc, limitOrs) {
+    const data = dataStore[disc];
+    const teachers = data.teachers.slice();
+    const load = {}, ors = {}, added = {}, levelsOf = {};
+    teachers.forEach(t => {
+        const sm = computeTeacherSummary(disc, t);
+        load[t] = sm.total;
+        ors[t] = sm.apport;
+        added[t] = 0;
+        levelsOf[t] = new Set();
+    });
+    data.services.forEach(sv => teachers.forEach(t => {
+        if ((parseFloat(sv.allocations && sv.allocations[t]) || 0) > 0) levelsOf[t].add(sv.level);
+    }));
+
+    const todo = [];
+    data.services.forEach((sv, sIndex) => {
+        if (sv.locked || sv.isCoEnseignement) return;
+        const target = (sv.classes || 0) * (sv.hours || 0);
+        let done = 0;
+        Object.values(sv.allocations || {}).forEach(v => { done += parseFloat(v) || 0; });
+        const left = Math.round((target - done) * 100) / 100;
+        if (left > 0.004) todo.push({ sv, sIndex, left });
+    });
+    todo.sort((a, b) => b.left - a.left);
+
+    const assignments = {};          // clé sIndex|t -> heures ajoutées
+    const unplaced = [];
+    todo.forEach(({ sv, sIndex, left }) => {
+        const unit = (sv.hours || 0) > 0 ? sv.hours : left;
+        let rest = left;
+        while (rest > 0.004) {
+            const block = Math.min(unit, rest);
+            let cands = teachers.filter(t => !limitOrs || (ors[t] - load[t] - added[t]) >= block - 0.004);
+            if (cands.length === 0) {
+                if (limitOrs) break;
+                cands = teachers.slice();
+            }
+            if (cands.length === 0) break;
+            cands.sort((a, b) => {
+                const la = levelsOf[a].has(sv.level) ? 1 : 0, lb = levelsOf[b].has(sv.level) ? 1 : 0;
+                if (la !== lb) return lb - la;
+                return (ors[b] - load[b] - added[b]) - (ors[a] - load[a] - added[a]);
+            });
+            const t = cands[0];
+            const key = sIndex + '|' + t;
+            assignments[key] = (assignments[key] || 0) + block;
+            added[t] += block;
+            levelsOf[t].add(sv.level);
+            rest = Math.round((rest - block) * 100) / 100;
+        }
+        if (rest > 0.004) unplaced.push({ name: sv.name || '(sans intitulé)', level: sv.level || '', left: rest });
+    });
+    const list = Object.keys(assignments).map(k => {
+        const [i, ...t] = k.split('|');
+        return { sIndex: parseInt(i, 10), t: t.join('|'), h: Math.round(assignments[k] * 100) / 100 };
+    });
+    const totalLeft = todo.reduce((x, y) => x + y.left, 0);
+    const totalPlaced = list.reduce((x, y) => x + y.h, 0);
+    return { list, unplaced, teachers, load, ors, added, totalLeft, totalPlaced, nbServices: todo.length };
+}
+
+function openMagicModal(disc) {
+    magicCtx = { disc, snapshot: null };
+    renderMagicModal();
+    document.getElementById('magicModal').classList.add('active');
+}
+
+function closeMagicModal() {
+    document.getElementById('magicModal').classList.remove('active');
+    magicCtx = null;
+}
+
+function renderMagicModal() {
+    if (!magicCtx) return;
+    const esc = escapeStructureHtml;
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const disc = magicCtx.disc;
+    const content = document.getElementById('magicContent');
+    document.getElementById('magicTitle').textContent = `🪄 Ventilation automatique — ${disc}`;
+
+    if (magicCtx.snapshot) {
+        content.innerHTML = `
+            <p class="magic-result">✅ La ventilation a été appliquée.</p>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top: 16px;">
+                <button class="btn-secondary" type="button" onclick="undoMagicVentilation()">↩️ Annuler la ventilation</button>
+                <button class="btn-primary" type="button" onclick="closeMagicModal()">Fermer</button>
+            </div>`;
+        return;
+    }
+
+    const limitEl = document.getElementById('magicLimitOrs');
+    const limitOrs = limitEl ? limitEl.checked : true;
+    const plan = planMagicVentilation(disc, limitOrs);
+    const rowsHtml = plan.teachers.filter(t => plan.added[t] > 0.004).map(t => {
+        const after = plan.load[t] + plan.added[t];
+        const hsa = after - plan.ors[t];
+        return `<tr><td>${esc(t)}</td><td class="num">${fmt(plan.load[t])} h</td><td class="num"><strong>+ ${fmt(plan.added[t])} h</strong></td><td class="num">${fmt(after)} h</td><td class="num">${fmt(plan.ors[t])} h</td><td class="num">${hsa > 0.004 ? '+' : ''}${fmt(hsa)} h</td></tr>`;
+    }).join('');
+    const unplacedHtml = plan.unplaced.length
+        ? `<div class="magic-warn">Ne pourront pas être ventilées (${fmt(plan.unplaced.reduce((x, y) => x + y.left, 0))} h) : ${plan.unplaced.map(u => `${esc(u.name)}${u.level ? ' (' + esc(u.level) + ')' : ''} — ${fmt(u.left)} h`).join(' ; ')}.</div>`
+        : '';
+
+    content.innerHTML = `
+        <p class="magic-intro">Répartit automatiquement les heures <strong>restant à ventiler</strong> entre les enseignants de la discipline. Les heures déjà attribuées sont conservées, les services verrouillés (🔒) et en co-enseignement sont ignorés. Chaque classe est confiée à un seul enseignant, en privilégiant ceux qui ont déjà des heures au même niveau, puis ceux qui ont le plus de marge avant leur ORS.</p>
+        <label class="magic-option"><input type="checkbox" id="magicLimitOrs" ${limitOrs ? 'checked' : ''} onchange="renderMagicModal()"> Ne pas dépasser l'ORS de chaque enseignant (sinon, les heures restantes sont attribuées en HSA)</label>
+        ${plan.nbServices === 0
+            ? '<p class="magic-result">Il n\'y a aucune heure à ventiler dans cette discipline.</p>'
+            : `<div class="magic-summary"><span>À ventiler : <strong>${fmt(plan.totalLeft)} h</strong> sur ${plan.nbServices} service${plan.nbServices > 1 ? 's' : ''}</span><span>Répartition proposée : <strong>${fmt(plan.totalPlaced)} h</strong></span></div>
+               ${plan.teachers.length === 0 ? '<div class="magic-warn">Cette discipline n\'a aucun enseignant.</div>' : ''}
+               ${rowsHtml ? `<table class="magic-table"><thead><tr><th>Enseignant</th><th class="num">Actuel</th><th class="num">Ajout</th><th class="num">Après</th><th class="num">ORS</th><th class="num">HSA</th></tr></thead><tbody>${rowsHtml}</tbody></table>` : ''}
+               ${unplacedHtml}`}
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top: 16px;">
+            <button class="btn-secondary" type="button" onclick="closeMagicModal()">Annuler</button>
+            <button class="btn-primary" type="button" onclick="applyMagicVentilation()" ${plan.totalPlaced > 0.004 ? '' : 'disabled'}>🪄 Appliquer la ventilation</button>
+        </div>`;
+}
+
+function applyMagicVentilation() {
+    if (!magicCtx) return;
+    const disc = magicCtx.disc;
+    const data = dataStore[disc];
+    const limitEl = document.getElementById('magicLimitOrs');
+    const plan = planMagicVentilation(disc, limitEl ? limitEl.checked : true);
+    if (plan.list.length === 0) return;
+    // copie pour pouvoir annuler
+    magicCtx.snapshot = data.services.map(sv => JSON.parse(JSON.stringify(sv.allocations || {})));
+    plan.list.forEach(a => {
+        const sv = data.services[a.sIndex];
+        if (!sv.allocations) sv.allocations = {};
+        sv.allocations[a.t] = Math.round(((parseFloat(sv.allocations[a.t]) || 0) + a.h) * 100) / 100;
+    });
+    renderApp();
+    renderMagicModal();
+}
+
+function undoMagicVentilation() {
+    if (!magicCtx || !magicCtx.snapshot) return;
+    const data = dataStore[magicCtx.disc];
+    magicCtx.snapshot.forEach((alloc, i) => { if (data.services[i]) data.services[i].allocations = alloc; });
+    renderApp();
+    closeMagicModal();
 }

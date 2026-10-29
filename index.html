@@ -343,6 +343,16 @@
         </div>
     </div>
 
+    <div id="magicModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 760px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2 id="magicTitle">🪄 Ventilation automatique</h2>
+                <button class="modal-close" onclick="closeMagicModal()">&times;</button>
+            </div>
+            <div id="magicContent"></div>
+        </div>
+    </div>
+
     <div id="areListModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header" style="justify-content: space-between;">
@@ -466,7 +476,7 @@
     <!-- Modale Ventilation / Niveau -->
     <div id="levelVentilationModal" class="modal-overlay">
         <div class="modal-card">
-            <div class="modal-header">
+            <div class="modal-header" style="justify-content: space-between;">
                 <h2>🔀 Ventilation des services par niveau</h2>
                 <button class="modal-close" onclick="closeLevelVentilationModal()">&times;</button>
             </div>

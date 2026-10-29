@@ -1072,3 +1072,21 @@ table.header-out .teacher-name-row { display: table-row; }
 @media print {
     body.printing-presentation > #trmdModal, body.printing-presentation > #coEnseignementModal, body.printing-presentation > #historyModal { display: none !important; }
 }
+
+.magic-btn { font-size: 1.05rem; padding: 6px 12px; }
+.magic-intro { margin: 0 0 12px; color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
+.magic-option { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 14px; font-weight: 600; font-size: 0.88rem; }
+.magic-option input { width: auto; margin-top: 3px; }
+.magic-summary { display: flex; flex-wrap: wrap; gap: 6px 24px; padding: 10px 12px; background: #eef2ff; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; }
+.magic-table { width: 100%; border-collapse: collapse; background: #fff; }
+.magic-table th { background: #f1f5f9; padding: 8px 10px; font-size: 0.8rem; text-align: left; }
+.magic-table td { padding: 7px 10px; font-size: 0.88rem; white-space: normal; }
+.magic-table th.num, .magic-table td.num { text-align: center; white-space: nowrap; }
+.magic-warn { margin-top: 12px; padding: 10px 12px; background: #fef2f2; color: #991b1b; border-radius: 8px; font-size: 0.85rem; }
+.magic-result { font-weight: 600; margin: 8px 0; }
+
+.magic-wrap { position: relative; display: inline-flex; }
+.magic-wrap .magic-btn { opacity: 0.55; cursor: not-allowed; pointer-events: none; }
+.magic-wrap::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 20; }
+.magic-wrap:hover::after { opacity: 1; }
+.level-svc-table td { white-space: normal; }
