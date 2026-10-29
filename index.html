@@ -39,6 +39,7 @@
             <div class="menu" id="menuEdition">
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Édition</button>
                 <div class="menu-panel">
+                    <button class="menu-item" type="button" onclick="openStructureModal()">🏗️ Construire les services avec la structure de l'EPLE</button>
                     <button class="menu-item" id="btnOptionnels" type="button" style="display: none;" onclick="openOptionnelModal()">🎨 Options</button>
                     <button class="menu-item" id="btnEditionHint" type="button" onclick="openSettingsModal()" style="color: var(--text-muted); font-style: italic;">Aucune option activée — Paramètres › Identité EPLE</button>
                     <button class="menu-item" id="btnCoEnseignement" type="button" style="display: none;" onclick="openCoEnseignementModal()">🤝 Co-enseignement</button>
@@ -55,17 +56,11 @@
                 </div>
             </div>
             <div class="menu">
-                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Structure</button>
-                <div class="menu-panel">
-                    <button class="menu-item" type="button" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
-                    <button class="menu-item" type="button" onclick="openStructureModal()">🏗️ Construire les services avec la structure de l'EPLE</button>
-                </div>
-            </div>
-            <div class="menu">
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Paramètres</button>
                 <div class="menu-panel">
-                    <button class="menu-item" type="button" onclick="openSettingsModal()">⚙️ Paramètres</button>
+                    <button class="menu-item" type="button" onclick="openSettingsModal()">⚙️ Paramètres généraux</button>
                     <button class="menu-item" type="button" onclick="openHistoryModal()">🕒 Historique</button>
+                    <button class="menu-item" type="button" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
                     <button class="menu-item" type="button" onclick="openHelpModal()">💡 Notice &amp; Aides</button>
                 </div>
             </div>
@@ -198,10 +193,10 @@
                         <div class="help-step-title">Construire les services depuis la structure</div>
                     </div>
                     <div class="help-step-content">
-                        Le menu <strong>Structure</strong> vous aide à créer les services :
+                        Les menus <strong>Édition</strong> et <strong>Paramètres</strong> vous aident à créer les services :
                         <ul style="margin-top: 6px; padding-left: 20px;">
-                            <li><strong>Horaires réglementaires</strong> : tableaux de référence du collège (CLG), du lycée général et technologique (LGT) et du lycée professionnel (LP).</li>
-                            <li><strong>Construire les services avec la structure de l'EPLE</strong> : indiquez le nombre de classes ou de groupes par enseignement et la discipline concernée ; l'application crée les services avec le niveau, l'intitulé, l'horaire plancher, le nombre de classes et le volume par classe.</li>
+                            <li><strong>Paramètres › Horaires réglementaires</strong> : tableaux de référence du collège (CLG), du lycée général et technologique (LGT) et du lycée professionnel (LP).</li>
+                            <li><strong>Édition › Construire les services avec la structure de l'EPLE</strong> : indiquez le nombre de classes ou de groupes par enseignement et la discipline concernée ; l'application crée les services avec le niveau, l'intitulé, l'horaire plancher, le nombre de classes et le volume par classe.</li>
                         </ul>
                     </div>
                 </div>

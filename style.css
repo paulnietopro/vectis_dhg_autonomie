@@ -1085,8 +1085,4 @@ table.header-out .teacher-name-row { display: table-row; }
 .magic-warn { margin-top: 12px; padding: 10px 12px; background: #fef2f2; color: #991b1b; border-radius: 8px; font-size: 0.85rem; }
 .magic-result { font-weight: 600; margin: 8px 0; }
 
-.magic-wrap { position: relative; display: inline-flex; }
-.magic-wrap .magic-btn { opacity: 0.55; cursor: not-allowed; pointer-events: none; }
-.magic-wrap::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 20; }
-.magic-wrap:hover::after { opacity: 1; }
 .level-svc-table td { white-space: normal; }

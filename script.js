@@ -2980,16 +2980,14 @@ function createActionBar(disc) {
     }
 
     // Fonction en cours de développement : bouton non cliquable avec bulle d'information
-    const magicWrap = document.createElement('span');
-    magicWrap.className = 'magic-wrap';
-    magicWrap.setAttribute('data-tip', 'En cours de développement');
     const magicBtn = document.createElement('button');
     magicBtn.className = 'btn-secondary magic-btn';
+    magicBtn.type = 'button';
     magicBtn.textContent = '🪄';
-    magicBtn.disabled = true;
-    magicBtn.setAttribute('aria-label', 'Ventilation automatique des heures (en cours de développement)');
-    magicWrap.appendChild(magicBtn);
-    mainRow.appendChild(magicWrap);
+    magicBtn.title = 'Ventilation automatique des heures restant à ventiler';
+    magicBtn.setAttribute('aria-label', 'Ventilation automatique des heures');
+    magicBtn.onclick = () => openMagicModal(disc);
+    mainRow.appendChild(magicBtn);
 
     mainRow.appendChild(summaryBox);
     bar.appendChild(mainRow);
@@ -4195,12 +4193,23 @@ function buildDisciplineSheetData(disc) {
     teachers.forEach(t => totalRow.push(parseFloat(teacherTotalsRaw[t].toFixed(2))));
     rows.push(totalRow);
 
-    const areRow = ['', '', '', '', '', 'ARE (h)'];
-    teachers.forEach(t => {
-        const list = getTeacherAres(data, t);
-        areRow.push(list.length ? parseFloat(areTotal(data, t).toFixed(2)) : '');
+    // ARE : une ligne par ARE distincte (rien si aucune)
+    const areKeys = [];
+    teachers.forEach(t => getTeacherAres(data, t).forEach(a => {
+        const key = (a.short || '') + '|' + (a.label || a.short || '');
+        if (!areKeys.some(k => k.key === key)) areKeys.push({ key, short: a.short || '', label: a.label || a.short || '' });
+    }));
+    areKeys.forEach(k => {
+        const label = k.label && k.label !== k.short ? `ARE : ${k.label} (${k.short})` : `ARE : ${k.short}`;
+        const r = ['', '', '', '', '', label];
+        teachers.forEach(t => {
+            const h = getTeacherAres(data, t)
+                .filter(a => (a.short || '') + '|' + (a.label || a.short || '') === k.key)
+                .reduce((x, a) => x + (parseFloat(a.hours) || 0), 0);
+            r.push(h ? parseFloat(h.toFixed(2)) : '');
+        });
+        rows.push(r);
     });
-    rows.push(areRow);
 
     const grandTotalRow = ['', '', '', '', '', 'Total général (h)'];
     teachers.forEach(t => grandTotalRow.push(parseFloat((teacherTotalsRaw[t] + teacherTotalsPond[t] + areTotal(data, t)).toFixed(2))));
@@ -4229,6 +4238,8 @@ function buildDisciplineSheet(disc) {
     ws['!cols'] = [
         { wch: 12 }, { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }
     ];
+    // libellés longs (ARE) lisibles
+    ws['!cols'][5] = { wch: 30 };
     return ws;
 }
 
@@ -6181,27 +6192,28 @@ function generatePresentationPdf(opts) {
         });
     }
 
-    // 8. Focus sur les spécialités : un tableau par niveau (1ère × 4 h, Terminale × 6 h)
+    // 8. Focus sur les spécialités : un tableau par niveau (heures réellement attribuées par discipline)
     if (sel.focusSpe) {
     sectionStart.focusSpe = pages.length + 1;
     pushDivider('focusSpe');
     const fmtG = n => String(Math.round(n * 100) / 100).replace('.', ',');
-    const speHead = '<tr><th>Matière</th><th class="num">Nombre de groupes</th><th>Disciplines concernées</th></tr>';
+    const speHead = '<tr><th style="width:30%">Matière</th><th class="num" style="width:15%">Nombre de groupes</th><th>Disciplines concernées (heures attribuées)</th><th class="num" style="width:13%">Total</th></tr>';
     let anySpe = false;
     levels.forEach(lvl => {
         const speRows = getSpecialiteRows(lvl);
         if (speRows.length === 0) return;
         anySpe = true;
-        const perGroup = /^(1\s*(ère|ere|re|ere)\b|premi)/i.test(lvl.trim()) ? 4 : (/^(term|tle)/i.test(lvl.trim()) ? 6 : 0);
-        let totalGroups = 0;
+        let totalGroups = 0, totalHours = 0;
         const rows = speRows.map(r => {
             totalGroups += r.groups;
-            return { html: `<tr><td><strong>${esc(r.name)}</strong></td><td class="num">${fmtG(r.groups)}</td><td>${esc(r.discs.join(', '))}</td></tr>` };
+            const byDisc = {};
+            r.teachers.forEach(x => { byDisc[x.disc] = (byDisc[x.disc] || 0) + x.h; });
+            const rowHours = Object.values(byDisc).reduce((x, y) => x + y, 0);
+            totalHours += rowHours;
+            const discTxt = r.discs.map(d => `${esc(d)} (${fmtG(byDisc[d] || 0)} h)`).join(', ');
+            return { html: `<tr><td><strong>${esc(r.name)}</strong></td><td class="num">${fmtG(r.groups)}</td><td>${discTxt}</td><td class="num">${fmtG(rowHours)} h</td></tr>` };
         });
-        const totalText = perGroup
-            ? `${fmtG(totalGroups)} groupe${totalGroups > 1 ? 's' : ''} × ${perGroup} h = <strong>${fmtG(totalGroups * perGroup)} h</strong>`
-            : '';
-        rows.push({ html: `<tr class="pres-total"><td>Total</td><td class="num">${fmtG(totalGroups)}</td><td>${totalText}</td></tr>` });
+        rows.push({ html: `<tr class="pres-total"><td>Total</td><td class="num">${fmtG(totalGroups)}</td><td></td><td class="num">${fmtG(totalHours)} h</td></tr>` });
         const sPages = paginateTable(speHead, rows, TITLE_RESERVE);
         sPages.forEach((pg, i) => {
             pages.push(() => `
@@ -6542,11 +6554,16 @@ function exportAreListPdf() {
 // ============================================================
 let magicCtx = null;
 
-// Calcule (sans rien modifier) la répartition proposée.
+// Calcule (sans rien modifier de façon durable) la répartition proposée.
 // - seuls les services non verrouillés et hors co-enseignement sont traités
 // - les heures déjà ventilées sont conservées : on ne répartit que le reste à ventiler
 // - chaque classe (bloc d'un « Vol. classe ») est confiée à un seul enseignant
-// - priorité aux enseignants qui ont déjà des heures au même niveau, puis à celui qui a le plus de marge avant son ORS
+// - on vise l'ORS de chacun (pondérations et ARE comprises) en limitant les HSA :
+//   1) un bloc est placé chez un enseignant dont le total reste ≤ ORS, en privilégiant
+//      ceux qui ont déjà des heures au même niveau, puis celui qui « remplit » le mieux son ORS ;
+//   2) si aucun ne peut l'absorber, il va chez celui qui dépasse le moins (HSA), à niveau égal.
+// - les gros services sont placés d'abord, les petits (≤ 1 h : AP, EMC, section…) ensuite,
+//   de façon à suivre les enseignants déjà présents sur le niveau.
 function planMagicVentilation(disc, limitOrs) {
     const data = dataStore[disc];
     const teachers = data.teachers.slice();
@@ -6571,35 +6588,62 @@ function planMagicVentilation(disc, limitOrs) {
         const left = Math.round((target - done) * 100) / 100;
         if (left > 0.004) todo.push({ sv, sIndex, left });
     });
-    todo.sort((a, b) => b.left - a.left);
+    const isSmall = sv => (sv.hours || 0) <= 1;
+    todo.sort((a, b) => (isSmall(a.sv) - isSmall(b.sv)) || (b.left - a.left));
+
+    // Les totaux (pondérations incluses) sont recalculés en ajoutant réellement le bloc, puis on restaure.
+    const backup = data.services.map(sv => JSON.parse(JSON.stringify(sv.allocations || {})));
+    const totalIf = (sv, t, h) => {
+        if (!sv.allocations) sv.allocations = {};
+        const prev = sv.allocations[t];
+        sv.allocations[t] = (parseFloat(prev) || 0) + h;
+        const tot = computeTeacherSummary(disc, t).total;
+        if (prev === undefined) delete sv.allocations[t]; else sv.allocations[t] = prev;
+        return tot;
+    };
 
     const assignments = {};          // clé sIndex|t -> heures ajoutées
     const unplaced = [];
-    todo.forEach(({ sv, sIndex, left }) => {
-        const unit = (sv.hours || 0) > 0 ? sv.hours : left;
-        let rest = left;
-        while (rest > 0.004) {
-            const block = Math.min(unit, rest);
-            let cands = teachers.filter(t => !limitOrs || (ors[t] - load[t] - added[t]) >= block - 0.004);
-            if (cands.length === 0) {
-                if (limitOrs) break;
-                cands = teachers.slice();
+    const cur = {};
+    teachers.forEach(t => { cur[t] = load[t]; });
+    try {
+        todo.forEach(({ sv, sIndex, left }) => {
+            const unit = (sv.hours || 0) > 0 ? sv.hours : left;
+            let rest = left;
+            while (rest > 0.004 && teachers.length > 0) {
+                const block = Math.min(unit, rest);
+                const cands = teachers.map(t => {
+                    const after = totalIf(sv, t, block);
+                    return { t, after, over: Math.max(0, after - ors[t]), sameLevel: levelsOf[t].has(sv.level) ? 1 : 0 };
+                });
+                const fit = cands.filter(c => c.over < 0.004);
+                let pool, pick;
+                if (fit.length) {
+                    pool = fit;
+                    // niveau déjà présent d'abord ; puis le plus petit ORS restant (meilleur remplissage)
+                    pick = pool.sort((a, b) => (b.sameLevel - a.sameLevel) || ((ors[a.t] - a.after) - (ors[b.t] - b.after)))[0];
+                } else {
+                    if (limitOrs) break;
+                    // dépassement inévitable : le moins de HSA, à niveau égal en priorité
+                    pick = cands.sort((a, b) => (b.sameLevel - a.sameLevel) || (a.over - b.over))[0];
+                    const minOver = Math.min(...cands.map(c => c.over));
+                    if (pick.over - minOver > block / 2 + 0.004) pick = cands.sort((a, b) => a.over - b.over)[0];
+                }
+                const t = pick.t;
+                if (!sv.allocations) sv.allocations = {};
+                sv.allocations[t] = Math.round(((parseFloat(sv.allocations[t]) || 0) + block) * 100) / 100;
+                const key = sIndex + '|' + t;
+                assignments[key] = (assignments[key] || 0) + block;
+                cur[t] = pick.after;
+                levelsOf[t].add(sv.level);
+                rest = Math.round((rest - block) * 100) / 100;
             }
-            if (cands.length === 0) break;
-            cands.sort((a, b) => {
-                const la = levelsOf[a].has(sv.level) ? 1 : 0, lb = levelsOf[b].has(sv.level) ? 1 : 0;
-                if (la !== lb) return lb - la;
-                return (ors[b] - load[b] - added[b]) - (ors[a] - load[a] - added[a]);
-            });
-            const t = cands[0];
-            const key = sIndex + '|' + t;
-            assignments[key] = (assignments[key] || 0) + block;
-            added[t] += block;
-            levelsOf[t].add(sv.level);
-            rest = Math.round((rest - block) * 100) / 100;
-        }
-        if (rest > 0.004) unplaced.push({ name: sv.name || '(sans intitulé)', level: sv.level || '', left: rest });
-    });
+            if (rest > 0.004) unplaced.push({ name: sv.name || '(sans intitulé)', level: sv.level || '', left: rest });
+        });
+    } finally {
+        data.services.forEach((sv, i) => { sv.allocations = backup[i]; });
+    }
+    teachers.forEach(t => { added[t] = Math.round((cur[t] - load[t]) * 100) / 100; });
     const list = Object.keys(assignments).map(k => {
         const [i, ...t] = k.split('|');
         return { sIndex: parseInt(i, 10), t: t.join('|'), h: Math.round(assignments[k] * 100) / 100 };
@@ -6638,8 +6682,13 @@ function renderMagicModal() {
         return;
     }
 
-    const limitEl = document.getElementById('magicLimitOrs');
-    const limitOrs = limitEl ? limitEl.checked : true;
+    if (dataStore[disc].teachers.length === 0) {
+        content.innerHTML = `
+            <p class="magic-intro">Cette discipline n'a aucun enseignant : ajoutez-en un pour pouvoir ventiler les heures.</p>
+            <div style="display:flex; justify-content:flex-end; margin-top: 16px;"><button class="btn-primary" type="button" onclick="closeMagicModal()">Fermer</button></div>`;
+        return;
+    }
+    const limitOrs = false;
     const plan = planMagicVentilation(disc, limitOrs);
     const rowsHtml = plan.teachers.filter(t => plan.added[t] > 0.004).map(t => {
         const after = plan.load[t] + plan.added[t];
@@ -6651,8 +6700,7 @@ function renderMagicModal() {
         : '';
 
     content.innerHTML = `
-        <p class="magic-intro">Répartit automatiquement les heures <strong>restant à ventiler</strong> entre les enseignants de la discipline. Les heures déjà attribuées sont conservées, les services verrouillés (🔒) et en co-enseignement sont ignorés. Chaque classe est confiée à un seul enseignant, en privilégiant ceux qui ont déjà des heures au même niveau, puis ceux qui ont le plus de marge avant leur ORS.</p>
-        <label class="magic-option"><input type="checkbox" id="magicLimitOrs" ${limitOrs ? 'checked' : ''} onchange="renderMagicModal()"> Ne pas dépasser l'ORS de chaque enseignant (sinon, les heures restantes sont attribuées en HSA)</label>
+        <p class="magic-intro">Répartit entre les enseignants de la discipline les heures <strong>restant à ventiler</strong>, classe par classe, en visant l'ORS de chacun (pondérations et ARE comprises) et en privilégiant la continuité par niveau. Les heures déjà attribuées sont conservées ; les services verrouillés (🔒) et en co-enseignement sont ignorés.</p>
         ${plan.nbServices === 0
             ? '<p class="magic-result">Il n\'y a aucune heure à ventiler dans cette discipline.</p>'
             : `<div class="magic-summary"><span>À ventiler : <strong>${fmt(plan.totalLeft)} h</strong> sur ${plan.nbServices} service${plan.nbServices > 1 ? 's' : ''}</span><span>Répartition proposée : <strong>${fmt(plan.totalPlaced)} h</strong></span></div>
@@ -6669,8 +6717,7 @@ function applyMagicVentilation() {
     if (!magicCtx) return;
     const disc = magicCtx.disc;
     const data = dataStore[disc];
-    const limitEl = document.getElementById('magicLimitOrs');
-    const plan = planMagicVentilation(disc, limitEl ? limitEl.checked : true);
+    const plan = planMagicVentilation(disc, false);
     if (plan.list.length === 0) return;
     // copie pour pouvoir annuler
     magicCtx.snapshot = data.services.map(sv => JSON.parse(JSON.stringify(sv.allocations || {})));
