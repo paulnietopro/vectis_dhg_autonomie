@@ -12,6 +12,8 @@ let epleIdentity = {
     enableOptionnels: false,
     enableCoEnseignement: false,
     enableMultiNiveau: false,
+    enableMultiSite: false,
+    sites: [],
     enablePonderations: false
 };
 
@@ -442,6 +444,8 @@ let dataStore = {
 
 let baseHoursStore = {};
 let coEnseignementGroups = [];
+let n1Reference = { enabled: false, file: '', epleName: '', levels: [], names: {}, flags: {} };   // données de l'année N-1 (intitulés proposés)
+let coordinators = [];   // [{ discs: [disc…], coords: [{ teacher, email }] }]
 
 // Chargement différé de la librairie Excel (SheetJS) : elle ne pèse rien sur le
 // chargement initial de la page et n'est téléchargée que lorsqu'un import ou un
@@ -474,6 +478,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('excelFileInput').addEventListener('change', handleFileUpload);
     document.getElementById('jsonFileInput').addEventListener('change', handleJsonLoad);
     initFeedbackModal();
+    initFileMenu();
 
     window.addEventListener('click', (e) => {
         if (!e.target.closest('.multi-select-box')) {
@@ -505,6 +510,52 @@ function toggleOptionnelsGlobal(enabled) {
 function toggleCoEnseignementGlobal(enabled) {
     epleIdentity.enableCoEnseignement = enabled;
     renderApp();
+}
+
+function toggleMultiSiteGlobal(enabled) {
+    epleIdentity.enableMultiSite = enabled;
+    if (enabled && (!Array.isArray(epleIdentity.sites) || epleIdentity.sites.length < 2)) setSiteCount(2, true);
+    renderMultiSiteConfig();
+    renderApp();
+}
+
+function setSiteCount(n, silent) {
+    n = Math.max(2, Math.min(6, parseInt(n, 10) || 2));
+    if (!Array.isArray(epleIdentity.sites)) epleIdentity.sites = [];
+    while (epleIdentity.sites.length < n) {
+        const i = epleIdentity.sites.length;
+        epleIdentity.sites.push({ id: 's' + i, color: SITE_COLORS[i % SITE_COLORS.length], name: i === 0 ? 'Site principal' : (i === 1 ? 'Annexe' : 'Site ' + (i + 1)), short: i === 0 ? 'Princ.' : (i === 1 ? 'Annexe' : 'S' + (i + 1)) });
+    }
+    epleIdentity.sites.length = n;
+    if (!silent) { renderMultiSiteConfig(); renderApp(); }
+}
+
+function setSiteField(i, field, value) {
+    if (!epleIdentity.sites[i]) return;
+    epleIdentity.sites[i][field] = field === 'short' ? value.trim().slice(0, 5) : value.trim();
+    renderApp();
+}
+
+function renderMultiSiteConfig() {
+    const box = document.getElementById('multiSiteConfig');
+    if (!box) return;
+    const esc = escapeStructureHtml;
+    if (!epleIdentity.enableMultiSite) { box.innerHTML = ''; return; }
+    const sites = epleIdentity.sites || [];
+    box.innerHTML = `
+        <div class="site-config">
+            <label>Nombre de sites
+                <input type="number" min="2" max="6" value="${sites.length}" style="width:70px;" onchange="setSiteCount(this.value)">
+            </label>
+            <table class="site-config-table">
+                <thead><tr><th>Nom du site</th><th>Libellé court</th><th>Couleur</th></tr></thead>
+                <tbody>${sites.map((st, i) => `<tr>
+                    <td><input type="text" class="site-name-input" value="${esc(st.name)}" placeholder="Nom du site" onchange="setSiteField(${i}, 'name', this.value)"></td>
+                    <td><input type="text" class="site-short-input" value="${esc((st.short||"").slice(0,5))}" maxlength="5" placeholder="Court" onchange="setSiteField(${i}, 'short', this.value)"></td>
+                    <td><input type="color" value="${getSiteColor(st, i)}" style="width:44px; padding:0;" onchange="setSiteField(${i}, 'color', this.value)"></td>
+                </tr>`).join('')}</tbody>
+            </table>
+        </div>`;
 }
 
 function toggleMultiNiveauGlobal(enabled) {
@@ -586,6 +637,12 @@ function updateSpecialiteButtonVisibility() {
     if (optBtn) optBtn.style.display = showOpt ? 'flex' : 'none';
     if (coEnsBtn) coEnsBtn.style.display = showCoEns ? 'flex' : 'none';
     if (hintBtn) hintBtn.style.display = (showOpt || showCoEns) ? 'none' : 'flex';
+    const syntheseSiteBtn = document.getElementById('btnSyntheseSites');
+    if (syntheseSiteBtn) syntheseSiteBtn.style.display = multiSiteActive() ? 'flex' : 'none';
+    const siteBtn = document.getElementById('btnGestionSites');
+    if (siteBtn) siteBtn.style.display = multiSiteActive() ? 'flex' : 'none';
+    const spBtn = document.getElementById('btnServicesParticuliers');
+    if (spBtn) spBtn.style.display = (showOpt || showCoEns) ? 'flex' : 'none';
 }
 
 // 🎓 MODALE SPÉCIALITÉS
@@ -1572,6 +1629,10 @@ function renderEpleSelectedCard() {
         toggleMultiNiveauInput.checked = epleIdentity.enableMultiNiveau || false;
     }
 
+    const toggleMultiSiteInput = document.getElementById('toggleMultiSiteInput');
+    if (toggleMultiSiteInput) toggleMultiSiteInput.checked = !!epleIdentity.enableMultiSite;
+    renderMultiSiteConfig();
+
     const togglePondInput = document.getElementById('togglePonderationsInput');
     if (togglePondInput) {
         togglePondInput.checked = pondEnabled();
@@ -1625,6 +1686,8 @@ function getBaseHourKey(level, serviceName) {
 
 // Un service est-il associé au niveau donné ? (gère les services optionnels multi-niveaux)
 function serviceMatchesLevel(s, lvl) {
+    // Hors option multi-niveau, le niveau du service est son champ « level » (corrige d'anciennes sauvegardes)
+    if (!s.isOptionnel && s.level) return s.level === lvl;
     if (Array.isArray(s.levels) && s.levels.length > 0) {
         return s.levels.includes(lvl);
     }
@@ -1633,6 +1696,7 @@ function serviceMatchesLevel(s, lvl) {
 
 // Renvoie la liste des niveaux d'un service (gère les services optionnels multi-niveaux)
 function getServiceLevels(s) {
+    if (!s.isOptionnel && s.level) return [s.level];
     if (Array.isArray(s.levels) && s.levels.length > 0) {
         return s.levels;
     }
@@ -1643,6 +1707,16 @@ function getServiceLevels(s) {
 function buildLinkedLevelsBadgeHtml(otherLevels) {
     if (!otherLevels || otherLevels.length === 0) return '';
     return `<span class="linked-level-badge">🔗 ${otherLevels.join(', ')}</span>`;
+}
+
+// Badge indiquant qu'un service est une spécialité
+function buildSpeBadgeHtml() {
+    return `<span class="spe-inline-badge">Spé</span>`;
+}
+
+// Badge indiquant qu'un service est un enseignement optionnel
+function buildOptBadgeHtml() {
+    return `<span class="opt-inline-badge">Option</span>`;
 }
 
 // Badge indiquant qu'un service est identifié comme en co-enseignement
@@ -1775,13 +1849,14 @@ function renderAutonomieContent() {
                     if (serviceMatchesLevel(s, lvl) && s.name && s.name.trim() !== '') {
                         const intitule = s.name.trim();
                         if (!servicesByIntitule[intitule]) {
-                            servicesByIntitule[intitule] = { classes: 0, hours: 0, otherLevels: new Set(), isCoEns: false };
+                            servicesByIntitule[intitule] = { classes: 0, hours: 0, otherLevels: new Set(), isCoEns: false, isOpt: false };
                         }
                         servicesByIntitule[intitule].classes += (s.classes || 0);
                         servicesByIntitule[intitule].hours = (s.hours || 0);
                         if (s.isCoEnseignement) {
                             servicesByIntitule[intitule].isCoEns = true;
                         }
+                        if (s.isOptionnel) servicesByIntitule[intitule].isOpt = true;
                         if (Array.isArray(s.levels) && s.levels.length > 1) {
                             s.levels.filter(l => l !== lvl).forEach(l => servicesByIntitule[intitule].otherLevels.add(l));
                         }
@@ -1831,6 +1906,7 @@ function renderAutonomieContent() {
                                 <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                                     <strong>${intitule}</strong>
                                     ${linkedBadge}
+                                    ${serviceData.isOpt ? buildOptBadgeHtml() : ''}
                                 </div>
                             </td>
                             <td style="text-align: center;">
@@ -1902,6 +1978,7 @@ function renderAutonomieContent() {
                 let volumeHours = 0;
                 const otherLevels = new Set();
                 let hasCoEns = false;
+                let hasOpt = false;
 
                 Object.keys(dataStore).forEach(disc => {
                     dataStore[disc].services.forEach(s => {
@@ -1911,6 +1988,7 @@ function renderAutonomieContent() {
                             if (s.isCoEnseignement) {
                                 hasCoEns = true;
                             }
+                            if (s.isOptionnel) hasOpt = true;
                             if (Array.isArray(s.levels) && s.levels.length > 1) {
                                 s.levels.filter(l => l !== lvl).forEach(l => otherLevels.add(l));
                             }
@@ -1938,6 +2016,7 @@ function renderAutonomieContent() {
                                 <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                                     <strong>${lvl}</strong>
                                     ${linkedBadge}
+                                    ${hasOpt ? buildOptBadgeHtml() : ''}
                                 </div>
                             </td>
                             <td style="text-align: center;">
@@ -2031,7 +2110,8 @@ function renderAutonomieContent() {
                             classes: s.classes || 0,
                             hours: s.hours || 0,
                             otherLevels: svcLevels.length > 1 ? svcLevels.filter(l => l !== lvl) : [],
-                            isCoEnseignement: s.isCoEnseignement || false
+                            isCoEnseignement: s.isCoEnseignement || false,
+                            isOptionnel: s.isOptionnel || false
                         });
                     });
                 }
@@ -2063,6 +2143,7 @@ function renderAutonomieContent() {
                                     <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                                         <strong>${intitule} (${item.level})</strong>
                                         ${linkedBadge}
+                                        ${item.isOptionnel ? buildOptBadgeHtml() : ''}
                                     </div>
                                 </td>
                                 <td style="text-align: center;">
@@ -2308,25 +2389,32 @@ function renderLevelVentilationContent() {
         contentDiv.className = `tab-content ${idx === 0 ? 'active' : ''}`;
         contentDiv.id = `level-tab-${idx}`;
 
-        // Regroupement : un service (même intitulé, toutes disciplines confondues), puis par nombre de classes
+        // Regroupement : un service (même intitulé, toutes disciplines confondues).
+        // « Nbr. classe » = total des classes attribuées à cette matière, toutes disciplines cumulées
+        // (les services en co-enseignement portent sur les mêmes classes : on ne les additionne pas).
         const esc = escapeStructureHtml;
         const fmtN = n => String(Math.round(n * 100) / 100).replace('.', ',');
         const services = {};
         Object.keys(dataStore).forEach(disc => {
             const data = dataStore[disc];
-            data.services.forEach((sv, sIndex) => {
+            data.services.forEach(sv => {
                 if (!serviceMatchesLevel(sv, lvl)) return;
                 const name = (sv.name || '').trim() || '(sans intitulé)';
                 const key = name.toLowerCase();
-                if (!services[key]) services[key] = { name, levels: getServiceLevels(sv), byClasses: {} };
+                if (!services[key]) services[key] = { name, levels: getServiceLevels(sv), classes: 0, coMax: 0, coEns: false, isSpe: false, isOpt: false, siteSum: {}, siteAny: false, teachers: [] };
                 const g = services[key];
                 const classes = parseFloat(sv.classes) || 0;
-                if (!g.byClasses[classes]) g.byClasses[classes] = { teachers: [], coEns: false };
-                const cg = g.byClasses[classes];
-                if (sv.isCoEnseignement) cg.coEns = true;
+                if (sv.isSpecialite) g.isSpe = true;
+                if (sv.isOptionnel) g.isOpt = true;
+                if (sv.isCoEnseignement) { g.coEns = true; g.coMax = Math.max(g.coMax, classes); }
+                else {
+                    g.classes += classes;
+                    const split = getServiceSiteSplit(sv);
+                    if (split) { g.siteAny = true; Object.keys(split).forEach(id => { g.siteSum[id] = (g.siteSum[id] || 0) + split[id]; }); }
+                }
                 data.teachers.forEach(t => {
-                    if ((parseFloat(sv.allocations && sv.allocations[t]) || 0) > 0 && !cg.teachers.some(x => x.t === t && x.disc === disc)) {
-                        cg.teachers.push({ t, disc });
+                    if ((parseFloat(sv.allocations && sv.allocations[t]) || 0) > 0 && !g.teachers.some(x => x.t === t && x.disc === disc)) {
+                        g.teachers.push({ t, disc });
                     }
                 });
             });
@@ -2338,18 +2426,13 @@ function renderLevelVentilationContent() {
         } else {
             let body = '';
             svcList.forEach(g => {
-                const classKeys = Object.keys(g.byClasses).map(Number).sort((a, b) => b - a);
                 const linkedBadge = g.levels.length > 1 ? buildLinkedLevelsBadgeHtml(g.levels.filter(l => l !== lvl)) : '';
-                classKeys.forEach((ck, i) => {
-                    const cg = g.byClasses[ck];
-                    const people = cg.teachers.slice().sort((x, y) => x.t.localeCompare(y.t, 'fr'));
-                    const peopleHtml = people.length
-                        ? people.map(p => `<div class="are-list-person">${esc(p.t)} <span>(${esc(p.disc)})</span></div>`).join('')
-                        : '<span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">Aucun enseignant affecté</span>';
-                    body += `<tr${i === 0 ? ' class="are-list-first"' : ''}>`
-                        + (i === 0 ? `<td rowspan="${classKeys.length}" class="are-list-name"><strong>${esc(g.name)}</strong>${linkedBadge ? `<div style="margin-top:4px;">${linkedBadge}</div>` : ''}</td>` : '')
-                        + `<td class="num are-list-hours">${fmtN(ck)}${cg.coEns ? ' <span class="coens-inline-badge">Co-E</span>' : ''}</td><td>${peopleHtml}</td></tr>`;
-                });
+                const people = g.teachers.slice().sort((x, y) => x.t.localeCompare(y.t, 'fr'));
+                const peopleHtml = people.length
+                    ? people.map(p => `<div class="are-list-person">${esc(p.t)} <span>(${esc(p.disc)})</span></div>`).join('')
+                    : '<span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">Aucun enseignant affecté</span>';
+                body += `<tr class="are-list-first"><td class="are-list-name"><strong>${esc(g.name)}</strong>${(linkedBadge || g.isSpe || g.isOpt) ? `<div style="margin-top:4px; display:flex; gap:4px; flex-wrap:wrap; justify-content:center;">${linkedBadge}${g.isSpe ? buildSpeBadgeHtml() : ''}${g.isOpt ? buildOptBadgeHtml() : ''}</div>` : ''}</td>`
+                    + `<td class="num are-list-hours">${fmtN(g.classes + g.coMax)}${g.coEns ? ' <span class="coens-inline-badge">Co-E</span>' : ''}${siteSplitHtml(g, fmtN)}</td><td>${peopleHtml}</td></tr>`;
             });
             contentDiv.innerHTML = `
                 <table class="are-list-table level-svc-table">
@@ -2367,8 +2450,8 @@ function switchLevelTab(activeIndex) {
     document.querySelectorAll('#levelContentsContainer .tab-content').forEach((content, i) => content.classList.toggle('active', i === activeIndex));
 }
 
-function openSettingsModal() {
-    renderSettingsModal();
+function openSettingsModal(tab) {
+    if (tab) { switchSettingsTab(tab); } else { renderSettingsModal(); }
     document.getElementById('settingsModal').classList.add('active');
 }
 
@@ -2378,26 +2461,24 @@ function closeSettingsModal() {
 
 function switchSettingsTab(tab) {
     settingsActiveTab = tab;
-    document.getElementById('btnSettingsEple').classList.toggle('active', tab === 'eple');
-    document.getElementById('btnSettingsLevels').classList.toggle('active', tab === 'levels');
-    document.getElementById('btnSettingsDisc').classList.toggle('active', tab === 'disciplines');
-    document.getElementById('btnSettingsTools').classList.toggle('active', tab === 'tools');
-    
-    document.getElementById('settingsEpleTab').classList.toggle('active', tab === 'eple');
-    document.getElementById('settingsLevelsTab').classList.toggle('active', tab === 'levels');
-    document.getElementById('settingsDisciplinesTab').classList.toggle('active', tab === 'disciplines');
-    document.getElementById('settingsToolsTab').classList.toggle('active', tab === 'tools');
-    
+    const map = { eple: 'Eple', features: 'Features', levels: 'Levels', disciplines: 'Disc', tools: 'Tools' };
+    const panel = { eple: 'settingsEpleTab', features: 'settingsFeaturesTab', levels: 'settingsLevelsTab', disciplines: 'settingsDisciplinesTab', tools: 'settingsToolsTab' };
+    Object.keys(map).forEach(k => {
+        const b = document.getElementById('btnSettings' + map[k]);
+        if (b) b.classList.toggle('active', k === tab);
+        const p = document.getElementById(panel[k]);
+        if (p) p.classList.toggle('active', k === tab);
+    });
     renderSettingsModal();
 }
 
 function renderSettingsModal() {
-    if (settingsActiveTab === 'eple') {
-        renderEpleSelectedCard();
+    if (settingsActiveTab === 'eple' || settingsActiveTab === 'features') {
+        renderEpleSelectedCard(); // synchronise aussi les cases des fonctionnalités
     } else if (settingsActiveTab === 'levels') {
         renderLevelsList();
-    } else if (settingsActiveTab === 'tools') {
-        // Onglet statique : rien à générer
+    } else if (settingsActiveTab === 'tools' || settingsActiveTab === 'features') {
+        // Onglets statiques : rien à générer
     } else {
         renderDisciplinesList();
     }
@@ -2593,6 +2674,7 @@ function editDisciplineName(oldName) {
 
         dataStore[trimmed] = dataStore[oldName];
         delete dataStore[oldName];
+        coordinators.forEach(e => { e.discs = (e.discs || []).map(d => d === oldName ? trimmed : d); });
 
         renderDisciplinesList();
         renderApp();
@@ -2608,8 +2690,44 @@ function deleteDisciplineFromSettings(disc) {
     }
 }
 
-function saveState() {
-    recordHistoryPoint();
+// ============================================================
+// Ouvrir / enregistrer dans le même fichier (Chrome, Edge : File System Access API)
+// Utile avec un dossier synchronisé (Nuage / Nextcloud) : le fichier est mis à jour sur place.
+// Sur les autres navigateurs, le comportement reste le téléchargement habituel.
+// ============================================================
+let currentFileHandle = null;
+let currentFileName = '';
+const fsAccessSupported = () => typeof window.showOpenFilePicker === 'function' && typeof window.showSaveFilePicker === 'function';
+
+function setCurrentFile(handle, name) {
+    currentFileHandle = handle || null;
+    currentFileName = handle ? (name || handle.name || '') : '';
+    const lbl = document.getElementById('currentFileLabel');
+    if (lbl) lbl.textContent = currentFileName ? `Fichier : ${currentFileName}` : '';
+    const bar = document.getElementById('currentFileBadge');
+    if (bar) { bar.textContent = currentFileName ? `📄 ${currentFileName}` : ''; bar.style.display = currentFileName ? 'inline-block' : 'none'; }
+}
+
+function showAppToast(msg, isError) {
+    let t = document.getElementById('appToast');
+    if (!t) { t = document.createElement('div'); t.id = 'appToast'; t.className = 'app-toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.toggle('error', !!isError);
+    t.classList.add('show');
+    clearTimeout(showAppToast._t);
+    showAppToast._t = setTimeout(() => t.classList.remove('show'), isError ? 4500 : 2200);
+}
+
+function suggestedFileName() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}_${pad(now.getMonth() + 1)}_${pad(now.getDate())}`;
+    const epleName = ((epleIdentity && epleIdentity.name) || '').trim()
+        .replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').replace(/^_+|_+$/g, '') || 'EPLE';
+    return `${dateStr}_DHG_${epleName}.json`;
+}
+
+function buildSaveJson() {
     const exportObject = {
         epleIdentity: epleIdentity,
         dotation: dotationGlobal,
@@ -2617,23 +2735,85 @@ function saveState() {
         baseHoursStore: baseHoursStore,
         dataStore: dataStore,
         coEnseignementGroups: coEnseignementGroups,
+        coordinators: coordinators,
+        n1Reference: n1Reference,
+        enrollment: enrollmentForecast,
         changeHistory: changeHistory
     };
-    const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
-    const blobUrl = URL.createObjectURL(blob);
-    const downloadAnchor = document.createElement('a');
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const dateStr = `${now.getFullYear()}_${pad(now.getMonth() + 1)}_${pad(now.getDate())}`;
-    const epleName = ((epleIdentity && epleIdentity.name) || '').trim()
-        .replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').replace(/^_+|_+$/g, '') || 'EPLE';
+    return JSON.stringify(exportObject, null, 2);
+}
 
-    downloadAnchor.setAttribute("href", blobUrl);
-    downloadAnchor.setAttribute("download", `${dateStr}_DHG_${epleName}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+function downloadJson(text, name) {
+    const blob = new Blob([text], { type: 'application/json' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', blobUrl);
+    a.setAttribute('download', name);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+}
+
+// Enregistrer : dans le fichier ouvert s'il existe ; sinon boîte « Enregistrer sous » (ou téléchargement)
+async function saveState(forcePick) {
+    recordHistoryPoint();
+    const text = buildSaveJson();
+    if (!fsAccessSupported()) { downloadJson(text, suggestedFileName()); return; }
+    try {
+        let handle = forcePick === true ? null : currentFileHandle;
+        if (!handle) {
+            handle = await window.showSaveFilePicker({
+                suggestedName: currentFileName || suggestedFileName(),
+                types: [{ description: 'Sauvegarde VectisDHG', accept: { 'application/json': ['.json'] } }]
+            });
+        }
+        const w = await handle.createWritable();
+        await w.write(text);
+        await w.close();
+        setCurrentFile(handle);
+        showAppToast(`✓ Enregistré dans ${handle.name}`);
+    } catch (err) {
+        if (err && err.name === 'AbortError') return;   // boîte fermée par l'utilisateur
+        // droit refusé, fichier supprimé ou déplacé : on bascule sur le téléchargement classique
+        setCurrentFile(null);
+        downloadJson(text, suggestedFileName());
+        showAppToast("Écriture directe impossible : le fichier a été téléchargé.", true);
+    }
+}
+
+// Ouvrir en gardant un accès au fichier, pour le réenregistrer ensuite sur place
+async function openWithPicker() {
+    try {
+        const [handle] = await window.showOpenFilePicker({
+            multiple: false,
+            types: [{ description: 'Sauvegarde VectisDHG', accept: { 'application/json': ['.json'] } }]
+        });
+        const file = await handle.getFile();
+        const loaded = JSON.parse(await file.text());
+        applyLoadedData(loaded);
+        setCurrentFile(handle, file.name);
+        showAppToast(`Ouvert : ${file.name}`);
+    } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        alert("Erreur lors de la lecture du fichier JSON.");
+    }
+}
+
+function initFileMenu() {
+    const supported = fsAccessSupported();
+    const openBtn = document.getElementById('btnOpenPicker');
+    const openLabel = document.getElementById('openFallbackLabel');
+    const saveAs = document.getElementById('btnSaveAs');
+    if (openBtn) openBtn.style.display = supported ? '' : 'none';
+    if (openLabel) openLabel.style.display = supported ? 'none' : '';
+    if (saveAs) saveAs.style.display = supported ? '' : 'none';
+    document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') {
+            e.preventDefault();
+            saveState();
+        }
+    });
 }
 
 function applyLoadedData(loadedData) {
@@ -2672,6 +2852,11 @@ function applyLoadedData(loadedData) {
             baseHoursStore = loadedData.baseHoursStore;
         }
         coEnseignementGroups = Array.isArray(loadedData.coEnseignementGroups) ? loadedData.coEnseignementGroups : [];
+        coordinators = Array.isArray(loadedData.coordinators) ? loadedData.coordinators : [];
+        enrollmentForecast = normalizeEnrollment(loadedData.enrollment);
+        n1Reference = loadedData.n1Reference && typeof loadedData.n1Reference === 'object'
+            ? Object.assign({ enabled: false, file: '', epleName: '', levels: [], names: {}, flags: {} }, loadedData.n1Reference)
+            : { enabled: false, file: '', epleName: '', levels: [], names: {}, flags: {} };
         changeHistory = Array.isArray(loadedData.changeHistory) ? loadedData.changeHistory : [];
         if (loadedData.epleIdentity) {
             epleIdentity = loadedData.epleIdentity;
@@ -2687,6 +2872,8 @@ function applyLoadedData(loadedData) {
             if (epleIdentity.enableMultiNiveau === undefined) {
                 epleIdentity.enableMultiNiveau = false;
             }
+            if (epleIdentity.enableMultiSite === undefined) epleIdentity.enableMultiSite = false;
+            if (!Array.isArray(epleIdentity.sites)) epleIdentity.sites = [];
             if (epleIdentity.enablePonderations === undefined) {
                 // Anciennes sauvegardes : on active la gestion si des services pondérés existent
                 epleIdentity.enablePonderations = Object.values(dataStore).some(d => d && Array.isArray(d.services) && d.services.some(sv => sv.ponderationActive));
@@ -2714,6 +2901,7 @@ function handleJsonLoad(e) {
         try {
             const loadedData = JSON.parse(event.target.result);
             applyLoadedData(loadedData);
+            setCurrentFile(null);
         } catch (err) {
             alert("Erreur lors de la lecture du fichier JSON.");
         }
@@ -2728,6 +2916,7 @@ function loadTestDataset() {
     try {
         const loadedData = JSON.parse(JSON.stringify(testDataset));
         applyLoadedData(loadedData);
+        setCurrentFile(null);
         closeSettingsModal();
     } catch (err) {
         alert("Erreur lors du chargement du jeu de test.");
@@ -2790,6 +2979,8 @@ function deleteDiscipline(disc) {
 }
 
 function renderApp() {
+    updateNorvegienBar();
+    refreshN1Datalists();
     updateAppTitle();
     updateSpecialiteButtonVisibility();
     const tabsContainer = document.getElementById('tabsContainer');
@@ -2913,7 +3104,7 @@ function createActionBar(disc) {
         dataStore[disc].services.push({
             level: defaultLvl,
             levels: [defaultLvl],
-            name: "Nouveau service",
+            name: "",
             classes: 1,
             hours: 1,
             ponderationActive: false,
@@ -2988,6 +3179,33 @@ function createActionBar(disc) {
     magicBtn.setAttribute('aria-label', 'Ventilation automatique des heures');
     magicBtn.onclick = () => openMagicModal(disc);
     mainRow.appendChild(magicBtn);
+
+    const postitBtn = document.createElement('button');
+    const hasNote = !!((dataStore[disc].note || '').trim());
+    postitBtn.className = 'btn-secondary postit-btn' + (hasNote ? ' has-note' : '');
+    postitBtn.type = 'button';
+    postitBtn.textContent = '📝';
+    postitBtn.title = hasNote ? 'Post-it (une note est enregistrée)' : 'Ajouter un post-it (notes libres)';
+    postitBtn.setAttribute('aria-label', 'Post-it de la discipline');
+    postitBtn.dataset.disc = disc;
+    postitBtn.onclick = () => openPostitModal(disc);
+    mainRow.appendChild(postitBtn);
+
+    const svcList = dataStore[disc].services || [];
+    if (svcList.length) {
+        const nLocked = svcList.filter(sv => sv.locked).length;
+        const allLocked = nLocked === svcList.length;
+        const lockAllBtn = document.createElement('button');
+        lockAllBtn.className = 'btn-secondary lockall-btn' + (allLocked ? ' all-locked' : (nLocked ? ' some-locked' : ''));
+        lockAllBtn.type = 'button';
+        lockAllBtn.textContent = allLocked ? '🔒' : (nLocked ? '🔐' : '🔓');
+        lockAllBtn.title = allLocked
+            ? `Tous les services sont verrouillés (${nLocked}/${svcList.length}) — cliquer pour tout déverrouiller`
+            : `Verrouiller les ${svcList.length} services de la discipline${nLocked ? ` (${nLocked} déjà verrouillé${nLocked > 1 ? 's' : ''})` : ''}`;
+        lockAllBtn.setAttribute('aria-label', 'Verrouiller ou déverrouiller tous les services de la discipline');
+        lockAllBtn.onclick = () => toggleLockAllServices(disc);
+        mainRow.appendChild(lockAllBtn);
+    }
 
     mainRow.appendChild(summaryBox);
     bar.appendChild(mainRow);
@@ -3163,11 +3381,28 @@ function toggleLockService(disc, sIndex, buttonEl) {
     }
 }
 
+// Verrouillage en masse : tout verrouiller, sauf si tout l'est déjà (alors tout déverrouiller)
+function toggleLockAllServices(disc) {
+    const list = dataStore[disc].services || [];
+    if (!list.length) return;
+    const lock = !list.every(sv => sv.locked);
+    list.forEach(sv => { sv.locked = lock; });
+    renderApp();
+}
+
 function updateService(disc, sIndex, key, value, inputEl) {
     dataStore[disc].services[sIndex][key] = value;
+    if (key === 'level' && !dataStore[disc].services[sIndex].isOptionnel) {
+        dataStore[disc].services[sIndex].levels = [value];
+    }
 
     if (key === 'isSpecialite' || key === 'isOptionnel') {
         updateSpecialiteButtonVisibility();
+    }
+    if (key === 'classes') syncServiceSitesWithClasses(dataStore[disc].services[sIndex]);
+    if (key === 'level' && inputEl) {
+        const ni = inputEl.closest('tr') && inputEl.closest('tr').querySelector('.name-input');
+        if (ni) { const id = n1ListId(value); if (id) ni.setAttribute('list', id); else ni.removeAttribute('list'); }
     }
 
     if (inputEl) {
@@ -3237,7 +3472,33 @@ function updateAllocation(anchorDisc, sIndex, teacher, value, inputEl, viewDisc)
     refreshDisciplineTotals(table, data, disc);
 }
 
+// Bandeau « Norvégien » : dotation − heures ventilées (toutes disciplines), mis à jour en direct
+function updateNorvegienBar() {
+    const bar = document.getElementById('norvBar');
+    if (!bar) return;
+    const discs = Object.keys(dataStore);
+    if (discs.length === 0) { bar.style.display = 'none'; return; }
+    let used = 0;
+    discs.forEach(d => { used += getDisciplineTotals(d).grand; });
+    const dgh = (parseFloat(dotationGlobal.hp) || 0) + (parseFloat(dotationGlobal.hsa) || 0);
+    const norv = dgh - used;
+    const f = v => v.toFixed(2).replace('.', ',');
+    const cls = Math.abs(norv) < 0.005 ? 'zero' : (norv > 0 ? 'ok' : 'over');
+    const open = bar.classList.contains('open');
+    bar.className = 'norv-bar norv-' + cls + (open ? ' open' : '');
+    const pct = dgh > 0 ? Math.min(100, Math.max(0, used / dgh * 100)) : 0;
+    bar.innerHTML = `<div class="norv-head"><span class="norv-dot"></span><span class="norv-lbl">Norvégien</span><strong class="norv-val">${norv > 0.004 ? '+' : ''}${f(norv)} h</strong></div>
+        <div class="norv-detail">
+            <div class="norv-track" aria-hidden="true"><i style="width:${pct}%"></i></div>
+            <div class="norv-line"><span>Dotation</span><b>${f(dgh)} h</b></div>
+            <div class="norv-line"><span>Ventilé</span><b>${f(used)} h</b></div>
+            <button type="button" class="norv-link" onclick="event.stopPropagation(); openTrmdModal()">Ouvrir le TRMD ›</button>
+        </div>`;
+    bar.style.display = 'block';
+}
+
 function refreshDisciplineTotals(table, data, disc) {
+    updateNorvegienBar();
     const teacherTotalsRaw = {};
     const teacherTotalsPond = {};
     const teacher11RawSums = {};
@@ -3380,6 +3641,7 @@ function createTable(disc) {
                         <input type="number" step="0.5" min="0" value="${currentApport}" 
                             oninput="updateApport('${disc}', '${t.replace(/'/g, "\\'")}', this.value, this)">
                     </div>
+                    <button type="button" class="teacher-view-btn" title="Voir les services de cet enseignant" draggable="false" onclick="openTeacherServicesModal('${disc.replace(/'/g, "\\'")}', ${tIndex})">👁 Services</button>
                 </div>
             </th>
         `;
@@ -3574,7 +3836,7 @@ function createTable(disc) {
 
         let rowHtml = `
             <tr>
-                <td>
+                <td style="${siteRowStyle(service)}">
                     <div style="display: flex; align-items: center; gap: 4px;">
                         ${deleteRowBtn}
                         <button class="lock-btn-icon ${isLocked ? 'locked' : ''}" 
@@ -3587,7 +3849,7 @@ function createTable(disc) {
                 </td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <input type="text" class="name-input" value="${service.name}" ${isLocked ? 'disabled' : ''} onchange="updateService('${anchorDisc}', ${sIndex}, 'name', this.value, null)">
+                        <input type="text" class="name-input" placeholder="Saisir l'intitulé…" value="${service.name}" ${n1ListAttr(service.level)} ${isLocked ? 'disabled' : ''} onchange="updateService('${anchorDisc}', ${sIndex}, 'name', this.value, null)">
                         ${speTagHtml}
                         ${optTagHtml}
                         ${coEnsTagHtml}
@@ -3916,6 +4178,7 @@ function renderTrmdContent() {
 
 function updateDotation(key, value) {
     dotationGlobal[key] = value;
+    updateNorvegienBar();
     renderTrmdContent();
 }
 
@@ -4037,98 +4300,308 @@ function buildTrmdSheet() {
     return ws;
 }
 
-async function exportTrmdToExcel() {
-    try {
-        await ensureXlsxLoaded();
-    } catch (err) {
-        alert(err.message);
-        return;
-    }
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, buildTrmdSheet(), 'TRMD');
-
+function exportTrmdToExcel() {
     const epleLabel = epleIdentity && epleIdentity.name ? `_${sanitizeFileName(epleIdentity.name)}` : '';
     const dateStr = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `TRMD${epleLabel}_${dateStr}.xlsx`);
+    downloadBytes(buildStyledXlsxBytes([styledTrmdSheet()]), `TRMD${epleLabel}_${dateStr}.xlsx`, 'xlsx');
 }
 
-// Export PDF du TRMD : même style que le PDF de présentation, mais en page portrait
+// Export PDF du TRMD : même style que l'export pour la présentation, sans couverture ni sommaire
 function exportTrmdToPdf() {
-    const esc = escapeStructureHtml;
-    const dateStr = new Date().toLocaleDateString('fr-FR');
-    const epleName = epleIdentity && epleIdentity.name ? epleIdentity.name : '';
-    const epleSub = [epleIdentity && epleIdentity.commune, epleIdentity && epleIdentity.uai ? `UAI ${epleIdentity.uai}` : '']
-        .filter(Boolean).join(' · ');
-    const disciplines = Object.keys(dataStore);
-    if (disciplines.length === 0) { alert('Aucune donnée à exporter.'); return; }
-    const fmt1 = v => (v || 0).toFixed(1);
+    const sections = {};
+    PRESENTATION_SECTIONS.forEach(([k]) => { sections[k] = (k === 'trmd'); });
+    generatePresentationPdf({ sections, disciplines: Object.keys(dataStore), levels: levels.slice(), bare: true });
+}
 
-    let gTeachers = 0, gHp = 0, gRaw = 0, gHsa = 0, gTotal = 0;
-    const rows = disciplines.map(disc => {
-        const d = dataStore[disc];
-        const t = getDisciplineTotals(disc);
-        const dHp = getDisciplineHP(disc);
-        gTeachers += d.teachers.length; gHp += dHp; gRaw += t.raw; gHsa += t.hsa; gTotal += t.grand;
-        return { html: `<tr><td><strong>${esc(disc)}</strong></td><td class="num">${d.teachers.length}</td><td class="num">${fmt1(dHp)} h</td><td class="num">${fmt1(t.raw)} h</td><td class="num">${t.hsa > 0 ? '+' : ''}${t.hsa.toFixed(2)} h</td><td class="num"><strong>${t.grand.toFixed(2)} h</strong></td></tr>` };
-    });
-    const dhg = (dotationGlobal.hp || 0) + (dotationGlobal.hsa || 0);
-    const norv = dhg - gTotal;
-    rows.push({ html: `<tr class="pres-total"><td>Total</td><td class="num">${gTeachers}</td><td class="num">${fmt1(gHp)} h</td><td class="num">${fmt1(gRaw)} h</td><td class="num">${gHsa > 0 ? '+' : ''}${gHsa.toFixed(2)} h</td><td class="num">${gTotal.toFixed(2)} h</td></tr>` });
-    const head = '<tr><th>Discipline</th><th class="num">Nb Ens.</th><th class="num">HP (ORS)</th><th class="num">Volume ventilé</th><th class="num">HSA</th><th class="num">Total (' + totalLabelSuffix() + ')</th></tr>';
-    const strip = `<div class="trmd-strip">
-        <div><span>HP</span><strong>${fmt1(dotationGlobal.hp)} h</strong></div>
-        <div><span>HSA</span><strong>${fmt1(dotationGlobal.hsa)} h</strong></div>
-        <div><span>DHG</span><strong>${fmt1(dhg)} h</strong></div>
-        <div><span>Norvégien</span><strong>${norv > 0 ? '+' : ''}${norv.toFixed(2)} h</strong></div>
-    </div>`;
+// 🎨 CLASSEURS MIS EN FORME (.xlsx et .ods) — construits sans bibliothèque externe
+// Modèle de feuille : { name, rows: [[{v, s}|null]], colWidths, merges: [{r, c1, c2}], freeze: {cols, rows} }
+const XS = {};
+const XLS_DEFS = [
+    ['DEFAULT', {}],
+    ['TITLE', { bold: 1, size: 16, color: '1E3A8A', noBorder: 1, h: 'left' }],
+    ['HEADER', { bold: 1, color: 'FFFFFF', fill: '2563EB', border: 1, h: 'center', wrap: 1 }],
+    ['LABEL', { bold: 1, fill: 'E2E8F0', border: 1, h: 'left', wrap: 1, indent: 1 }],
+    ['LABEL_ZEBRA', { bold: 1, fill: 'CBD5E1', border: 1, h: 'left', wrap: 1, indent: 1 }],
+    ['BODY', { border: 1, h: 'center', wrap: 1 }],
+    ['BODY_ZEBRA', { fill: 'F8FAFC', border: 1, h: 'center', wrap: 1 }],
+    ['ALLOC', { bold: 1, fill: 'DBEAFE', color: '1E3A8A', border: 1, h: 'center', wrap: 1 }],
+    ['NOTE', { italic: 1, size: 10, color: '64748B', noBorder: 1, h: 'left' }],
+    ['SECTION', { bold: 1, size: 13, color: '2563EB', noBorder: 1, h: 'left' }],
+    ['TOTAL_LABEL', { bold: 1, fill: 'E2E8F0', border: 1, h: 'right', wrap: 1, indent: 1 }],
+    ['TOTAL_CELL', { bold: 1, fill: 'E2E8F0', border: 1, h: 'center', wrap: 1 }],
+    ['GRAND_LABEL', { bold: 1, fill: 'FEF3C7', border: 1, h: 'right', wrap: 1, indent: 1 }],
+    ['GRAND_CELL', { bold: 1, fill: 'FEF3C7', border: 1, h: 'center', wrap: 1 }],
+    ['ARE_LABEL', { italic: 1, fill: 'F1F5F9', border: 1, h: 'right', wrap: 1, indent: 1 }],
+    ['ARE_CELL', { fill: 'F1F5F9', border: 1, h: 'center', wrap: 1 }],
+    ['GRAND_LEFT', { bold: 1, fill: 'FEF3C7', border: 1, h: 'left', wrap: 1, indent: 1 }]
+];
+XLS_DEFS.forEach(([name], i) => { XS[name] = i; });
 
-    // Pagination (page A4 portrait : 190 x 277 mm utiles)
-    const PAGE_INNER_PX = Math.floor(277 * 96 / 25.4) - 70;
-    const TITLE_RESERVE = 70;
-    const measureBox = document.createElement('div');
-    measureBox.className = 'pres-measure pres-measure-portrait';
-    document.body.appendChild(measureBox);
-    measureBox.innerHTML = `${strip}<table class="pres-table trmd-pdf-table"><thead>${head}</thead><tbody>${rows.map(r => r.html).join('')}</tbody></table>`;
-    const stripH = measureBox.querySelector('.trmd-strip').offsetHeight + 16;
-    const theadH = measureBox.querySelector('thead').offsetHeight;
-    const trs = measureBox.querySelectorAll('tbody tr');
-    const avail = PAGE_INNER_PX - TITLE_RESERVE - theadH;
-    const pages = [[]];
-    let used = stripH;
-    rows.forEach((r, i) => {
-        const rh = trs[i].offsetHeight;
-        if (pages[pages.length - 1].length > 0 && used + rh > avail) { pages.push([]); used = 0; }
-        pages[pages.length - 1].push(r);
-        used += rh;
-    });
-    document.body.removeChild(measureBox);
+function xlsEsc(str) {
+    return String(str).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function xlsCol(i) {
+    let n = i + 1, s = '';
+    while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+    return s;
+}
 
-    const total = pages.length;
-    const container = document.getElementById('presentationPrint');
-    container.innerHTML = pages.map((pg, i) => `
-        <section class="pres-page pres-portrait">
-            <h1 class="pres-title">TRMD${total > 1 ? ` <small>(${i + 1}/${total})</small>` : ''}</h1>
-            ${i === 0 ? `<div class="trmd-sub">${esc(epleName)}${epleSub ? ' · ' + esc(epleSub) : ''}</div>${strip}` : ''}
-            <table class="pres-table trmd-pdf-table"><thead>${head}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>
-            <div class="pres-footer"><span>${esc(epleName)}${epleName ? ' · ' : ''}TRMD - ${dateStr}</span><span>${i + 1}/${total}</span></div>
-        </section>`).join('');
-
-    // Orientation portrait pour ce document uniquement
-    const orient = document.createElement('style');
-    orient.id = 'printOrientationStyle';
-    orient.textContent = '@media print { @page { size: A4 portrait; margin: 10mm; } }';
-    document.head.appendChild(orient);
-
-    document.body.classList.add('printing-presentation');
-    const cleanup = () => {
-        document.body.classList.remove('printing-presentation');
-        container.innerHTML = '';
-        if (orient.parentNode) orient.parentNode.removeChild(orient);
-        window.removeEventListener('afterprint', cleanup);
+function xlsStylesXml() {
+    const fonts = [], fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
+    const fontIdx = {}, fillIdx = {};
+    const fontOf = d => {
+        const k = `${d.bold ? 1 : 0}|${d.italic ? 1 : 0}|${d.size || 11}|${d.color || ''}`;
+        if (!(k in fontIdx)) {
+            fontIdx[k] = fonts.length;
+            fonts.push(`<font>${d.bold ? '<b/>' : ''}${d.italic ? '<i/>' : ''}<sz val="${d.size || 11}"/>${d.color ? `<color rgb="FF${d.color}"/>` : ''}<name val="Calibri"/></font>`);
+        }
+        return fontIdx[k];
     };
-    window.addEventListener('afterprint', cleanup);
-    triggerPrint();
+    const fillOf = d => {
+        if (!d.fill) return 0;
+        if (!(d.fill in fillIdx)) { fillIdx[d.fill] = fills.length; fills.push(`<fill><patternFill patternType="solid"><fgColor rgb="FF${d.fill}"/><bgColor indexed="64"/></patternFill></fill>`); }
+        return fillIdx[d.fill];
+    };
+    const xfs = XLS_DEFS.map(([, d]) => {
+        const f = fontOf(d), fl = fillOf(d), b = d.border ? 1 : 0;
+        return `<xf numFmtId="0" fontId="${f}" fillId="${fl}" borderId="${b}" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${d.h || 'general'}" vertical="center"${d.wrap ? ' wrapText="1"' : ''}${d.indent ? ` indent="${d.indent}"` : ''}/></xf>`;
+    });
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF475569"/></left><right style="thin"><color rgb="FF475569"/></right><top style="thin"><color rgb="FF475569"/></top><bottom style="thin"><color rgb="FF475569"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+}
+
+// Hauteur de ligne estimée (points) selon le texte à renvoyer à la ligne.
+function xlsRowHeight(row, widths, merge) {
+    let lines = 1, isTitle = false, isHeader = false;
+    row.forEach((cell, c) => {
+        if (!cell) return;
+        if (cell.s === XS.TITLE) isTitle = true;
+        if (cell.s === XS.HEADER) isHeader = true;
+        if (cell.v === undefined || cell.v === '' || cell.s === XS.TITLE || cell.s === XS.NOTE || cell.s === XS.SECTION) return;
+        let cw = widths[c] || 12;
+        if (merge && c === merge.c1) { cw = 0; for (let k = merge.c1; k <= merge.c2; k++) cw += widths[k] || 12; }
+        const w = Math.max(6, cw - 3);
+        const n = String(cell.v).split('\n').reduce((sum, part) => sum + Math.max(1, Math.ceil(part.length / w)), 0);
+        if (n > lines) lines = n;
+    });
+    if (isTitle) return 30;
+    return Math.max(isHeader ? 32 : 24, lines * 16 + 8);
+}
+
+function xlsSheetXml(sheet) {
+    const widths = sheet.colWidths;
+    const rowsXml = sheet.rows.map((row, r) => {
+        const cells = row.map((cell, c) => {
+            if (!cell) return '';
+            const ref = xlsCol(c) + (r + 1), st = cell.s || 0;
+            if (cell.v === undefined || cell.v === '') return `<c r="${ref}" s="${st}"/>`;
+            if (typeof cell.v === 'number' && isFinite(cell.v)) return `<c r="${ref}" s="${st}"><v>${cell.v}</v></c>`;
+            return `<c r="${ref}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${xlsEsc(cell.v)}</t></is></c>`;
+        }).join('');
+        return `<row r="${r + 1}" ht="${xlsRowHeight(row, widths, (sheet.merges || []).find(m => m.r === r))}" customHeight="1">${cells}</row>`;
+    }).join('');
+    const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('');
+    const fr = sheet.freeze;
+    const pane = fr ? `<pane xSplit="${fr.cols}" ySplit="${fr.rows}" topLeftCell="${xlsCol(fr.cols)}${fr.rows + 1}" activePane="bottomRight" state="frozen"/>` : '';
+    const merges = sheet.merges && sheet.merges.length
+        ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map(m => `<mergeCell ref="${xlsCol(m.c1)}${m.r + 1}:${xlsCol(m.c2)}${m.r + 1}"/>`).join('')}</mergeCells>` : '';
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${cols}</cols><sheetData>${rowsXml}</sheetData>${merges}<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+}
+
+let _xlsCrcTable = null;
+function xlsCrc32(bytes) {
+    if (!_xlsCrcTable) {
+        _xlsCrcTable = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; _xlsCrcTable[n] = c >>> 0; }
+    }
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) crc = _xlsCrcTable[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+// Archive ZIP « stockée » (sans compression) — le premier fichier reste en tête (requis par .ods).
+function xlsZipBytes(files) {
+    const enc = new TextEncoder();
+    const parts = [], central = [];
+    let offset = 0;
+    files.forEach(f => {
+        const nameBytes = enc.encode(f.name), data = enc.encode(f.content), crc = xlsCrc32(data);
+        const local = new Uint8Array(30 + nameBytes.length), lv = new DataView(local.buffer);
+        lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0x0800, true); lv.setUint16(8, 0, true);
+        lv.setUint16(10, 0, true); lv.setUint16(12, 0x21, true); lv.setUint32(14, crc, true);
+        lv.setUint32(18, data.length, true); lv.setUint32(22, data.length, true); lv.setUint16(26, nameBytes.length, true);
+        local.set(nameBytes, 30);
+        parts.push(local, data);
+        const cd = new Uint8Array(46 + nameBytes.length), cv = new DataView(cd.buffer);
+        cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true); cv.setUint16(8, 0x0800, true);
+        cv.setUint16(14, 0x21, true); cv.setUint32(16, crc, true); cv.setUint32(20, data.length, true); cv.setUint32(24, data.length, true);
+        cv.setUint16(28, nameBytes.length, true); cv.setUint32(42, offset, true);
+        cd.set(nameBytes, 46);
+        central.push(cd);
+        offset += local.length + data.length;
+    });
+    const cdSize = central.reduce((n, c) => n + c.length, 0);
+    const end = new Uint8Array(22), ev = new DataView(end.buffer);
+    ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+    ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+    const all = [...parts, ...central, end];
+    const total = all.reduce((n, p) => n + p.length, 0);
+    const out = new Uint8Array(total);
+    let pos = 0;
+    all.forEach(p => { out.set(p, pos); pos += p.length; });
+    return out;
+}
+
+function buildStyledXlsxBytes(sheets) {
+    const files = [
+        { name: '[Content_Types].xml', content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>` },
+        { name: '_rels/.rels', content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+        { name: 'xl/workbook.xml', content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((sh, i) => `<sheet name="${xlsEsc(sh.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>` },
+        { name: 'xl/_rels/workbook.xml.rels', content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+        { name: 'xl/styles.xml', content: xlsStylesXml() }
+    ];
+    sheets.forEach((sh, i) => files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, content: xlsSheetXml(sh) }));
+    return xlsZipBytes(files);
+}
+
+function buildStyledOdsBytes(sheets) {
+    const cm = v => (v).toFixed(3) + 'cm';
+    const cellStyles = XLS_DEFS.map(([, d], i) => {
+        const cell = `${d.fill ? ` fo:background-color="#${d.fill}"` : ''}${d.border ? ' fo:border="0.5pt solid #475569"' : ' fo:border="none"'} style:vertical-align="middle"${d.wrap ? ' fo:wrap-option="wrap"' : ''}`;
+        const align = d.h === 'center' ? 'center' : (d.h === 'right' ? 'end' : 'start');
+        const para = `fo:text-align="${align}"${d.indent ? ' fo:margin-left="0.2cm"' : ''}`;
+        const text = `fo:font-size="${d.size || 11}pt"${d.bold ? ' fo:font-weight="bold"' : ''}${d.italic ? ' fo:font-style="italic"' : ''}${d.color ? ` fo:color="#${d.color}"` : ''}`;
+        return `<style:style style:name="ce${i}" style:family="table-cell"><style:table-cell-properties${cell}/><style:paragraph-properties ${para}/><style:text-properties ${text}/></style:style>`;
+    }).join('');
+    let extraStyles = '';
+    const tablesXml = sheets.map((sh, si) => {
+        const colStyles = sh.colWidths.map((w, i) => { extraStyles += `<style:style style:name="co${si}_${i}" style:family="table-column"><style:table-column-properties style:column-width="${cm(w * 0.19)}"/></style:style>`; return `<table:table-column table:style-name="co${si}_${i}"/>`; }).join('');
+        const rowsXml = sh.rows.map((row, r) => {
+            const ht = xlsRowHeight(row, sh.colWidths, (sh.merges || []).find(m => m.r === r));
+            extraStyles += `<style:style style:name="ro${si}_${r}" style:family="table-row"><style:table-row-properties style:row-height="${cm(ht / 28.35)}" style:use-optimal-row-height="false"/></style:style>`;
+            const merge = (sh.merges || []).find(m => m.r === r);
+            let cellsXml = '';
+            for (let c = 0; c < sh.colWidths.length; c++) {
+                if (merge && c > merge.c1 && c <= merge.c2) { cellsXml += '<table:covered-table-cell/>'; continue; }
+                const cell = row[c];
+                const span = merge && c === merge.c1 ? ` table:number-columns-spanned="${merge.c2 - merge.c1 + 1}"` : '';
+                if (!cell) { cellsXml += `<table:table-cell${span}/>`; continue; }
+                const st = ` table:style-name="ce${cell.s || 0}"`;
+                if (cell.v === undefined || cell.v === '') { cellsXml += `<table:table-cell${st}${span}/>`; continue; }
+                if (typeof cell.v === 'number' && isFinite(cell.v)) { cellsXml += `<table:table-cell${st}${span} office:value-type="float" office:value="${cell.v}"><text:p>${cell.v}</text:p></table:table-cell>`; continue; }
+                cellsXml += `<table:table-cell${st}${span} office:value-type="string">${String(cell.v).split('\n').map(p => `<text:p>${xlsEsc(p)}</text:p>`).join('')}</table:table-cell>`;
+            }
+            return `<table:table-row table:style-name="ro${si}_${r}">${cellsXml}</table:table-row>`;
+        }).join('');
+        return `<table:table table:name="${xlsEsc(sh.name)}" table:style-name="ta1">${colStyles}${rowsXml}</table:table>`;
+    }).join('');
+    const content = `<?xml version="1.0" encoding="UTF-8"?>
+<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles>${cellStyles}${extraStyles}<style:style style:name="ta1" style:family="table" style:master-page-name="Default"><style:table-properties table:display="true"/></style:style></office:automatic-styles><office:body><office:spreadsheet>${tablesXml}</office:spreadsheet></office:body></office:document-content>`;
+    return xlsZipBytes([
+        { name: 'mimetype', content: 'application/vnd.oasis.opendocument.spreadsheet' },
+        { name: 'META-INF/manifest.xml', content: `<?xml version="1.0" encoding="UTF-8"?>
+<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2"><manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.spreadsheet"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/></manifest:manifest>` },
+        { name: 'styles.xml', content: `<?xml version="1.0" encoding="UTF-8"?>
+<office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles><style:page-layout style:name="pm1"><style:page-layout-properties fo:page-width="29.7cm" fo:page-height="21cm" style:print-orientation="landscape" fo:margin-top="1cm" fo:margin-bottom="1cm" fo:margin-left="1cm" fo:margin-right="1cm" style:scale-to-X="1" style:scale-to-Y="0"/></style:page-layout></office:automatic-styles><office:master-styles><style:master-page style:name="Default" style:page-layout-name="pm1"/></office:master-styles></office:document-styles>` },
+        { name: 'content.xml', content }
+    ]);
+}
+
+function styledBytes(sheets, format) {
+    return format === 'ods' ? buildStyledOdsBytes(sheets) : buildStyledXlsxBytes(sheets);
+}
+
+function downloadBytes(bytes, fileName, format) {
+    const mime = format === 'ods' ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function bytesToBase64(bytes) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+}
+
+// --- Feuille TRMD mise en forme ---
+function styledTrmdSheet() {
+    const raw = buildTrmdSheetData();
+    const nCols = 6;
+    const C = (v, s) => ({ v, s });
+    const pad = r => { while (r.length < nCols) r.push(null); return r; };
+    const rows = [];
+    raw.forEach((r, i) => {
+        if (i === 0) rows.push(pad([C(r[0], XS.TITLE)]));
+        else if (i === 1) rows.push(pad([C(r[0], XS.NOTE)]));
+        else if (r.length === 0) rows.push(pad([]));
+        else if (i >= 3 && i <= 6) rows.push(pad([C(r[0], XS.LABEL), C(r[1], XS.BODY)]));
+        else if (i === 8) rows.push(pad(r.map(v => C(v, XS.HEADER))));
+        else if (i === raw.length - 1) rows.push(pad(r.map((v, c) => C(v, c === 0 ? XS.GRAND_LEFT : XS.GRAND_CELL))));
+        else { const z = (i - 9) % 2 === 1; rows.push(pad(r.map((v, c) => C(v, c === 0 ? (z ? XS.LABEL_ZEBRA : XS.LABEL) : (z ? XS.BODY_ZEBRA : XS.BODY))))); }
+    });
+    return { name: 'TRMD', rows, colWidths: [30, 11, 14, 20, 12, 26], merges: [{ r: 0, c1: 0, c2: 5 }, { r: 1, c1: 0, c2: 5 }], freeze: null };
+}
+
+// --- Feuille d'une discipline mise en forme ---
+function styledDisciplineSheet(disc) {
+    const raw = buildDisciplineSheetData(disc);
+    const data = dataStore[disc];
+    const C = (v, s) => ({ v, s });
+    if (!data) return { name: sanitizeSheetName(disc), rows: [[C('Discipline introuvable', XS.NOTE)]], colWidths: [30], merges: [], freeze: null };
+    const pond = pondEnabled();
+    const L = pond ? 5 : 4;                       // colonne « Cible » : les libellés de totaux s'y arrêtent
+    const nTeach = data.teachers.length;
+    const nCols = L + 1 + nTeach;
+    const nServices = data.services.length + getCrossListedOptions(disc).length;
+    const pad = r => { while (r.length < nCols) r.push(null); return r; };
+    const rows = [], merges = [];
+
+    const subtitle = epleIdentity && epleIdentity.name
+        ? `${epleIdentity.name}${epleIdentity.commune ? ' — ' + epleIdentity.commune : ''}` : '';
+    rows.push(pad([C(raw[0][0], XS.TITLE)]));
+    merges.push({ r: 0, c1: 0, c2: nCols - 1 });
+    rows.push(pad(subtitle ? [C(subtitle, XS.NOTE)] : []));
+    if (subtitle) merges.push({ r: 1, c1: 0, c2: nCols - 1 });
+
+    raw.slice(2).forEach((r, i) => {
+        const isHeader = i === 0;
+        const svcIdx = i - 1;                      // index du service (hors en-tête)
+        if (isHeader) { rows.push(pad(r.map(v => C(v, XS.HEADER)))); return; }
+        if (svcIdx < nServices) {
+            const z = svcIdx % 2 === 1;
+            rows.push(pad(r.map((v, c) => {
+                if (c === 0) return C(v, XS.BODY);
+                if (c === 1) return C(v, z ? XS.LABEL_ZEBRA : XS.LABEL);
+                if (c > L) return C(v, (typeof v === 'number' && v > 0) ? XS.ALLOC : (z ? XS.BODY_ZEBRA : XS.BODY));
+                return C(v, z ? XS.BODY_ZEBRA : XS.BODY);
+            })));
+            return;
+        }
+        // Lignes de synthèse : Total alloué, ARE, Total général, ORS, HSA
+        const label = String(r[L] || '');
+        const isGrand = label.startsWith('Total général');
+        const isAre = label.startsWith('ARE');
+        const lblStyle = isGrand ? XS.GRAND_LABEL : (isAre ? XS.ARE_LABEL : XS.TOTAL_LABEL);
+        const cellStyle = isGrand ? XS.GRAND_CELL : (isAre ? XS.ARE_CELL : XS.TOTAL_CELL);
+        const row = [];
+        for (let c = 0; c <= L; c++) row.push(C(c === 0 ? label : '', lblStyle));
+        for (let c = L + 1; c < nCols; c++) row.push(C(r[c], cellStyle));
+        rows.push(pad(row));
+        merges.push({ r: rows.length - 1, c1: 0, c2: L });
+    });
+
+    const colWidths = pond ? [11, 38, 11, 11, 13, 11] : [11, 38, 11, 11, 11];
+    for (let t = 0; t < nTeach; t++) colWidths.push(16);
+    return { name: sanitizeSheetName(disc), rows, colWidths, merges, freeze: { cols: 2, rows: 3 } };
 }
 
 // 📊 EXPORT AU FORMAT TABLEUR (multi-disciplines + TRMD, .xlsx / .ods)
@@ -4291,7 +4764,7 @@ function setAllExportDisciplines(checked) {
     });
 }
 
-async function performTableExport() {
+function performTableExport() {
     const format = document.querySelector('input[name="exportFormat"]:checked').value;
     const mode = document.querySelector('input[name="exportMode"]:checked').value;
     const includeTrmd = document.getElementById('exportIncludeTrmd').checked;
@@ -4302,54 +4775,36 @@ async function performTableExport() {
         return;
     }
 
-    try {
-        await ensureXlsxLoaded();
-    } catch (err) {
-        alert(err.message);
-        return;
-    }
-
     const dateStr = new Date().toISOString().slice(0, 10);
     const epleLabel = epleIdentity && epleIdentity.name ? `_${sanitizeFileName(epleIdentity.name)}` : '';
 
     const customNameRaw = document.getElementById('exportFileName').value.trim();
     const baseName = sanitizeFileName(customNameRaw || `DHG${epleLabel}_${dateStr}`);
 
+    // Noms de feuille uniques (31 caractères maximum)
+    const used = new Set();
+    const uniq = sh => {
+        let n = sh.name, i = 2;
+        while (used.has(n.toLowerCase())) { n = sh.name.slice(0, 27) + ' (' + i++ + ')'; }
+        used.add(n.toLowerCase());
+        return Object.assign({}, sh, { name: n });
+    };
+
     if (mode === 'single') {
-        const wb = XLSX.utils.book_new();
-        if (includeTrmd) {
-            XLSX.utils.book_append_sheet(wb, buildTrmdSheet(), 'TRMD');
-        }
-        selectedDiscs.forEach(disc => {
-            XLSX.utils.book_append_sheet(wb, buildDisciplineSheet(disc), sanitizeSheetName(disc));
-        });
-        XLSX.writeFile(wb, `${baseName}.${format}`, { bookType: format });
+        const sheets = [];
+        if (includeTrmd) sheets.push(styledTrmdSheet());
+        selectedDiscs.forEach(disc => sheets.push(styledDisciplineSheet(disc)));
+        downloadBytes(styledBytes(sheets.map(uniq), format), `${baseName}.${format}`, format);
     } else {
         // Les navigateurs bloquent ou n'enclenchent que le dernier téléchargement lorsque
         // plusieurs fichiers sont générés dans la même boucle synchrone : on espace donc
         // chaque téléchargement pour que chaque fichier soit bien pris en compte.
         const downloads = [];
-
-        if (includeTrmd) {
-            downloads.push(() => {
-                const wbTrmd = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wbTrmd, buildTrmdSheet(), 'TRMD');
-                XLSX.writeFile(wbTrmd, `${baseName}_TRMD.${format}`, { bookType: format });
-            });
-        }
-
+        if (includeTrmd) downloads.push(() => downloadBytes(styledBytes([styledTrmdSheet()], format), `${baseName}_TRMD.${format}`, format));
         selectedDiscs.forEach(disc => {
-            downloads.push(() => {
-                const wbDisc = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wbDisc, buildDisciplineSheet(disc), sanitizeSheetName(disc));
-                const safeDiscName = sanitizeFileName(disc);
-                XLSX.writeFile(wbDisc, `${baseName}_${safeDiscName}.${format}`, { bookType: format });
-            });
+            downloads.push(() => downloadBytes(styledBytes([styledDisciplineSheet(disc)], format), `${baseName}_${sanitizeFileName(disc)}.${format}`, format));
         });
-
-        downloads.forEach((downloadFn, i) => {
-            setTimeout(downloadFn, i * 400);
-        });
+        downloads.forEach((downloadFn, i) => setTimeout(downloadFn, i * 400));
     }
 
     closeTableExportModal();
@@ -5048,6 +5503,13 @@ function renameTeacher(disc, tIndex) {
         });
     });
 
+    // Coordonnateurs
+    coordinators.forEach(e => {
+        if (!(e.discs || []).includes(disc)) return;
+        if (e.teacher === oldName) e.teacher = newName;
+        (e.coords || []).forEach(c => { if (c.teacher === oldName) c.teacher = newName; });
+    });
+
     // Groupes de co-enseignement
     (coEnseignementGroups || []).forEach(g => {
         (g.members || []).forEach(m => {
@@ -5386,6 +5848,179 @@ function openPondInfoModal() {
 
 function closePondInfoModal() {
     document.getElementById('pondInfoModal').classList.remove('active');
+}
+
+// ============================================================
+// 👥 Prévision d'effectifs (annoncés par la DSDEN) et structure de la rentrée suivante
+// ============================================================
+let enrollmentForecast = { rentree: '', source: '', rows: {} };   // rows[niveau] = { current, forecast, divisions }
+
+function normalizeEnrollment(o) {
+    const out = { rentree: '', source: '', rows: {} };
+    if (!o || typeof o !== 'object') return out;
+    out.rentree = typeof o.rentree === 'string' ? o.rentree : '';
+    out.source = typeof o.source === 'string' ? o.source : '';
+    if (o.rows && typeof o.rows === 'object') {
+        Object.keys(o.rows).forEach(l => {
+            const r = o.rows[l] || {};
+            const n = v => (v === '' || v === null || v === undefined || isNaN(parseFloat(v))) ? '' : parseFloat(v);
+            out.rows[l] = { current: n(r.current), forecast: n(r.forecast), divisions: n(r.divisions) };
+        });
+    }
+    return out;
+}
+
+function openEnrollmentModal() {
+    renderEnrollmentContent();
+    document.getElementById('enrollmentModal').classList.add('active');
+}
+function closeEnrollmentModal() { document.getElementById('enrollmentModal').classList.remove('active'); }
+
+function setEnrollmentMeta(field, value) { enrollmentForecast[field] = value; }
+
+function setEnrollmentField(i, field, value) {
+    const l = levels[i];
+    if (l === undefined) return;
+    if (!enrollmentForecast.rows[l]) enrollmentForecast.rows[l] = { current: '', forecast: '', divisions: '' };
+    const v = parseFloat(String(value).replace(',', '.'));
+    enrollmentForecast.rows[l][field] = isNaN(v) || v < 0 ? '' : v;
+    updateEnrollmentDerived();
+}
+
+// Volume horaire des services et nombre de divisions de la ventilation, par niveau
+function getLevelServiceFigures() {
+    const fig = {};
+    Object.keys(dataStore).forEach(d => (dataStore[d].services || []).forEach(sv => {
+        const classes = parseFloat(sv.classes) || 0, hours = parseFloat(sv.hours) || 0;
+        const lv = getServiceLevels(sv);
+        lv.forEach(l => {
+            if (!fig[l]) fig[l] = { vol: 0, divisions: 0 };
+            fig[l].vol += classes * hours / lv.length;
+            if (!sv.isOptionnel && !sv.isSpecialite && !sv.isCoEnseignement) fig[l].divisions = Math.max(fig[l].divisions, classes);
+        });
+    }));
+    return fig;
+}
+
+const fmtEnr = (n, d) => (n === null || n === undefined || n === '' || isNaN(n)) ? '—' : String(Math.round(n * Math.pow(10, d || 0)) / Math.pow(10, d || 0)).replace('.', ',');
+
+function renderEnrollmentContent() {
+    const esc = escapeStructureHtml;
+    const box = document.getElementById('enrollmentContent');
+    if (!levels.length) { box.innerHTML = '<p class="empty-state">Aucun niveau défini (Paramètres › Niveaux).</p>'; return; }
+    const e = enrollmentForecast;
+    const inp = (i, f, v) => `<input type="number" min="0" step="1" class="enr-input" value="${v === '' || v === undefined ? '' : v}" onchange="setEnrollmentField(${i}, '${f}', this.value)" oninput="setEnrollmentField(${i}, '${f}', this.value)">`;
+    box.innerHTML = `
+        <div class="enr-toolbar"><button class="btn-secondary" type="button" onclick="exportEnrollmentPdf()">📄 Exporter en PDF</button></div>
+        <p class="enr-hint">Saisissez les effectifs annoncés par la DSDEN et la structure (nombre de divisions) prévue pour la rentrée suivante. Les données sont enregistrées avec le fichier.</p>
+        <div class="enr-meta">
+            <label>Rentrée scolaire <input type="text" class="enr-text" style="width:120px" placeholder="ex. 2027" value="${esc(e.rentree)}" oninput="setEnrollmentMeta('rentree', this.value)"></label>
+            <label>Source / date de l'annonce <input type="text" class="enr-text" style="width:300px" placeholder="ex. Notification DSDEN du 12/02" value="${esc(e.source)}" oninput="setEnrollmentMeta('source', this.value)"></label>
+        </div>
+        <div class="table-wrapper"><table class="enr-table">
+            <thead><tr>
+                <th>Niveau</th>
+                <th class="num">Effectif année en cours <small>(facultatif)</small></th>
+                <th class="num">Effectif prévu <small>(DSDEN)</small></th>
+                <th class="num">Évolution</th>
+                <th class="num">Divisions prévues <small>(structure)</small></th>
+                <th class="num">Élèves / division</th>
+                <th class="num">Divisions dans la ventilation</th>
+                <th class="num">H/E <small>(heures par élève)</small></th>
+            </tr></thead>
+            <tbody>${levels.map((l, i) => {
+                const r = e.rows[l] || {};
+                return `<tr><td><strong>${esc(l)}</strong></td>
+                    <td class="num">${inp(i, 'current', r.current)}</td>
+                    <td class="num">${inp(i, 'forecast', r.forecast)}</td>
+                    <td class="num" id="enr-evo-${i}"></td>
+                    <td class="num">${inp(i, 'divisions', r.divisions)}</td>
+                    <td class="num" id="enr-ed-${i}"></td>
+                    <td class="num" id="enr-div-${i}"></td>
+                    <td class="num" id="enr-he-${i}"></td></tr>`;
+            }).join('')}</tbody>
+            <tfoot><tr class="enr-total"><td>Total</td><td class="num" id="enr-t-cur"></td><td class="num" id="enr-t-for"></td><td class="num" id="enr-t-evo"></td><td class="num" id="enr-t-divp"></td><td class="num" id="enr-t-ed"></td><td class="num" id="enr-t-div"></td><td class="num" id="enr-t-he"></td></tr></tfoot>
+        </table></div>
+        <div id="enr-notes" class="enr-notes"></div>`;
+    updateEnrollmentDerived();
+}
+
+function updateEnrollmentDerived() {
+    if (!document.getElementById('enrollmentModal').classList.contains('active') && !document.getElementById('enr-t-cur')) return;
+    const fig = getLevelServiceFigures();
+    const e = enrollmentForecast;
+    const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+    const evo = (cur, fc) => {
+        if (cur === '' || cur === undefined || fc === '' || fc === undefined) return '—';
+        const d = fc - cur, p = cur > 0 ? d / cur * 100 : null;
+        return `<span class="enr-evo ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${fmtEnr(d, 0)}${p === null ? '' : ` (${d > 0 ? '+' : ''}${fmtEnr(p, 1)} %)`}</span>`;
+    };
+    let tCur = 0, tFor = 0, tDivP = 0, tDiv = 0, tVol = 0, anyCur = false, anyFor = false, anyDivP = false, bothCur = 0, bothFor = 0;
+    levels.forEach((l, i) => {
+        const r = e.rows[l] || {};
+        const f = fig[l] || { vol: 0, divisions: 0 };
+        const cur = r.current === '' || r.current === undefined ? null : r.current;
+        const fc = r.forecast === '' || r.forecast === undefined ? null : r.forecast;
+        const dv = r.divisions === '' || r.divisions === undefined ? null : r.divisions;
+        if (cur !== null) { tCur += cur; anyCur = true; }
+        if (fc !== null) { tFor += fc; anyFor = true; }
+        if (dv !== null) { tDivP += dv; anyDivP = true; }
+        tDiv += f.divisions; tVol += f.vol;
+        if (cur !== null && fc !== null) { bothCur += cur; bothFor += fc; }
+        set(`enr-evo-${i}`, evo(cur === null ? '' : cur, fc === null ? '' : fc));
+        set(`enr-ed-${i}`, fc !== null && dv ? fmtEnr(fc / dv, 1) : '—');
+        const ok = dv !== null && Math.abs(dv - f.divisions) < 0.004;
+        set(`enr-div-${i}`, `${fmtEnr(f.divisions, 0)}${dv === null ? '' : (ok ? ' <span class="enr-ok" title="Conforme à la structure prévue">✓</span>' : ' <span class="enr-ko" title="Différent des divisions prévues">⚠</span>')}`);
+        set(`enr-he-${i}`, fc ? fmtEnr(f.vol / fc, 2) + ' h' : '—');
+    });
+    set('enr-t-cur', anyCur ? fmtEnr(tCur, 0) : '—');
+    set('enr-t-for', anyFor ? fmtEnr(tFor, 0) : '—');
+    set('enr-t-evo', anyCur && anyFor ? evo(bothCur, bothFor) : '—');
+    set('enr-t-divp', anyDivP ? fmtEnr(tDivP, 0) : '—');
+    set('enr-t-ed', anyFor && tDivP ? fmtEnr(tFor / tDivP, 1) : '—');
+    set('enr-t-div', fmtEnr(tDiv, 0));
+    set('enr-t-he', anyFor && tFor ? fmtEnr(tVol / tFor, 2) + ' h' : '—');
+    const dgh = (parseFloat(dotationGlobal.hp) || 0) + (parseFloat(dotationGlobal.hsa) || 0);
+    const notes = [];
+    if (anyFor && tFor > 0 && dgh > 0) notes.push(`DHG totale / effectif prévu : <strong>${fmtEnr(dgh / tFor, 2)} h par élève</strong> (${fmtEnr(dgh, 1)} h pour ${fmtEnr(tFor, 0)} élèves).`);
+    notes.push('H/E par niveau = volume horaire des services du niveau (classes × volume classe) divisé par l\'effectif prévu. « Divisions dans la ventilation » = plus grand nombre de classes d\'un service courant du niveau (hors options, spécialités et co-enseignement).');
+    set('enr-notes', notes.map(n => `<p>${n}</p>`).join(''));
+}
+
+function hasEnrollmentData() {
+    return Object.values(enrollmentForecast.rows || {}).some(r => r && (r.forecast !== '' || r.divisions !== '' || r.current !== ''));
+}
+
+// Lignes du tableau de prévision d'effectifs (utilisées pour le PDF)
+function computeEnrollmentRows() {
+    const fig = getLevelServiceFigures();
+    const num = v => (v === '' || v === undefined || v === null) ? null : v;
+    const rows = levels.map(l => {
+        const r = enrollmentForecast.rows[l] || {};
+        const f = fig[l] || { vol: 0, divisions: 0 };
+        const cur = num(r.current), fc = num(r.forecast), dv = num(r.divisions);
+        return { label: l, cur, fc, dv, ventDiv: f.divisions, vol: f.vol };
+    }).filter(r => r.cur !== null || r.fc !== null || r.dv !== null);
+    const sum = k => rows.reduce((x, r) => x + (r[k] || 0), 0);
+    const both = rows.filter(r => r.cur !== null && r.fc !== null);
+    return {
+        rows,
+        hasCur: rows.some(r => r.cur !== null),
+        total: {
+            cur: rows.some(r => r.cur !== null) ? sum('cur') : null,
+            fc: rows.some(r => r.fc !== null) ? sum('fc') : null,
+            dv: rows.some(r => r.dv !== null) ? sum('dv') : null,
+            ventDiv: sum('ventDiv'), vol: sum('vol'),
+            bothCur: both.reduce((x, r) => x + r.cur, 0), bothFc: both.reduce((x, r) => x + r.fc, 0), hasBoth: both.length > 0
+        }
+    };
+}
+
+function exportEnrollmentPdf() {
+    if (!hasEnrollmentData()) { alert("Aucun effectif renseigné : saisissez d'abord au moins un niveau."); return; }
+    const sections = {};
+    PRESENTATION_SECTIONS.forEach(([k]) => { sections[k] = (k === 'effectifs'); });
+    generatePresentationPdf({ sections, disciplines: Object.keys(dataStore), levels: levels.slice(), bare: true });
 }
 
 // ============================================================
@@ -5741,7 +6376,7 @@ function computeTeacherSummary(disc, t) {
         const levelLabel = sv.isOptionnel
             ? (Array.isArray(sv.levels) ? sv.levels.join(', ') : (sv.level || ''))
             : (sv.level || '');
-        rows.push({ level: levelLabel, name: sv.name || '', hours: v, active: !!sv.ponderationActive, factor: f, pond });
+        rows.push({ level: levelLabel, levels: getServiceLevels(sv), name: sv.name || '', hours: v, active: !!sv.ponderationActive, factor: f, pond });
     });
     sums['raw:' + t] = raw;
     const pond = pondExtra(sums, t, data);
@@ -5826,6 +6461,7 @@ function generateTeacherServicesPdf() {
 // ============================================================
 function closeAllMenus() {
     document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'));
+    document.querySelectorAll('.menu-group.open, .menu-group-toggle.open').forEach(el => el.classList.remove('open'));
 }
 
 function toggleMenu(event, btn) {
@@ -5838,11 +6474,12 @@ function toggleMenu(event, btn) {
 
 function toggleMenuGroup(event, btn) {
     event.stopPropagation();
-    btn.classList.toggle('open');
     const group = btn.nextElementSibling;
-    if (group) group.classList.toggle('open');
-    const caret = btn.querySelector('.menu-caret');
-    if (caret) caret.textContent = btn.classList.contains('open') ? '▾' : '▸';
+    const willOpen = !btn.classList.contains('open');
+    // un seul sous-menu ouvert à la fois dans un même menu
+    const panel = btn.closest('.menu-panel');
+    if (panel) panel.querySelectorAll('.menu-group-toggle.open, .menu-group.open').forEach(el => el.classList.remove('open'));
+    if (willOpen) { btn.classList.add('open'); if (group) group.classList.add('open'); }
 }
 
 document.addEventListener('click', () => setTimeout(closeAllMenus, 0));
@@ -5898,17 +6535,20 @@ function buildDisciplineSummaryHtml(disc) {
 // Export pour la présentation (PDF paysage avec numérotation n/X)
 // ============================================================
 const PRESENTATION_SECTIONS = [
+    ['effectifs', 'Prévision d\'effectifs'],
     ['dotation', 'Rappel de la dotation'],
     ['trmd', 'TRMD'],
     ['disciplines', 'Ventilation par discipline'],
     ['niveaux', 'Autonomie par niveau'],
     ['autDisc', 'Autonomie par discipline'],
     ['focusSpe', 'Focus sur les spécialités'],
-    ['focusOpt', 'Focus sur les options']
+    ['focusOpt', 'Focus sur les options'],
+    ['stats', 'Statistiques de la DHG (pages insérées après le TRMD)']
 ];
 
 // Les rubriques « Focus » n'existent que si l'option correspondante est activée
 function presSectionAvailable(k) {
+    if (k === 'effectifs') return hasEnrollmentData();
     if (k === 'focusSpe') return !!epleIdentity.enableSpecialites;
     if (k === 'focusOpt') return !!epleIdentity.enableOptionnels;
     return true;
@@ -5995,8 +6635,8 @@ function generatePresentationPdf(opts) {
     const pages = []; // chaque page : fonction (n, total) => html
     const sectionStart = {}; // numéro de la première page de chaque rubrique du sommaire
 
-    // 1. Couverture
-    pages.push(() => `
+    // 1. Couverture (absente des exports d'une seule rubrique)
+    if (!opts.bare) pages.push(() => `
         <div class="pres-cover" style="height: 100%;">
             <div class="pres-eple">${esc(epleName || 'Établissement')}</div>
             ${epleSub ? `<div class="pres-eple-sub">${esc(epleSub)}</div>` : ''}
@@ -6004,9 +6644,10 @@ function generatePresentationPdf(opts) {
         </div>`);
 
     // 2. Sommaire (le contenu est évalué à la fin, quand les numéros de page sont connus)
-    const tocEntries = PRESENTATION_SECTIONS.filter(([k]) => sel[k]);
+    const tocEntries = PRESENTATION_SECTIONS.filter(([k]) => sel[k] && k !== 'stats');
     // Page de titre qui introduit une rubrique
     const pushDivider = key => {
+        if (opts.bare) return;
         const idx = tocEntries.findIndex(([k]) => k === key);
         const label = tocEntries[idx][1];
         pages.push(() => `
@@ -6015,11 +6656,36 @@ function generatePresentationPdf(opts) {
                 <div class="pres-divider-title">${label}</div>
             </div>`);
     };
-    pages.push(() => `
+    if (tocEntries.length && !opts.bare) pages.push(() => `
         <h1 class="pres-title">Sommaire</h1>
         <div class="pres-toc">
             ${tocEntries.map(([k, label], i) => `<div class="pres-toc-row"><span class="pres-toc-label">${i + 1} - ${label}</span><span class="pres-toc-dots"></span><span class="pres-toc-page">${sectionStart[k] !== undefined ? sectionStart[k] : ''}</span></div>`).join('')}
         </div>`);
+
+    // 2 bis. Prévision d'effectifs (annoncés par la DSDEN) : amont de la dotation
+    if (sel.effectifs) {
+        sectionStart.effectifs = pages.length + 1;
+        pushDivider('effectifs');
+        const en = computeEnrollmentRows();
+        const T = en.total;
+        const f1 = (n, d) => fmtEnr(n, d);
+        const evoTxt = (cur, fc) => {
+            if (cur === null || fc === null) return '—';
+            const d = fc - cur, p = cur > 0 ? d / cur * 100 : null;
+            return `${d > 0 ? '+' : ''}${f1(d, 0)}${p === null ? '' : ` (${d > 0 ? '+' : ''}${f1(p, 1)} %)`}`;
+        };
+        const eHead = `<tr><th style="width:15%">Niveau</th>${en.hasCur ? '<th class="num" style="white-space:normal">Effectif année en cours</th>' : ''}<th class="num" style="white-space:normal">Effectif prévu (DSDEN)</th>${en.hasCur ? '<th class="num" style="white-space:normal">Évolution</th>' : ''}<th class="num" style="white-space:normal">Divisions prévues</th><th class="num" style="white-space:normal">Élèves / division</th><th class="num" style="white-space:normal">Divisions ventilées</th><th class="num" style="white-space:normal">H/E</th></tr>`;
+        const eRows = en.rows.map(r => ({ html: `<tr><td><strong>${esc(r.label)}</strong></td>${en.hasCur ? `<td class="num">${f1(r.cur, 0)}</td>` : ''}<td class="num"><strong>${f1(r.fc, 0)}</strong></td>${en.hasCur ? `<td class="num">${evoTxt(r.cur, r.fc)}</td>` : ''}<td class="num">${f1(r.dv, 0)}</td><td class="num">${r.fc !== null && r.dv ? f1(r.fc / r.dv, 1) : '—'}</td><td class="num">${f1(r.ventDiv, 0)}${r.dv !== null ? (Math.abs(r.dv - r.ventDiv) < 0.004 ? ' ✓' : ' ⚠') : ''}</td><td class="num">${r.fc ? f1(r.vol / r.fc, 2) + ' h' : '—'}</td></tr>` }));
+        eRows.push({ html: `<tr class="pres-total"><td>Total</td>${en.hasCur ? `<td class="num">${f1(T.cur, 0)}</td>` : ''}<td class="num">${f1(T.fc, 0)}</td>${en.hasCur ? `<td class="num">${T.hasBoth ? evoTxt(T.bothCur, T.bothFc) : '—'}</td>` : ''}<td class="num">${f1(T.dv, 0)}</td><td class="num">${T.fc !== null && T.dv ? f1(T.fc / T.dv, 1) : '—'}</td><td class="num">${f1(T.ventDiv, 0)}</td><td class="num">${T.fc ? f1(T.vol / T.fc, 2) + ' h' : '—'}</td></tr>` });
+        const eDgh = (parseFloat(dotationGlobal.hp) || 0) + (parseFloat(dotationGlobal.hsa) || 0);
+        const eSub = [enrollmentForecast.rentree ? `Rentrée ${esc(enrollmentForecast.rentree)}` : '', enrollmentForecast.source ? esc(enrollmentForecast.source) : ''].filter(Boolean).join(' · ');
+        const ePages = paginateTable(eHead, eRows, TITLE_RESERVE + 8);
+        ePages.forEach((pg, i) => pages.push(() => `
+            <h1 class="pres-title">Prévision d'effectifs${ePages.length > 1 ? ` <small>(suite ${i + 1}/${ePages.length})</small>` : ''}</h1>
+            ${eSub ? `<p class="pres-note" style="margin-top:0">${eSub}</p>` : ''}
+            <table class="pres-table pres-table-opt"><thead>${eHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>
+            ${i === ePages.length - 1 ? `${T.fc && eDgh > 0 ? `<p class="pres-note">DHG totale / effectif prévu : ${f1(eDgh / T.fc, 2)} h par élève (${f1(eDgh, 1)} h pour ${f1(T.fc, 0)} élèves).</p>` : ''}<p class="pres-note">H/E = volume horaire des services du niveau (classes × volume classe) / effectif prévu. ✓ : divisions de la ventilation conformes à la structure prévue ; ⚠ : écart à corriger.</p>` : ''}`));
+    }
 
     // 3. Rappel de la dotation
     if (sel.dotation) {
@@ -6057,6 +6723,47 @@ function generatePresentationPdf(opts) {
             <table class="pres-table"><thead>${trmdHead}</thead><tbody>${rows.map(r => r.html).join('')}</tbody></table>`);
     });
 
+    }
+
+    // Statistiques de la DHG : pages insérées à la suite du TRMD (pas de chapitre à part)
+    if (sel.stats) {
+        const st = computeDhgStats();
+        const p2 = st.dgh > 0;
+        const bar = p => `<div class="pres-bar"><span style="width:${Math.max(0, Math.min(100, p || 0)).toFixed(1)}%"></span></div>`;
+        const cols = statColumns(st);
+        const headHtml = first => `<tr><th>${first}</th>${cols.map(c => `<th class="num">${c.label}</th>`).join('')}<th class="num">Part</th>${p2 ? '<th class="num">Part de la DHG</th>' : ''}<th style="width:20%">Répartition</th></tr>`;
+        const rowHtml = r => `<tr><td>${esc(r.label)}</td>${cols.map(c => `<td class="num">${c.strong ? '<strong>' : ''}${statCell(r, c)}${c.strong ? '</strong>' : ''}</td>`).join('')}<td class="num"><strong>${r.pct === null ? '—' : fmtPct(r.pct)}</strong></td>${p2 ? `<td class="num">${r.pct2 === null ? '—' : fmtPct(r.pct2)}</td>` : ''}<td class="pres-bar-cell">${r.pct === null ? '' : bar(r.pct)}</td></tr>`;
+        const totalHtml = `<tr class="pres-total"><td>Total</td>${cols.map(c => `<td class="num">${fmtStatH(c.k === 'raw' ? st.tRaw : c.k === 'weighted' ? st.tWeighted : c.k === 'are' ? st.tAre : st.grandTotal)}</td>`).join('')}<td class="num">100 %</td>${p2 ? `<td class="num">${fmtPct(st.grandTotal / st.dgh * 100)}</td>` : ''}<td></td></tr>`;
+        const sub = t => `<h2 class="pres-subtitle">${t}</h2>`;
+        const pieBlock = (title, rows) => `${sub(title)}<div class="pres-pie-row">${pieSvg(rows, 190)}<table class="pres-table pres-pie-table"><thead><tr><th></th><th>Poste</th><th class="num">Heures</th><th class="num">Part</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td style="width:7mm"><span class="pie-dot" style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></span></td><td>${esc(r.label)}</td><td class="num">${fmtStatH(r.h)}</td><td class="num"><strong>${r.pct === null ? '—' : fmtPct(r.pct)}</strong></td></tr>`).join('')}</tbody></table></div>`;
+        const baseNote = `Base : heures attribuées aux enseignants${st.hasPond || st.hasAre ? ' (' + esc(totalLabelSuffix()) + ')' : ''} ; le total est identique à celui du TRMD.`;
+
+        // Page 1 : dotation et utilisation, en diagrammes circulaires
+        pages.push(() => `
+            <h1 class="pres-title">Statistiques - Dotation</h1>
+            ${pieBlock('Répartition de la dotation (DHG ' + fmtStatH(st.dgh) + ')', st.dotation)}
+            ${pieBlock('Utilisation de la dotation', st.usage)}
+            ${p2 ? '' : '<p class="pres-note">La dotation (HP / HSA) n\'est pas renseignée : les parts de la DHG ne sont pas calculables.</p>'}`);
+
+        // Par discipline (paginé)
+        const dHead = headHtml('Discipline');
+        const dRows = st.byDisc.map(r => ({ html: rowHtml(r) }));
+        dRows.push({ html: totalHtml });
+        const dPages = paginateTable(dHead, dRows, TITLE_RESERVE);
+        dPages.forEach((pg, i) => pages.push(() => `
+            <h1 class="pres-title">Statistiques - Par discipline${dPages.length > 1 ? ` <small>(suite ${i + 1}/${dPages.length})</small>` : ''}</h1>
+            <table class="pres-table"><thead>${dHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>
+            ${i === dPages.length - 1 ? `<p class="pres-note">${baseNote}</p>` : ''}`));
+
+        // Par niveau (paginé)
+        const lHead = headHtml('Niveau');
+        const lRows = st.byLevel.map(r => ({ html: rowHtml(r) }));
+        lRows.push({ html: totalHtml });
+        const lPages = paginateTable(lHead, lRows, TITLE_RESERVE);
+        lPages.forEach((pg, i) => pages.push(() => `
+            <h1 class="pres-title">Statistiques - Par niveau${lPages.length > 1 ? ` <small>(suite ${i + 1}/${lPages.length})</small>` : ''}</h1>
+            <table class="pres-table"><thead>${lHead}</thead><tbody>${pg.map(r => r.html).join('')}</tbody></table>
+            ${i === lPages.length - 1 ? `<p class="pres-note">${baseNote} Les heures de chaque enseignant sont réparties selon le niveau de ses services (options multi-niveaux à parts égales) ; les ARE, qui ne dépendent d'aucun niveau, figurent sur une ligne à part.</p>` : ''}`));
     }
 
     // 5. Disciplines, niveaux regroupés
@@ -6298,14 +7005,18 @@ function newEmptyProject() {
     }
     Object.keys(structureRowState).forEach(k => delete structureRowState[k]);
     Object.keys(structureLevelChoice).forEach(k => delete structureLevelChoice[k]);
+    setCurrentFile(null);
     applyLoadedData({
         dataStore: {},
         dotation: { hp: 0, hsa: 0 },
         levels: ["6ème", "5ème", "4ème", "3ème", "2nde", "1ère", "Terminale"],
         baseHoursStore: {},
         coEnseignementGroups: [],
+        coordinators: [],
+        n1Reference: null,
+        enrollment: null,
         changeHistory: [],
-        epleIdentity: { name: "", uai: "", commune: "", enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false, enablePonderations: false }
+        epleIdentity: { name: "", uai: "", commune: "", enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false, enableMultiSite: false, sites: [], enablePonderations: false }
     });
 }
 
@@ -6736,4 +7447,1378 @@ function undoMagicVentilation() {
     magicCtx.snapshot.forEach((alloc, i) => { if (data.services[i]) data.services[i].allocations = alloc; });
     renderApp();
     closeMagicModal();
+}
+
+
+// ============================================================
+// 👤 Coordonnateurs de discipline
+// ============================================================
+// Chaque entrée regroupe une ou plusieurs disciplines associées et leurs coordonnateurs (un ou plusieurs).
+function normalizeCoordinators() {
+    const discs = Object.keys(dataStore);
+    const seen = new Set();
+    const list = [];
+    coordinators.forEach(e => {
+        const ds = (e.discs || []).filter(d => dataStore[d] && !seen.has(d));
+        ds.forEach(d => seen.add(d));
+        if (!ds.length) return;
+        // ancien format : { teacher, email }
+        let coords = Array.isArray(e.coords) ? e.coords : (e.teacher ? [{ teacher: e.teacher, email: e.email || '' }] : []);
+        list.push({ discs: ds, coords: coords.map(c => ({ teacher: c.teacher || '', email: c.email || '' })) });
+    });
+    discs.forEach(d => { if (!seen.has(d)) list.push({ discs: [d], coords: [] }); });
+    list.sort((a, b) => discs.indexOf(a.discs[0]) - discs.indexOf(b.discs[0]));
+    list.forEach(e => {
+        const names = coordTeacherOptions(e).map(o => o.name);
+        e.coords.forEach(c => { if (c.teacher && !names.includes(c.teacher)) c.teacher = ''; });
+        if (e.coords.length === 0) e.coords.push({ teacher: '', email: '' });
+    });
+    coordinators = list;
+    return list;
+}
+
+function coordTeacherOptions(entry) {
+    const out = [];
+    entry.discs.forEach(d => ((dataStore[d] && dataStore[d].teachers) || []).forEach(t => out.push({ name: t, disc: d })));
+    return out;
+}
+
+function openCoordinatorsModal() {
+    renderCoordinatorsContent();
+    document.getElementById('coordinatorsModal').classList.add('active');
+}
+
+function closeCoordinatorsModal() {
+    document.getElementById('coordinatorsModal').classList.remove('active');
+}
+
+function renderCoordinatorsContent() {
+    const esc = escapeStructureHtml;
+    const container = document.getElementById('coordinatorsContent');
+    const list = normalizeCoordinators();
+    if (list.length === 0) {
+        container.innerHTML = '<p class="empty-state">Aucune discipline : ajoutez-en pour désigner des coordonnateurs.</p>';
+        return;
+    }
+    const allDiscs = Object.keys(dataStore);
+    const rows = list.map((e, i) => {
+        const merged = e.discs.length > 1;
+        const discHtml = e.discs.map((d, k) => `<span class="coord-disc">${esc(d)}${merged ? `<button type="button" class="coord-unlink" title="Dissocier cette discipline" onclick="coordDissociate(${i}, ${k})">✕</button>` : ''}</span>`).join('');
+        const opts = coordTeacherOptions(e);
+        const coordsHtml = e.coords.map((c, j) => `
+            <div class="coord-line">
+                <select onchange="coordSetTeacher(${i}, ${j}, this.value)">
+                    <option value="">— Choisir un enseignant —</option>
+                    ${opts.map(o => `<option value="${esc(o.name)}" ${o.name === c.teacher ? 'selected' : ''}>${esc(o.name)}${merged ? ` (${esc(o.disc)})` : ''}</option>`).join('')}
+                </select>
+                <input type="email" placeholder="adresse@exemple.fr" value="${esc(c.email)}" oninput="coordSetEmail(${i}, ${j}, this.value)">
+                ${e.coords.length > 1 ? `<button type="button" class="coord-unlink" title="Retirer ce coordonnateur" onclick="coordRemove(${i}, ${j})">✕</button>` : '<span class="coord-unlink-spacer"></span>'}
+            </div>`).join('');
+        const others = allDiscs.filter(d => !e.discs.includes(d));
+        const assoc = others.length
+            ? `<select onchange="coordAssociate(${i}, this.value)"><option value="">Associer à…</option>${others.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('')}</select>`
+            : '';
+        return `<tr><td><div class="coord-discs">${discHtml}</div></td>
+            <td>${coordsHtml}<button type="button" class="coord-add" onclick="coordAdd(${i})">+ Ajouter un coordonnateur</button></td>
+            <td>${assoc}</td></tr>`;
+    }).join('');
+    container.innerHTML = `
+        <p class="settings-tab-hint" style="margin-bottom: 10px;">Désignez un ou plusieurs coordonnateurs parmi les enseignants de chaque discipline, avec leur adresse mail. Deux disciplines peuvent être associées (par exemple Lettres classiques et Lettres modernes) ; les coordonnateurs sont alors choisis parmi les enseignants des deux.</p>
+        <table class="coord-table">
+            <thead><tr><th>Discipline(s)</th><th>Coordonnateur(s) et adresse mail</th><th>Association</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+function coordSetTeacher(i, j, value) { if (coordinators[i] && coordinators[i].coords[j]) coordinators[i].coords[j].teacher = value; }
+function coordSetEmail(i, j, value) { if (coordinators[i] && coordinators[i].coords[j]) coordinators[i].coords[j].email = value.trim(); }
+function coordAdd(i) { if (coordinators[i]) { coordinators[i].coords.push({ teacher: '', email: '' }); renderCoordinatorsContent(); } }
+function coordRemove(i, j) {
+    if (!coordinators[i] || coordinators[i].coords.length < 2) return;
+    coordinators[i].coords.splice(j, 1);
+    renderCoordinatorsContent();
+}
+
+function coordAssociate(i, disc) {
+    if (!disc || !coordinators[i]) return;
+    const j = coordinators.findIndex(e => e.discs.includes(disc));
+    if (j === -1 || j === i) return;
+    const a = coordinators[i], b = coordinators[j];
+    a.discs = a.discs.concat(b.discs);
+    a.coords = a.coords.filter(c => c.teacher || c.email).concat(b.coords.filter(c => c.teacher || c.email));
+    coordinators.splice(j, 1);
+    renderCoordinatorsContent();
+}
+
+function coordDissociate(i, k) {
+    const e = coordinators[i];
+    if (!e || e.discs.length < 2) return;
+    const d = e.discs.splice(k, 1)[0];
+    const own = new Set(((dataStore[d] && dataStore[d].teachers) || []));
+    const moved = e.coords.filter(c => c.teacher && own.has(c.teacher) && !coordTeacherOptions(e).some(o => o.name === c.teacher));
+    e.coords = e.coords.filter(c => !moved.includes(c));
+    coordinators.push({ discs: [d], coords: moved });
+    renderCoordinatorsContent();
+}
+
+// Export PDF de la liste des coordonnateurs (style du PDF de présentation, paysage)
+function exportCoordinatorsPdf() {
+    const esc = escapeStructureHtml;
+    const rowsData = normalizeCoordinators()
+        .map(e => ({ discs: e.discs, coords: e.coords.filter(c => c.teacher).sort((x, y) => x.teacher.localeCompare(y.teacher, 'fr')) }))
+        .filter(e => e.coords.length > 0);
+    if (rowsData.length === 0) { alert('Aucun coordonnateur désigné à exporter.'); return; }
+    const dateStr = new Date().toLocaleDateString('fr-FR');
+    const epleName = epleIdentity && epleIdentity.name ? epleIdentity.name : '';
+    const PAGE_INNER_PX = Math.floor(188 * 96 / 25.4) - 52;
+    const TITLE_RESERVE = 70;
+    const head = '<tr><th style="width:32%">Enseignant(s)</th><th>Discipline(s) coordonnée(s)</th><th style="width:34%">Adresse mail</th></tr>';
+    const rows = rowsData.map(e => `<tr>
+        <td>${e.coords.map(c => `<div class="coord-pdf-line"><strong>${esc(c.teacher)}</strong></div>`).join('')}</td>
+        <td>${e.discs.map(esc).join(' / ')}</td>
+        <td>${e.coords.map(c => `<div class="coord-pdf-line">${esc(c.email) || '&nbsp;'}</div>`).join('')}</td></tr>`);
+
+    const measureBox = document.createElement('div');
+    measureBox.className = 'pres-measure';
+    document.body.appendChild(measureBox);
+    measureBox.innerHTML = `<table class="pres-table"><thead>${head}</thead><tbody>${rows.join('')}</tbody></table>`;
+    const theadH = measureBox.querySelector('thead').offsetHeight;
+    const heights = Array.from(measureBox.querySelectorAll('tbody tr')).map(tr => tr.offsetHeight);
+    document.body.removeChild(measureBox);
+
+    const avail = PAGE_INNER_PX - TITLE_RESERVE - theadH;
+    const pagesRows = [[]];
+    let used = 0;
+    rows.forEach((r, i) => {
+        const cur = pagesRows[pagesRows.length - 1];
+        if (cur.length > 0 && used + heights[i] > avail) { pagesRows.push([]); used = 0; }
+        pagesRows[pagesRows.length - 1].push(r);
+        used += heights[i];
+    });
+
+    const total = pagesRows.length;
+    const footerLabel = `${esc(epleName)}${epleName ? ' · ' : ''}Coordonnateurs - ${dateStr}`;
+    const container = document.getElementById('presentationPrint');
+    container.innerHTML = pagesRows.map((pr, i) => `
+        <section class="pres-page">
+            <h1 class="pres-title">Coordonnateurs de discipline${total > 1 ? ` <small>(suite ${i + 1}/${total})</small>` : ''}</h1>
+            <table class="pres-table"><thead>${head}</thead><tbody>${pr.join('')}</tbody></table>
+            <div class="pres-footer"><span>${footerLabel}</span><span>${i + 1}/${total}</span></div>
+        </section>`).join('');
+
+    document.body.classList.add('printing-presentation');
+    const cleanup = () => {
+        document.body.classList.remove('printing-presentation');
+        container.innerHTML = '';
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    triggerPrint();
+}
+
+
+// ------------------------------------------------------------
+// ✉️ Envoi d'un email aux coordonnateurs
+// ------------------------------------------------------------
+const COORD_MAIL_SUBJECT = 'Tableaux de ventilation de la DHG';
+const COORD_MAIL_BODY = ['Chères collègues, chers collègues,', '', 'Je vous prie de trouver en pièce jointe les tableaux de ventilation de la DHG.', '', 'Je vous souhaite bonne réception du document.', '', 'Bien cordialement,'].join('\r\n');
+
+function getCoordinatorEmails() {
+    const out = [];
+    normalizeCoordinators().forEach(e => e.coords.forEach(c => {
+        const m = (c.email || '').trim();
+        if (m && m.includes('@') && !out.some(x => x.toLowerCase() === m.toLowerCase())) out.push(m);
+    }));
+    return out;
+}
+
+function openCoordMailModal() {
+    const emails = getCoordinatorEmails();
+    if (emails.length === 0) { alert("Aucune adresse mail n'est renseignée pour les coordonnateurs."); return; }
+    document.getElementById('coordMailInfo').innerHTML = `<strong>${emails.length}</strong> destinataire${emails.length > 1 ? 's' : ''} : <span class="coord-mail-list">${emails.map(escapeStructureHtml).join(' ; ')}</span>`;
+    document.getElementById('coordMailModal').classList.add('active');
+    prepareCoordMailFile();
+}
+
+function closeCoordMailModal() {
+    document.getElementById('coordMailModal').classList.remove('active');
+}
+
+// Message simple, sans pièce jointe : ouvre la messagerie par défaut (un lien mailto ne peut pas joindre de fichier)
+function coordMailOpenClient() {
+    const emails = getCoordinatorEmails();
+    const href = 'mailto:' + emails.map(encodeURIComponent).join(',')
+        + '?subject=' + encodeURIComponent(COORD_MAIL_SUBJECT)
+        + '&body=' + encodeURIComponent(COORD_MAIL_BODY);
+    window.location.href = href;
+}
+
+function coordMailCopyEmails() {
+    const text = getCoordinatorEmails().join('; ');
+    const done = () => alert('Adresses copiées : ' + text);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => prompt('Copiez les adresses :', text));
+    else prompt('Copiez les adresses :', text);
+}
+
+function utf8ToBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return btoa(bin);
+}
+
+// Construit un brouillon .eml (X-Unsent) avec destinataires, corps et pièce jointe encodée en base64
+function buildEmlDraft(recipients, subject, body, attachment) {
+    const boundary = '----=_DHG_' + Date.now().toString(16);
+    const chunk = b64 => (b64.match(/.{1,76}/g) || []).join('\r\n');
+    const lines = [
+        'X-Unsent: 1',
+        'X-Uniform-Type-Identifier: com.apple.mail-draft',
+        'To: ' + recipients.join(', '),
+        'Subject: =?UTF-8?B?' + utf8ToBase64(subject) + '?=',
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/mixed; boundary="' + boundary + '"',
+        '',
+        '--' + boundary,
+        'Content-Type: text/plain; charset=UTF-8',
+        'Content-Transfer-Encoding: base64',
+        '',
+        chunk(utf8ToBase64(body)),
+        '--' + boundary
+    ];
+    if (attachment) {
+        const asciiName = attachment.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_');
+        lines.push(
+            'Content-Type: ' + attachment.type + '; name="' + asciiName + '"',
+            'Content-Disposition: attachment; filename="' + asciiName + '"; filename*=UTF-8\'\'' + encodeURIComponent(attachment.name),
+            'Content-Transfer-Encoding: base64',
+            '',
+            chunk(attachment.base64),
+            '--' + boundary
+        );
+    }
+    lines[lines.length - 1] += '--';
+    lines.push('');
+    return lines.join('\r\n');
+}
+
+function buildCoordMailWorkbook() {
+    const used = new Set();
+    const sheets = [styledTrmdSheet()].concat(Object.keys(dataStore).map(d => styledDisciplineSheet(d))).map(sh => {
+        let n = sh.name, i = 2;
+        while (used.has(n.toLowerCase())) { n = sh.name.slice(0, 27) + ' (' + i++ + ')'; }
+        used.add(n.toLowerCase());
+        return Object.assign({}, sh, { name: n });
+    });
+    const base64 = bytesToBase64(buildStyledXlsxBytes(sheets));
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}_${pad(now.getMonth() + 1)}_${pad(now.getDate())}`;
+    const epleName = ((epleIdentity && epleIdentity.name) || '').trim().replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, '_').replace(/^_+|_+$/g, '') || 'EPLE';
+    return { base64, fileName: `${dateStr}_DHG_${epleName}.xlsx`, dateStr, epleName };
+}
+
+// Fichier préparé à l'avance : le partage système exige d'être déclenché immédiatement par le clic
+let coordMailFile = null;
+async function prepareCoordMailFile() {
+    coordMailFile = null;
+    try {
+        const { base64, fileName } = buildCoordMailWorkbook();
+        const bin = atob(base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        coordMailFile = new File([bytes], fileName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    } catch (err) { coordMailFile = null; }
+}
+
+// Partage système (Mail sur Mac / iPhone) : le classeur est joint ; les adresses sont copiées dans le presse-papiers
+function coordMailShare() {
+    const emails = getCoordinatorEmails();
+    if (!coordMailFile) { alert('Le fichier est en cours de préparation, réessayez dans un instant.'); return; }
+    if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [coordMailFile] })) {
+        alert("Le partage de fichier n'est pas disponible dans ce navigateur. Utilisez le brouillon .eml.");
+        return;
+    }
+    try { if (navigator.clipboard) navigator.clipboard.writeText(emails.join(', ')); } catch (e) { /* facultatif */ }
+    navigator.share({ files: [coordMailFile], title: COORD_MAIL_SUBJECT, text: COORD_MAIL_BODY.replace(/\r\n/g, '\n') }).catch(() => {});
+}
+
+async function coordMailDownloadDraft() {
+    const emails = getCoordinatorEmails();
+    if (emails.length === 0) return;
+
+    const { base64, fileName, dateStr, epleName } = buildCoordMailWorkbook();
+    const eml = buildEmlDraft(emails, COORD_MAIL_SUBJECT, COORD_MAIL_BODY, {
+        name: fileName, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', base64
+    });
+    const blob = new Blob([eml], { type: 'message/rfc822' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${dateStr}_Mail_DHG_${epleName}.eml`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+
+// ============================================================
+// 📊 Statistiques de la DHG : découpage en pourcentage
+// ============================================================
+const fmtPct = n => (Math.round(n * 10) / 10).toFixed(1).replace('.', ',') + ' %';
+const fmtStatH = n => String(Math.round((n || 0) * 100) / 100).replace('.', ',') + ' h';
+
+function computeDhgStats() {
+    const discs = Object.keys(dataStore);
+    const hp = parseFloat(dotationGlobal.hp) || 0, hsa = parseFloat(dotationGlobal.hsa) || 0, dgh = hp + hsa;
+    const pctOf = (v, base) => base > 0 ? v / base * 100 : null;
+    const hasPond = pondEnabled();
+
+    // Par discipline et par niveau : heures réellement attribuées aux enseignants
+    // (heures brutes, pondérations, ARE). Les pondérations d'un enseignant sont
+    // réparties sur les niveaux de ses services au prorata de leur pondération brute ;
+    // les ARE, qui ne dépendent d'aucun niveau, forment une ligne à part.
+    const byDisc = [];
+    const lvl = {};
+    let tRaw = 0, tPond = 0, tAre = 0;
+    const addLvl = (l, raw, pond) => { if (!lvl[l]) lvl[l] = { raw: 0, pond: 0 }; lvl[l].raw += raw; lvl[l].pond += pond; };
+    discs.forEach(d => {
+        const data = dataStore[d];
+        let raw = 0, pond = 0, are = 0;
+        (data.teachers || []).forEach(t => {
+            const sm = computeTeacherSummary(d, t);
+            raw += sm.raw; pond += sm.pond; are += sm.are;
+            const sumRaw = sm.rows.reduce((x, r) => x + (r.pond || 0), 0);
+            const k = sumRaw > 0 ? sm.pond / sumRaw : 0;
+            sm.rows.forEach(r => {
+                const ls = (r.levels && r.levels.length) ? r.levels : ['Non défini'];
+                ls.forEach(l => addLvl(l, r.hours / ls.length, (r.pond || 0) * k / ls.length));
+            });
+        });
+        tRaw += raw; tPond += pond; tAre += are;
+        byDisc.push({ label: d, raw, weighted: raw + pond, are, h: raw + pond + are });
+    });
+    const grandTotal = tRaw + tPond + tAre;
+    byDisc.forEach(r => { r.pct = pctOf(r.h, grandTotal); r.pct2 = pctOf(r.h, dgh); });
+
+    const lvlOrder = l => { const i = levels.indexOf(l); return i === -1 ? 999 : i; };
+    const byLevel = Object.keys(lvl).sort((a, b) => lvlOrder(a) - lvlOrder(b)).map(l => {
+        const v = lvl[l];
+        return { label: l, raw: v.raw, weighted: v.raw + v.pond, are: 0, h: v.raw + v.pond };
+    });
+    if (tAre > 0.004) byLevel.push({ label: 'ARE (non rattachés à un niveau)', raw: null, weighted: null, are: tAre, h: tAre, isAre: true });
+    byLevel.forEach(r => { r.pct = pctOf(r.h, grandTotal); r.pct2 = pctOf(r.h, dgh); });
+
+    const remaining = dgh - grandTotal;
+    return {
+        hp, hsa, dgh, grandTotal, hasPond, hasAre: tAre > 0.004, tRaw, tWeighted: tRaw + tPond, tAre,
+        dotation: [{ label: 'Heures postes (HP)', h: hp, pct: pctOf(hp, dgh) }, { label: 'Heures supplémentaires (HSA)', h: hsa, pct: pctOf(hsa, dgh) }],
+        usage: remaining >= 0
+            ? [{ label: 'Heures ventilées', h: grandTotal, pct: pctOf(grandTotal, dgh) }, { label: 'Reste à utiliser (Norvégien)', h: remaining, pct: pctOf(remaining, dgh) }]
+            : [{ label: 'Heures ventilées dans la dotation', h: dgh, pct: pctOf(dgh, dgh) }, { label: 'Dépassement de la dotation', h: -remaining, pct: pctOf(-remaining, dgh) }],
+        byDisc, byLevel
+    };
+}
+
+// Diagramme circulaire SVG (les parts à 100 % sont tracées en disque plein)
+const PIE_COLORS = ['#1d4ed8', '#f59e0b', '#10b981', '#ef4444'];
+function pieSvg(rows, size) {
+    const r = size / 2, cx = r, cy = r;
+    const valid = rows.filter(x => x.pct !== null && x.h > 0);
+    let body = '';
+    if (valid.length === 0) {
+        body = `<circle cx="${cx}" cy="${cy}" r="${r - 2}" fill="#e5e7eb"/>`;
+    } else if (valid.length === 1) {
+        const i = rows.indexOf(valid[0]);
+        body = `<circle cx="${cx}" cy="${cy}" r="${r - 2}" fill="${PIE_COLORS[i % PIE_COLORS.length]}"/>`;
+    } else {
+        const tot = valid.reduce((x, y) => x + y.h, 0);
+        let ang = -Math.PI / 2;
+        valid.forEach(x => {
+            const i = rows.indexOf(x);
+            const da = x.h / tot * Math.PI * 2;
+            const x1 = cx + (r - 2) * Math.cos(ang), y1 = cy + (r - 2) * Math.sin(ang);
+            ang += da;
+            const x2 = cx + (r - 2) * Math.cos(ang), y2 = cy + (r - 2) * Math.sin(ang);
+            body += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r - 2},${r - 2} 0 ${da > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${PIE_COLORS[i % PIE_COLORS.length]}" stroke="#fff" stroke-width="1.5"/>`;
+        });
+    }
+    return `<svg class="pie-svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" role="img">${body}</svg>`;
+}
+// Légende : pastille de couleur, libellé, heures et pourcentage
+function pieLegend(rows, esc) {
+    return `<ul class="pie-legend">${rows.map((x, i) => `<li><span class="pie-dot" style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></span><span class="pie-lbl">${esc(x.label)}</span><span class="pie-val">${fmtStatH(x.h)} · <strong>${x.pct === null ? '—' : fmtPct(x.pct)}</strong></span></li>`).join('')}</ul>`;
+}
+
+function openStatsModal() {
+    renderStatsContent();
+    document.getElementById('statsModal').classList.add('active');
+}
+function closeStatsModal() { document.getElementById('statsModal').classList.remove('active'); }
+
+// Colonnes des tableaux « par discipline » et « par niveau » (selon pondérations / ARE)
+function statColumns(st) {
+    const cols = [{ k: 'raw', label: 'Heures' }];
+    if (st.hasPond) cols.push({ k: 'weighted', label: 'Heures pondérées' });
+    if (st.hasAre) cols.push({ k: 'are', label: 'ARE' });
+    if (st.hasPond || st.hasAre) cols.push({ k: 'h', label: 'Total', strong: true });
+    return cols;
+}
+function statCell(r, c) {
+    const v = c.k === 'h' && !(c.k in r) ? r.raw : r[c.k];
+    if (v === null || v === undefined) return '—';
+    if (c.k === 'are' && !(v > 0.004) && !r.isAre) return '—';
+    return fmtStatH(v);
+}
+
+function renderStatsContent() {
+    const esc = escapeStructureHtml;
+    const box = document.getElementById('statsContent');
+    if (Object.keys(dataStore).length === 0) { box.innerHTML = '<p class="empty-state">Aucune discipline configurée.</p>'; return; }
+    const st = computeDhgStats();
+    const p2 = st.dgh > 0;
+    const bar = r => r.pct === null ? '' : `<div class="stat-bar"><span style="width:${Math.max(0, Math.min(100, r.pct)).toFixed(1)}%"></span></div>`;
+    const card = (title, body, note) => `<div class="stat-card"><h3>${title}</h3>${body}${note ? `<div class="stat-note">${note}</div>` : ''}</div>`;
+    const miniTable = rows => `<table class="stats-table"><thead><tr><th>Poste</th><th class="num">Heures</th><th class="num">Part</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.label)}</td><td class="num">${fmtStatH(r.h)}</td><td class="num"><strong>${r.pct === null ? '—' : fmtPct(r.pct)}</strong></td></tr>`).join('')}</tbody></table>`;
+    const pieCard = (title, rows, note) => card(title, `<div class="pie-row">${pieSvg(rows, 150)}<div class="pie-side">${pieLegend(rows, esc)}</div></div>`, note);
+
+    const cols = statColumns(st);
+    const bigTable = (rows, first, totalRow) => `<table class="stats-table"><thead><tr><th>${first}</th>${cols.map(c => `<th class="num">${c.label}</th>`).join('')}<th class="num">Part</th>${p2 ? '<th class="num">Part de la DHG</th>' : ''}<th style="width:22%">Répartition</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.label)}</td>${cols.map(c => `<td class="num${c.strong ? ' stat-strong' : ''}">${statCell(r, c)}</td>`).join('')}<td class="num"><strong>${r.pct === null ? '—' : fmtPct(r.pct)}</strong></td>${p2 ? `<td class="num">${r.pct2 === null ? '—' : fmtPct(r.pct2)}</td>` : ''}<td class="stat-bar-cell">${bar(r)}</td></tr>`).join('')}${totalRow}</tbody></table>`;
+    const totalRow = `<tr class="stat-total"><td>Total</td>${cols.map(c => `<td class="num">${fmtStatH(c.k === 'raw' ? st.tRaw : c.k === 'weighted' ? st.tWeighted : c.k === 'are' ? st.tAre : st.grandTotal)}</td>`).join('')}<td class="num">100 %</td>${p2 ? `<td class="num">${fmtPct(st.grandTotal / st.dgh * 100)}</td>` : ''}<td></td></tr>`;
+    const baseNote = `Heures attribuées aux enseignants${st.hasPond || st.hasAre ? ' (' + esc(totalLabelSuffix()) + ')' : ''} : le total est identique à celui du TRMD.`;
+
+    box.innerHTML = `
+        <div class="stat-toolbar">
+            <span class="stat-hint">Découpage en pourcentage de la DHG${st.dgh > 0 ? ` (${fmtStatH(st.dgh)})` : ''}.</span>
+            <button class="btn-secondary" type="button" onclick="exportStatsPdf()">📄 Exporter en PDF</button>
+        </div>
+        ${st.dgh > 0 ? '' : '<div class="stat-warn">La dotation (HP / HSA) n\'est pas renseignée : les parts de la DHG ne peuvent pas être calculées.</div>'}
+        <div class="stat-grid">
+            ${pieCard('Répartition de la dotation', st.dotation)}
+            ${pieCard('Utilisation de la dotation', st.usage, `Heures ventilées : total ${esc(totalLabelSuffix())}.`)}
+        </div>
+        ${card('Par discipline', bigTable(st.byDisc, 'Discipline', totalRow), baseNote)}
+        ${card('Par niveau', bigTable(st.byLevel, 'Niveau', totalRow), baseNote + ' Les heures de chaque enseignant sont réparties selon le niveau de ses services (options multi-niveaux à parts égales) ; les ARE, qui ne dépendent d\'aucun niveau, sont sur une ligne à part.')}`;
+}
+
+// Export PDF : même mise en page que l'export pour la présentation, limité à cette rubrique
+function exportStatsPdf() {
+    const sections = {};
+    PRESENTATION_SECTIONS.forEach(([k]) => { sections[k] = (k === 'stats'); });
+    generatePresentationPdf({ sections, disciplines: Object.keys(dataStore), levels: levels.slice(), bare: true });
+}
+
+// ============================================================
+// 📈 Comparaison N-1 : comparaison avec le fichier de l'année précédente
+// ============================================================
+let compareData = null;      // { name, metrics }
+let compareTab = 'disc';
+let compareOnlyChanges = true;
+let compareExportOpts = { disc: true, svc: true, teach: true, onlyChanges: true };
+
+// Calcule les indicateurs d'un jeu de données (en substituant temporairement les variables globales)
+function computeDatasetMetrics(ds, ident, dotation) {
+    const saveDs = dataStore, saveId = epleIdentity;
+    dataStore = ds;
+    epleIdentity = ident || {};
+    try {
+        const out = { dotation: dotation || { hp: 0, hsa: 0 }, disc: {}, services: {}, teachers: {} };
+        Object.keys(ds).forEach(disc => {
+            const d = ds[disc];
+            if (!d.apports) d.apports = {};
+            (d.services || []).forEach(sv => { if (!sv.allocations) sv.allocations = {}; });
+            const m = { nbT: (d.teachers || []).length, hp: 0, raw: 0, hsa: 0, total: 0 };
+            (d.teachers || []).forEach(t => {
+                const sm = computeTeacherSummary(disc, t);
+                m.hp += sm.apport; m.raw += sm.raw; m.hsa += sm.hsa; m.total += sm.total;
+                if (!out.teachers[t]) out.teachers[t] = { discs: [], total: 0, hsa: 0 };
+                const te = out.teachers[t];
+                te.discs.push(disc); te.total += sm.total; te.hsa += sm.hsa;
+            });
+            out.disc[disc] = m;
+            (d.services || []).forEach(sv => {
+                const lvl = sv.isOptionnel && Array.isArray(sv.levels) && sv.levels.length ? sv.levels.join(', ') : (sv.level || '');
+                const name = (sv.name || '').trim() || '(sans intitulé)';
+                const key = lvl + '|' + name.toLowerCase();
+                if (!out.services[key]) out.services[key] = { level: lvl, name, classes: 0, coMax: 0, hours: sv.hours || 0 };
+                const e = out.services[key];
+                const cl = parseFloat(sv.classes) || 0;
+                if (sv.isCoEnseignement) e.coMax = Math.max(e.coMax, cl); else e.classes += cl;
+            });
+        });
+        Object.values(out.services).forEach(e => { e.classes += e.coMax; e.volume = e.classes * e.hours; });
+        return out;
+    } finally {
+        dataStore = saveDs;
+        epleIdentity = saveId;
+    }
+}
+
+function openCompareModal() {
+    renderCompareContent();
+    document.getElementById('compareModal').classList.add('active');
+}
+
+function closeCompareModal() {
+    document.getElementById('compareModal').classList.remove('active');
+}
+
+function loadCompareFile(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const obj = JSON.parse(e.target.result);
+            if (!obj || typeof obj.dataStore !== 'object') throw new Error('format');
+            const ds = JSON.parse(JSON.stringify(obj.dataStore));
+            compareData = {
+                name: (obj.epleIdentity && obj.epleIdentity.name) || '',
+                file: file.name,
+                metrics: computeDatasetMetrics(ds, obj.epleIdentity || {}, obj.dotation)
+            };
+            renderCompareContent();
+        } catch (err) {
+            alert("Ce fichier n'est pas une sauvegarde valide (.json enregistrée depuis l'application).");
+        }
+        input.value = '';
+    };
+    reader.readAsText(file);
+}
+
+function switchCompareTab(tab) { compareTab = tab; renderCompareContent(); }
+function toggleCompareOnlyChanges(v) { compareOnlyChanges = v; renderCompareContent(); }
+
+function renderCompareContent() {
+    const esc = escapeStructureHtml;
+    const box = document.getElementById('compareContent');
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const delta = n => {
+        const r = Math.round(n * 100) / 100;
+        if (Math.abs(r) < 0.005) return '<span class="cmp-delta zero">=</span>';
+        return `<span class="cmp-delta ${r > 0 ? 'up' : 'down'}">${r > 0 ? '+' : ''}${fmt(r)}</span>`;
+    };
+    const loader = `<label class="btn-secondary cmp-load">📂 ${compareData ? 'Choisir un autre fichier N-1' : 'Choisir le fichier N-1 (.json)'}<input type="file" accept=".json" onchange="loadCompareFile(this)" style="display:none"></label>`;
+    if (!compareData) {
+        box.innerHTML = `<p class="settings-tab-hint">Chargez la sauvegarde (.json) de l'année précédente : l'application la compare à vos données actuelles (disciplines, services par niveau, enseignants). Ce fichier n'est ni modifié ni conservé.</p>${loader}`;
+        return;
+    }
+    const cur = computeDatasetMetrics(dataStore, epleIdentity, dotationGlobal);
+    const prev = compareData.metrics;
+    const tabBtn = (k, label) => `<button class="level-tab-btn ${compareTab === k ? 'active' : ''}" onclick="switchCompareTab('${k}')">${label}</button>`;
+    let body = '';
+
+    if (compareTab === 'disc') {
+        const names = Array.from(new Set(Object.keys(cur.disc).concat(Object.keys(prev.disc))));
+        const z = { nbT: 0, hp: 0, raw: 0, hsa: 0, total: 0 };
+        const tot = { p: Object.assign({}, z), c: Object.assign({}, z) };
+        const rows = names.map(n => {
+            const p = prev.disc[n], c = cur.disc[n];
+            const pp = p || z, cc = c || z;
+            Object.keys(z).forEach(k => { tot.p[k] += pp[k]; tot.c[k] += cc[k]; });
+            const tag = !p ? ' <span class="cmp-tag new">nouvelle</span>' : (!c ? ' <span class="cmp-tag gone">absente</span>' : '');
+            return `<tr><td><strong>${esc(n)}</strong>${tag}</td>
+                <td class="num">${p ? pp.nbT : '—'}</td><td class="num">${c ? cc.nbT : '—'}</td><td class="num">${delta(cc.nbT - pp.nbT)}</td>
+                <td class="num">${p ? fmt(pp.total) : '—'}</td><td class="num">${c ? fmt(cc.total) : '—'}</td><td class="num">${delta(cc.total - pp.total)}</td>
+                <td class="num">${p ? fmt(pp.hsa) : '—'}</td><td class="num">${c ? fmt(cc.hsa) : '—'}</td><td class="num">${delta(cc.hsa - pp.hsa)}</td></tr>`;
+        }).join('');
+        const dot = (label, a, b) => `<tr><td>${label}</td><td class="num">${fmt(a)}</td><td class="num">${fmt(b)}</td><td class="num">${delta(b - a)}</td></tr>`;
+        body = `
+            <table class="cmp-table cmp-small"><thead><tr><th>Dotation</th><th class="num">N-1</th><th class="num">N</th><th class="num">Écart</th></tr></thead><tbody>
+                ${dot('Total des heures ventilées (h)', tot.p.total, tot.c.total)}
+                ${dot('Dotation HP (h)', parseFloat(prev.dotation.hp) || 0, parseFloat(dotationGlobal.hp) || 0)}
+                ${dot('Dotation HSA (h)', parseFloat(prev.dotation.hsa) || 0, parseFloat(dotationGlobal.hsa) || 0)}
+            </tbody></table>
+            <table class="cmp-table"><thead>
+                <tr><th rowspan="2">Discipline</th><th colspan="3" class="grp">Enseignants</th><th colspan="3" class="grp">Total (h)</th><th colspan="3" class="grp">HSA (h)</th></tr>
+                <tr><th class="num">N-1</th><th class="num">N</th><th class="num">Écart</th><th class="num">N-1</th><th class="num">N</th><th class="num">Écart</th><th class="num">N-1</th><th class="num">N</th><th class="num">Écart</th></tr>
+            </thead><tbody>${rows}
+                <tr class="cmp-total"><td>Total</td>
+                <td class="num">${tot.p.nbT}</td><td class="num">${tot.c.nbT}</td><td class="num">${delta(tot.c.nbT - tot.p.nbT)}</td>
+                <td class="num">${fmt(tot.p.total)}</td><td class="num">${fmt(tot.c.total)}</td><td class="num">${delta(tot.c.total - tot.p.total)}</td>
+                <td class="num">${fmt(tot.p.hsa)}</td><td class="num">${fmt(tot.c.hsa)}</td><td class="num">${delta(tot.c.hsa - tot.p.hsa)}</td></tr>
+            </tbody></table>`;
+    } else if (compareTab === 'svc') {
+        const keys = Array.from(new Set(Object.keys(cur.services).concat(Object.keys(prev.services))));
+        const lvlIdx = l => { const i = levels.indexOf(l.split(', ')[0]); return i === -1 ? 999 : i; };
+        const items = keys.map(k => ({ p: prev.services[k], c: cur.services[k] }))
+            .map(x => Object.assign(x, { ref: x.c || x.p }))
+            .sort((a, b) => lvlIdx(a.ref.level) - lvlIdx(b.ref.level) || a.ref.name.localeCompare(b.ref.name, 'fr'));
+        const shown = items.filter(x => !compareOnlyChanges || !x.p || !x.c || Math.abs(x.c.classes - x.p.classes) > 0.004 || Math.abs(x.c.volume - x.p.volume) > 0.004);
+        const rows = shown.map(x => {
+            const pc = x.p ? x.p.classes : 0, cc = x.c ? x.c.classes : 0, pv = x.p ? x.p.volume : 0, cv = x.c ? x.c.volume : 0;
+            const tag = !x.p ? ' <span class="cmp-tag new">nouveau</span>' : (!x.c ? ' <span class="cmp-tag gone">supprimé</span>' : '');
+            return `<tr><td>${esc(x.ref.level)}</td><td><strong>${esc(x.ref.name)}</strong>${tag}</td>
+                <td class="num">${x.p ? fmt(pc) : '—'}</td><td class="num">${x.c ? fmt(cc) : '—'}</td><td class="num">${delta(cc - pc)}</td>
+                <td class="num">${x.p ? fmt(pv) : '—'}</td><td class="num">${x.c ? fmt(cv) : '—'}</td><td class="num">${delta(cv - pv)}</td></tr>`;
+        }).join('');
+        body = `<label class="cmp-check"><input type="checkbox" ${compareOnlyChanges ? 'checked' : ''} onchange="toggleCompareOnlyChanges(this.checked)"> Masquer les services inchangés (${items.length - shown.length} masqué${items.length - shown.length > 1 ? 's' : ''})</label>
+            ${rows ? `<table class="cmp-table"><thead>
+                <tr><th rowspan="2">Niveau</th><th rowspan="2">Service</th><th colspan="3" class="grp">Nombre de classes</th><th colspan="3" class="grp">Volume (h)</th></tr>
+                <tr><th class="num">N-1</th><th class="num">N</th><th class="num">Écart</th><th class="num">N-1</th><th class="num">N</th><th class="num">Écart</th></tr>
+            </thead><tbody>${rows}</tbody></table>` : '<p class="empty-state">Aucune différence.</p>'}`;
+    } else if (compareTab === 'export') {
+        const o = compareExportOpts;
+        const chk = (k, label) => `<label class="cmp-check" style="display:flex; margin:6px 0;"><input type="checkbox" ${o[k] ? 'checked' : ''} onchange="compareExportOpts.${k} = this.checked"> ${label}</label>`;
+        body = `<p class="settings-tab-hint">Génère un PDF en paysage, dans le style de l'export pour la présentation, avec les rubriques choisies.</p>
+            ${chk('disc', 'Dotation et disciplines')}
+            ${chk('svc', 'Services par niveau')}
+            <div style="margin-left:24px;">${chk('onlyChanges', 'Uniquement les services modifiés, nouveaux ou supprimés')}</div>
+            ${chk('teach', 'Enseignants (arrivées, absents, HSA)')}
+            <button class="btn-primary" type="button" onclick="exportComparePdf()" style="margin-top:12px;">📄 Exporter en PDF</button>`;
+    } else {
+        const names = Array.from(new Set(Object.keys(cur.teachers).concat(Object.keys(prev.teachers))));
+        const status = n => !prev.teachers[n] ? 0 : (!cur.teachers[n] ? 1 : 2);
+        names.sort((a, b) => status(a) - status(b) || a.localeCompare(b, 'fr'));
+        const rows = names.map(n => {
+            const p = prev.teachers[n], c = cur.teachers[n], st = status(n);
+            const tag = st === 0 ? '<span class="cmp-tag new">Nouveau</span>' : (st === 1 ? '<span class="cmp-tag gone">Absent cette année</span>' : '<span class="cmp-tag">Présent</span>');
+            const discs = Array.from(new Set((c ? c.discs : []).concat(p ? p.discs : [])));
+            return `<tr><td><strong>${esc(n)}</strong></td><td>${tag}</td><td>${discs.map(esc).join(', ')}</td>
+                <td class="num">${p ? fmt(p.total) : '—'}</td><td class="num">${c ? fmt(c.total) : '—'}</td>
+                <td class="num">${p ? fmt(p.hsa) : '—'}</td><td class="num">${c ? fmt(c.hsa) : '—'}</td><td class="num">${delta((c ? c.hsa : 0) - (p ? p.hsa : 0))}</td></tr>`;
+        }).join('');
+        const nNew = names.filter(n => status(n) === 0).length, nGone = names.filter(n => status(n) === 1).length;
+        body = `<p class="settings-tab-hint">${nNew} enseignant${nNew > 1 ? 's' : ''} nouveau${nNew > 1 ? 'x' : ''} · ${nGone} absent${nGone > 1 ? 's' : ''} par rapport à N-1. Les enseignants sont rapprochés par leur nom exact.</p>
+            <table class="cmp-table"><thead>
+                <tr><th rowspan="2">Enseignant</th><th rowspan="2">Situation</th><th rowspan="2">Discipline(s)</th><th colspan="2" class="grp">Total (h)</th><th colspan="3" class="grp">HSA (h)</th></tr>
+                <tr><th class="num">N-1</th><th class="num">N</th><th class="num">N-1</th><th class="num">N</th><th class="num">Écart</th></tr>
+            </thead><tbody>${rows}</tbody></table>`;
+    }
+
+    box.innerHTML = `
+        <div class="cmp-head"><span>Fichier N-1 : <strong>${esc(compareData.file)}</strong>${compareData.name ? ' (' + esc(compareData.name) + ')' : ''}</span>${loader}</div>
+        <div class="level-tabs-nav">${tabBtn('disc', 'Disciplines')}${tabBtn('svc', 'Services par niveau')}${tabBtn('teach', 'Enseignants')}${tabBtn('export', 'Exporter')}</div>
+        ${body}`;
+}
+
+
+// ============================================================
+// 📅 À partir de l'année N-1 : EPLE, options, niveaux et intitulés repris d'une sauvegarde précédente
+// ============================================================
+function n1ListId(level) {
+    if (!n1Reference || !n1Reference.enabled) return '';
+    const names = n1Reference.names || {};
+    return Object.prototype.hasOwnProperty.call(names, level) ? 'n1List_' + Object.keys(names).indexOf(level) : 'n1List_all';
+}
+
+function n1ListAttr(level) {
+    const id = n1ListId(level);
+    return id ? `list="${id}"` : '';
+}
+
+// Une liste de suggestions par niveau (+ une liste « tous niveaux » pour un niveau absent du fichier N-1)
+function refreshN1Datalists() {
+    let box = document.getElementById('n1Datalists');
+    if (!box) { box = document.createElement('div'); box.id = 'n1Datalists'; box.style.display = 'none'; document.body.appendChild(box); }
+    if (!n1Reference || !n1Reference.enabled) { box.innerHTML = ''; return; }
+    const esc = escapeStructureHtml;
+    const names = n1Reference.names || {};
+    const all = Array.from(new Set(Object.values(names).flat())).sort((a, b) => a.localeCompare(b, 'fr'));
+    box.innerHTML = Object.keys(names).map((lvl, i) => `<datalist id="n1List_${i}">${names[lvl].map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>`).join('')
+        + `<datalist id="n1List_all">${all.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>`;
+}
+
+function openN1Modal() {
+    renderN1Content();
+    document.getElementById('n1Modal').classList.add('active');
+}
+
+function closeN1Modal() {
+    document.getElementById('n1Modal').classList.remove('active');
+}
+
+function toggleN1Enabled(v) {
+    n1Reference.enabled = !!v;
+    refreshN1Datalists();
+    renderApp();
+    renderN1Content();
+}
+
+function renderN1Content() {
+    const esc = escapeStructureHtml;
+    const box = document.getElementById('n1Content');
+    const on = !!n1Reference.enabled;
+    const hasData = (n1Reference.levels || []).length > 0;
+    const nbNames = Array.from(new Set(Object.values(n1Reference.names || {}).flat())).length;
+    const flagLabels = { enableSpecialites: 'Spécialités', enableOptionnels: 'Enseignements optionnels', enableCoEnseignement: 'Co-enseignement', enableMultiNiveau: 'Multi-niveaux', enableMultiSite: 'Multi-site', enablePonderations: 'Pondérations' };
+    const flags = Object.keys(flagLabels).filter(k => n1Reference.flags && n1Reference.flags[k]).map(k => flagLabels[k]);
+    box.innerHTML = `
+        <label class="n1-switch"><input type="checkbox" ${on ? 'checked' : ''} onchange="toggleN1Enabled(this.checked)"> <span>Je souhaite construire la ventilation à partir des données de l'année N-1</span></label>
+        ${on ? `
+        <p class="settings-tab-hint">Chargez la sauvegarde (.json) de l'année N-1. L'application reprend l'<strong>EPLE</strong>, les <strong>options activées</strong>, les <strong>niveaux</strong> et les <strong>intitulés des services / matières</strong>. Ensuite, quand vous saisissez un service, les intitulés de l'année N-1 vous sont proposés pour le niveau concerné.</p>
+        <label class="btn-secondary cmp-load">📂 ${hasData ? 'Charger un autre fichier N-1' : 'Charger le fichier N-1 (.json)'}<input type="file" accept=".json" onchange="loadN1File(this)" style="display:none"></label>
+        ${hasData ? `<div class="n1-summary">
+            <div><strong>Fichier :</strong> ${esc(n1Reference.file)}</div>
+            <div><strong>EPLE :</strong> ${esc(n1Reference.epleName || '—')}</div>
+            <div><strong>Niveaux :</strong> ${n1Reference.levels.map(esc).join(', ')}</div>
+            <div><strong>Options activées :</strong> ${flags.length ? flags.join(', ') : 'aucune'}</div>
+            <div><strong>Intitulés proposés :</strong> ${nbNames}</div>
+            <button class="btn-secondary" type="button" onclick="clearN1Data()" style="margin-top:8px;">🗑️ Retirer les données N-1</button>
+        </div>` : ''}` : ''}`;
+}
+
+function loadN1File(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const obj = JSON.parse(e.target.result);
+            if (!obj || typeof obj.dataStore !== 'object') throw new Error('format');
+            const names = {};
+            const lvls = Array.isArray(obj.levels) && obj.levels.length ? obj.levels.slice() : levels.slice();
+            lvls.forEach(l => { names[l] = []; });
+            Object.values(obj.dataStore).forEach(d => (d.services || []).forEach(sv => {
+                const n = (sv.name || '').trim();
+                if (!n) return;
+                const lv = sv.isOptionnel && Array.isArray(sv.levels) && sv.levels.length ? sv.levels : [sv.level];
+                lv.forEach(l => {
+                    if (!names[l]) names[l] = [];
+                    if (!names[l].some(x => x.toLowerCase() === n.toLowerCase())) names[l].push(n);
+                });
+            }));
+            Object.keys(names).forEach(l => names[l].sort((a, b) => a.localeCompare(b, 'fr')));
+            const id = obj.epleIdentity || {};
+            const hasWork = Object.keys(dataStore).length > 0;
+            if (hasWork && !confirm("Le nom de l'EPLE, les options activées et les niveaux du fichier N-1 vont remplacer ceux du projet actuel. Continuer ?")) { input.value = ''; return; }
+            const flagKeys = ['enableSpecialites', 'enableOptionnels', 'enableCoEnseignement', 'enableMultiNiveau', 'enableMultiSite', 'enablePonderations'];
+            const flags = {};
+            flagKeys.forEach(k => { flags[k] = !!id[k]; });
+            epleIdentity = Object.assign({}, epleIdentity, { name: id.name || '', uai: id.uai || '', commune: id.commune || '', sites: Array.isArray(id.sites) ? id.sites : [] }, flags);
+            levels = lvls;
+            n1Reference = { enabled: true, file: file.name, epleName: id.name || '', levels: lvls.slice(), names, flags };
+            renderApp();
+            renderN1Content();
+        } catch (err) {
+            alert("Ce fichier n'est pas une sauvegarde valide (.json enregistrée depuis l'application).");
+        }
+        input.value = '';
+    };
+    reader.readAsText(file);
+}
+
+function clearN1Data() {
+    if (!confirm("Retirer les intitulés de l'année N-1 ? L'EPLE, les niveaux et les options déjà repris restent en place.")) return;
+    n1Reference = { enabled: n1Reference.enabled, file: '', epleName: '', levels: [], names: {}, flags: {} };
+    renderApp();
+    renderN1Content();
+}
+
+
+// Export PDF paysage du suivi des spécialités (style du PDF de présentation) : un tableau par niveau
+function exportSpecialitesPdf() {
+    const esc = escapeStructureHtml;
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const lvls = levels.filter(l => getSpecialiteRows(l).length > 0);
+    if (lvls.length === 0) { alert('Aucune spécialité à exporter.'); return; }
+    const dateStr = new Date().toLocaleDateString('fr-FR');
+    const epleName = epleIdentity && epleIdentity.name ? epleIdentity.name : '';
+    const PAGE_INNER_PX = Math.floor(188 * 96 / 25.4) - 52;
+    const TITLE_RESERVE = 70;
+    const head = '<tr><th style="width:24%">Spécialité</th><th class="num" style="width:12%">Nombre de groupes</th><th>Enseignants (heures)</th></tr>';
+
+    const sections = lvls.map(lvl => {
+        let totalGroups = 0;
+        const rows = getSpecialiteRows(lvl).map(g => {
+            totalGroups += g.groups;
+            const people = g.teachers.slice().sort((a, b) => a.t.localeCompare(b.t, 'fr'));
+            const tHtml = people.length
+                ? `<div style="display:grid; grid-template-columns:1fr 1fr; gap:1mm 6mm;">${people.map(x => `<div>${esc(x.t)} (${fmt(x.h)} h)</div>`).join('')}</div>`
+                : '<em>Aucun enseignant affecté</em>';
+            return `<tr><td><strong>${esc(g.name)}</strong></td><td class="num">${fmt(g.groups)}</td><td>${tHtml}</td></tr>`;
+        });
+        rows.push(`<tr class="pres-total"><td>Total</td><td class="num">${fmt(totalGroups)}</td><td></td></tr>`);
+        return { lvl, rows };
+    });
+
+    const measureBox = document.createElement('div');
+    measureBox.className = 'pres-measure';
+    document.body.appendChild(measureBox);
+    measureBox.innerHTML = `<table class="pres-table"><thead>${head}</thead><tbody>${sections.map(sc => sc.rows.join('')).join('')}</tbody></table>`;
+    const theadH = measureBox.querySelector('thead').offsetHeight;
+    const allH = Array.from(measureBox.querySelectorAll('tbody tr')).map(tr => tr.offsetHeight);
+    document.body.removeChild(measureBox);
+
+    const avail = PAGE_INNER_PX - TITLE_RESERVE - theadH;
+    const pages = [];
+    let hi = 0;
+    sections.forEach(sc => {
+        let cur = [], used = 0;
+        const chunks = [];
+        sc.rows.forEach(r => {
+            const h = allH[hi++];
+            if (cur.length > 0 && used + h > avail) { chunks.push(cur); cur = []; used = 0; }
+            cur.push(r); used += h;
+        });
+        if (cur.length) chunks.push(cur);
+        chunks.forEach((rows, i) => pages.push({ lvl: sc.lvl, rows, part: i + 1, parts: chunks.length }));
+    });
+
+    const total = pages.length;
+    const footerLabel = `${esc(epleName)}${epleName ? ' · ' : ''}Spécialités - ${dateStr}`;
+    const container = document.getElementById('presentationPrint');
+    container.innerHTML = pages.map((pg, i) => `
+        <section class="pres-page">
+            <h1 class="pres-title">Spécialités - ${esc(pg.lvl)}${pg.parts > 1 ? ` <small>(suite ${pg.part}/${pg.parts})</small>` : ''}</h1>
+            <table class="pres-table"><thead>${head}</thead><tbody>${pg.rows.join('')}</tbody></table>
+            <div class="pres-footer"><span>${footerLabel}</span><span>${i + 1}/${total}</span></div>
+        </section>`).join('');
+
+    document.body.classList.add('printing-presentation');
+    const cleanup = () => {
+        document.body.classList.remove('printing-presentation');
+        container.innerHTML = '';
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    triggerPrint();
+}
+
+
+// ============================================================
+// 🏫 Multi-site : répartition des classes d'un service entre les sites de l'EPLE
+// ============================================================
+const SITE_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#ef4444'];
+function getSiteColor(st, i) {
+    return (st && /^#[0-9a-fA-F]{6}$/.test(st.color || '')) ? st.color : SITE_COLORS[(i || 0) % SITE_COLORS.length];
+}
+function getSiteColorById(id) {
+    const sites = epleIdentity.sites || [];
+    const i = sites.findIndex(x => x.id === id);
+    return i >= 0 ? getSiteColor(sites[i], i) : '#94a3b8';
+}
+
+// Bandeau vertical au début d'une ligne de service : couleur du site, ou hachures des couleurs de chaque site
+function siteRowStyle(sv) {
+    if (!multiSiteActive()) return '';
+    const split = getServiceSiteSplit(sv);
+    if (!split) return '';
+    const cols = Object.keys(split).map(id => getSiteColorById(id));
+    if (cols.length === 0) return '';
+    const bg = cols.length === 1
+        ? cols[0]
+        : `repeating-linear-gradient(135deg, ${cols.map((c, i) => `${c} ${i * 5}px ${(i + 1) * 5}px`).join(', ')})`;
+    return `background-image: ${cols.length === 1 ? `linear-gradient(${bg}, ${bg})` : bg}; background-size: 8px 100%; background-repeat: no-repeat; background-position: left top; padding-left: 14px;`;
+}
+
+function multiSiteActive() {
+    return !!(epleIdentity && epleIdentity.enableMultiSite && Array.isArray(epleIdentity.sites) && epleIdentity.sites.length >= 2);
+}
+
+function getSiteLabel(id) {
+    const st = (epleIdentity.sites || []).find(x => x.id === id);
+    return st ? (st.short || st.name || id) : '';
+}
+
+// Répartition { idSite: nbClasses } d'un service (null si aucun site précisé)
+function getServiceSiteSplit(sv) {
+    if (!multiSiteActive()) return null;
+    const valid = (epleIdentity.sites || []).map(x => x.id);
+    const ids = (Array.isArray(sv.sites) ? sv.sites : []).filter(id => valid.includes(id));
+    if (ids.length === 0) return null;
+    const out = {};
+    if (ids.length === 1) { out[ids[0]] = parseFloat(sv.classes) || 0; return out; }
+    ids.forEach(id => { out[id] = parseFloat(sv.siteClasses && sv.siteClasses[id]) || 0; });
+    return out;
+}
+
+function siteBoxHtml(service, isLocked, disc, sIndex) {
+    if (!multiSiteActive()) return '';
+    const esc = escapeStructureHtml;
+    const ids = (Array.isArray(service.sites) ? service.sites : []);
+    const classes = parseFloat(service.classes) || 0;
+    const dattr = `data-disc="${esc(disc)}" data-sindex="${sIndex}"`;
+    const chips = epleIdentity.sites.map((st, si) => `<button type="button" class="site-chip ${ids.includes(st.id) ? 'on' : ''}" style="${ids.includes(st.id) ? `background:${getSiteColor(st, si)}33; border-color:${getSiteColor(st, si)}; color:#1e293b;` : `border-left: 4px solid ${getSiteColor(st, si)};`}" title="${esc(st.name)}" ${isLocked ? 'disabled' : ''} onclick="toggleServiceSite(this, '${st.id}')">${esc(st.short || st.name)}</button>`).join('');
+    let inputs = '';
+    if (ids.length >= 2) {
+        const split = getServiceSiteSplit(service) || {};
+        const sum = Object.values(split).reduce((a, b) => a + b, 0);
+        const ok = Math.abs(sum - classes) < 0.004;
+        inputs = `<div class="site-inputs">${ids.filter(id => split[id] !== undefined).map(id => `<label>${esc(getSiteLabel(id))}<input type="number" min="0" step="0.5" value="${split[id]}" ${isLocked ? 'disabled' : ''} onchange="setServiceSiteClasses(this, '${id}', parseFloat(this.value)||0)"></label>`).join('')}
+            <span class="site-sum ${ok ? 'ok' : 'ko'}" title="La somme des classes par site doit égaler le nombre de classes">${ok ? '✓' : `Σ ${String(Math.round(sum * 100) / 100).replace('.', ',')} / ${String(Math.round(classes * 100) / 100).replace('.', ',')}`}</span></div>`;
+    }
+    return `<div class="site-box" ${dattr}><div class="site-chips">${chips}</div>${inputs}</div>`;
+}
+
+function siteBoxContext(el) {
+    const box = el.closest('.site-box');
+    if (!box) return null;
+    const disc = box.getAttribute('data-disc'), sIndex = parseInt(box.getAttribute('data-sindex'), 10);
+    const service = dataStore[disc] && dataStore[disc].services[sIndex];
+    return service ? { box, disc, sIndex, service } : null;
+}
+
+function rerenderSiteBox(ctx) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = siteBoxHtml(ctx.service, !!ctx.service.locked, ctx.disc, ctx.sIndex);
+    const nb = tmp.firstElementChild;
+    if (nb) ctx.box.replaceWith(nb); else ctx.box.remove();
+}
+
+function toggleServiceSite(btn, siteId) {
+    const ctx = siteBoxContext(btn);
+    if (!ctx) return;
+    const sv = ctx.service;
+    if (!Array.isArray(sv.sites)) sv.sites = [];
+    if (!sv.siteClasses) sv.siteClasses = {};
+    const k = sv.sites.indexOf(siteId);
+    if (k >= 0) { sv.sites.splice(k, 1); delete sv.siteClasses[siteId]; }
+    else { sv.sites.push(siteId); sv.siteClasses[siteId] = 0; }
+    if (sv.sites.length === 1) sv.siteClasses = { [sv.sites[0]]: parseFloat(sv.classes) || 0 };
+    rerenderSiteBox(ctx);
+}
+
+function setServiceSiteClasses(input, siteId, value) {
+    const ctx = siteBoxContext(input);
+    if (!ctx) return;
+    if (!ctx.service.siteClasses) ctx.service.siteClasses = {};
+    ctx.service.siteClasses[siteId] = value;
+    updateSiteSum(ctx);   // mise à jour sur place : on ne reconstruit pas les champs pour ne pas perdre le focus
+}
+
+function updateSiteSum(ctx) {
+    const el = ctx.box.querySelector('.site-sum');
+    if (!el) return;
+    const split = getServiceSiteSplit(ctx.service) || {};
+    const sum = Object.values(split).reduce((a, b) => a + b, 0);
+    const classes = parseFloat(ctx.service.classes) || 0;
+    const ok = Math.abs(sum - classes) < 0.004;
+    const f = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    el.className = 'site-sum ' + (ok ? 'ok' : 'ko');
+    el.textContent = ok ? '✓' : `Σ ${f(sum)} / ${f(classes)}`;
+}
+
+// Quand le nombre de classes change : un seul site => il porte toutes les classes
+function syncServiceSitesWithClasses(service) {
+    if (!multiSiteActive() || !Array.isArray(service.sites) || service.sites.length !== 1) return;
+    service.siteClasses = { [service.sites[0]]: parseFloat(service.classes) || 0 };
+}
+
+
+// Détail par site sous le total de classes (Ventilation / Niveau)
+function siteSplitHtml(g, fmtN) {
+    if (!multiSiteActive() || !g.siteAny) return '';
+    const esc = escapeStructureHtml;
+    const parts = (epleIdentity.sites || []).filter(st => g.siteSum[st.id] > 0).map(st => `${esc(st.short || st.name)} : ${fmtN(g.siteSum[st.id])}`);
+    const assigned = Object.values(g.siteSum).reduce((a, b) => a + b, 0);
+    const rest = g.classes - assigned;
+    if (rest > 0.004) parts.push(`non précisé : ${fmtN(rest)}`);
+    return parts.length ? `<div class="site-split">${parts.join(' · ')}</div>` : '';
+}
+
+
+// Fenêtre « Gestion des sites » : un onglet par discipline, répartition des classes de chaque service entre les sites
+let siteTabIndex = 0;
+
+function openSiteModal() {
+    renderSiteModal();
+    document.getElementById('siteModal').classList.add('active');
+}
+
+function closeSiteModal() {
+    document.getElementById('siteModal').classList.remove('active');
+    renderApp();
+}
+
+function switchSiteTab(i) { siteTabIndex = i; renderSiteModal(); }
+
+function renderSiteModal() {
+    const esc = escapeStructureHtml;
+    const discs = Object.keys(dataStore);
+    const tabs = document.getElementById('siteTabsContainer');
+    const content = document.getElementById('siteContentsContainer');
+    if (discs.length === 0) { tabs.innerHTML = ''; content.innerHTML = '<p class="empty-state">Aucune discipline.</p>'; return; }
+    if (siteTabIndex >= discs.length) siteTabIndex = 0;
+    tabs.innerHTML = discs.map((d, i) => `<button class="level-tab-btn ${i === siteTabIndex ? 'active' : ''}" onclick="switchSiteTab(${i})">${esc(d)}</button>`).join('');
+    const disc = discs[siteTabIndex];
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const rows = (dataStore[disc].services || []).map((sv, i) => `<tr>
+        <td style="${siteRowStyle(sv)}">${esc(sv.level || '')}</td>
+        <td><div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><strong>${esc((sv.name || '').trim() || '(sans intitulé)')}</strong>${sv.isSpecialite ? buildSpeBadgeHtml() : ''}${sv.isOptionnel ? buildOptBadgeHtml() : ''}${sv.isCoEnseignement ? buildCoEnsBadgeHtml() : ''}${(Array.isArray(sv.levels) && sv.levels.length > 1) ? buildLinkedLevelsBadgeHtml(sv.levels.filter(l => l !== sv.level)) : ''}</div></td>
+        <td class="num">${fmt(parseFloat(sv.classes) || 0)}</td>
+        <td>${siteBoxHtml(sv, !!sv.locked, disc, i)}</td></tr>`).join('');
+    content.innerHTML = rows
+        ? `<p class="settings-tab-hint">Cliquez sur le ou les sites concernés par chaque service ; avec plusieurs sites, indiquez le nombre de classes de chacun (leur somme doit égaler le nombre de classes). Ces informations alimentent « Ventilation / Niveau ».</p>
+           <table class="are-list-table site-table"><thead><tr><th>Niveau</th><th>Intitulé du service</th><th class="num">Nbr. classe</th><th>Sites</th></tr></thead><tbody>${rows}</tbody></table>`
+        : '<p class="empty-state">Aucun service dans cette discipline.</p>';
+}
+
+
+// ------------------------------------------------------------
+// Synthèse par site : un onglet par site, services (niveau, intitulé, classes, discipline)
+// ------------------------------------------------------------
+let siteSynthTab = 0;
+let siteSynthLevel = '';
+
+function openSiteSynthesisModal() {
+    siteSynthTab = 0;
+    siteSynthLevel = '';
+    renderSiteSynthesis();
+    document.getElementById('siteSynthesisModal').classList.add('active');
+}
+
+function closeSiteSynthesisModal() {
+    document.getElementById('siteSynthesisModal').classList.remove('active');
+}
+
+function switchSiteSynthTab(i) { siteSynthTab = i; siteSynthLevel = ''; renderSiteSynthesis(); }
+function switchSiteSynthLevel(l) { siteSynthLevel = l; renderSiteSynthesis(); }
+
+function renderSiteSynthesis() {
+    const esc = escapeStructureHtml;
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const tabs = document.getElementById('siteSynthTabs');
+    const lvlTabs = document.getElementById('siteSynthLevels');
+    const box = document.getElementById('siteSynthContent');
+    const sites = (epleIdentity.sites || []);
+    if (!multiSiteActive()) { tabs.innerHTML = ''; lvlTabs.innerHTML = ''; box.innerHTML = '<p class="empty-state">La gestion multi-site n\'est pas activée.</p>'; return; }
+    if (siteSynthTab >= sites.length) siteSynthTab = 0;
+    tabs.innerHTML = sites.map((st, i) => `<button class="level-tab-btn ${i === siteSynthTab ? 'active' : ''}" title="${esc(st.name)}" onclick="switchSiteSynthTab(${i})"><span class="site-dot" style="background:${getSiteColor(st, i)}"></span>${esc(st.name || st.short)}</button>`).join('');
+    const site = sites[siteSynthTab];
+
+    // lignes du site, par niveau
+    const byLevel = {};
+    let unassigned = 0;
+    Object.keys(dataStore).forEach(disc => (dataStore[disc].services || []).forEach(sv => {
+        const split = getServiceSiteSplit(sv);
+        if (!split) { if ((parseFloat(sv.classes) || 0) > 0) unassigned++; return; }
+        const n = split[site.id] || 0;
+        if (n <= 0) return;
+        const lvList = sv.isOptionnel && Array.isArray(sv.levels) && sv.levels.length ? sv.levels : [sv.level || ''];
+        lvList.forEach(l => {
+            if (!byLevel[l]) byLevel[l] = [];
+            const totalCl = parseFloat(sv.classes) || 0;
+            let alloc = 0;
+            Object.values(sv.allocations || {}).forEach(v => { alloc += parseFloat(v) || 0; });
+            const hrs = totalCl > 0 ? alloc * n / totalCl : 0;     // heures ventilées, au prorata des classes du site
+            byLevel[l].push({ name: (sv.name || '').trim() || '(sans intitulé)', classes: n, disc, hours: hrs,
+                spe: !!sv.isSpecialite, opt: !!sv.isOptionnel, coE: !!sv.isCoEnseignement,
+                others: (Array.isArray(sv.levels) && sv.levels.length > 1) ? sv.levels.filter(x => x !== l) : [] });
+        });
+    }));
+    const lvlIdx = l => { const i = levels.indexOf(l); return i === -1 ? 999 : i; };
+    const lvlList = Object.keys(byLevel).sort((a, b) => lvlIdx(a) - lvlIdx(b));
+    const note = unassigned ? `<p class="settings-tab-hint">${unassigned} service${unassigned > 1 ? 's' : ''} sans site précisé (à renseigner dans Édition › Gestion des sites).</p>` : '';
+    if (lvlList.length === 0) {
+        lvlTabs.innerHTML = '';
+        box.innerHTML = `<p class="empty-state">Aucun service n'est attribué au site <strong>${esc(site.name || site.short)}</strong>.</p>${note}`;
+        return;
+    }
+    if (!lvlList.includes(siteSynthLevel)) siteSynthLevel = lvlList[0];
+    lvlTabs.innerHTML = lvlList.map(l => `<button class="level-tab-btn ${l === siteSynthLevel ? 'active' : ''}" onclick="switchSiteSynthLevel(this.dataset.l)" data-l="${esc(l)}">${esc(l)}</button>`).join('');
+    // fusion des intitulés identiques : classes additionnées, disciplines listées avec leurs heures ventilées
+    const merged = {};
+    byLevel[siteSynthLevel].forEach(r => {
+        const k = r.name.toLowerCase();
+        if (!merged[k]) merged[k] = { name: r.name, classes: 0, discs: {}, spe: false, opt: false, coE: false, others: [] };
+        merged[k].classes += r.classes;
+        merged[k].spe = merged[k].spe || r.spe; merged[k].opt = merged[k].opt || r.opt; merged[k].coE = merged[k].coE || r.coE;
+        r.others.forEach(o => { if (!merged[k].others.includes(o)) merged[k].others.push(o); });
+        merged[k].discs[r.disc] = (merged[k].discs[r.disc] || 0) + r.hours;
+    });
+    const rows = Object.values(merged).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    box.innerHTML = `<table class="are-list-table site-table site-synth-table"><thead><tr><th>Intitulé du service</th><th class="num">Nbr. classe</th><th>Discipline(s)</th></tr></thead>
+        <tbody>${rows.map(r => `<tr><td><div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><strong>${esc(r.name)}</strong>${r.spe ? buildSpeBadgeHtml() : ''}${r.opt ? buildOptBadgeHtml() : ''}${r.coE ? buildCoEnsBadgeHtml() : ''}${r.others.length ? buildLinkedLevelsBadgeHtml(r.others) : ''}</div></td><td class="num">${fmt(r.classes)}</td><td>${Object.keys(r.discs).sort((x, y) => x.localeCompare(y, 'fr')).map(d => `<div>${esc(d)} (${fmt(r.discs[d])} h)</div>`).join('')}</td></tr>`).join('')}</tbody></table>${note}`;
+}
+
+
+// Export PDF paysage de la comparaison N-1 (style du PDF de présentation)
+function exportComparePdf() {
+    if (!compareData) { alert("Chargez d'abord le fichier N-1."); return; }
+    const o = compareExportOpts;
+    if (!o.disc && !o.svc && !o.teach) { alert('Cochez au moins une rubrique.'); return; }
+    const esc = escapeStructureHtml;
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const delta = n => {
+        const r = Math.round(n * 100) / 100;
+        if (Math.abs(r) < 0.005) return '<span class="cmp-delta zero">=</span>';
+        return `<span class="cmp-delta ${r > 0 ? 'up' : 'down'}">${r > 0 ? '+' : ''}${fmt(r)}</span>`;
+    };
+    const cur = computeDatasetMetrics(dataStore, epleIdentity, dotationGlobal);
+    const prev = compareData.metrics;
+    const dateStr = new Date().toLocaleDateString('fr-FR');
+    const epleName = epleIdentity && epleIdentity.name ? epleIdentity.name : '';
+    const PAGE_INNER_PX = Math.floor(188 * 96 / 25.4) - 52;
+    const TITLE_RESERVE = 70;
+    const sections = [];   // { title, head, rows[], extra? }
+
+    if (o.disc) {
+        const names = Array.from(new Set(Object.keys(cur.disc).concat(Object.keys(prev.disc))));
+        const z = { nbT: 0, total: 0, hsa: 0 };
+        const tp = { nbT: 0, total: 0, hsa: 0 }, tc = { nbT: 0, total: 0, hsa: 0 };
+        const rows = names.map(n => {
+            const p = prev.disc[n], c = cur.disc[n], pp = p || z, cc = c || z;
+            ['nbT', 'total', 'hsa'].forEach(k => { tp[k] += pp[k]; tc[k] += cc[k]; });
+            const tag = !p ? ' (nouvelle)' : (!c ? ' (absente)' : '');
+            return `<tr><td><strong>${esc(n)}</strong>${tag}</td><td class="num">${p ? pp.nbT : '—'}</td><td class="num">${c ? cc.nbT : '—'}</td><td class="num">${delta(cc.nbT - pp.nbT)}</td>
+                <td class="num">${p ? fmt(pp.total) : '—'}</td><td class="num">${c ? fmt(cc.total) : '—'}</td><td class="num">${delta(cc.total - pp.total)}</td>
+                <td class="num">${p ? fmt(pp.hsa) : '—'}</td><td class="num">${c ? fmt(cc.hsa) : '—'}</td><td class="num">${delta(cc.hsa - pp.hsa)}</td></tr>`;
+        });
+        rows.push(`<tr class="pres-total"><td>Total</td><td class="num">${tp.nbT}</td><td class="num">${tc.nbT}</td><td class="num">${delta(tc.nbT - tp.nbT)}</td>
+            <td class="num">${fmt(tp.total)}</td><td class="num">${fmt(tc.total)}</td><td class="num">${delta(tc.total - tp.total)}</td>
+            <td class="num">${fmt(tp.hsa)}</td><td class="num">${fmt(tc.hsa)}</td><td class="num">${delta(tc.hsa - tp.hsa)}</td></tr>`);
+        const dp = parseFloat(prev.dotation.hp) || 0, dc = parseFloat(dotationGlobal.hp) || 0;
+        const sp = parseFloat(prev.dotation.hsa) || 0, sc = parseFloat(dotationGlobal.hsa) || 0;
+        sections.push({
+            title: 'Disciplines',
+            head: '<tr><th>Discipline</th><th class="num">Ens. N-1</th><th class="num">Ens. N</th><th class="num">Écart</th><th class="num">Total N-1</th><th class="num">Total N</th><th class="num">Écart</th><th class="num">HSA N-1</th><th class="num">HSA N</th><th class="num">Écart</th></tr>',
+            rows,
+            intro: `<table class="pres-table" style="width:auto; margin-bottom:5mm;"><thead><tr><th>Dotation</th><th class="num">N-1</th><th class="num">N</th><th class="num">Écart</th></tr></thead><tbody>
+                <tr><td>Total des heures ventilées (h)</td><td class="num">${fmt(tp.total)}</td><td class="num">${fmt(tc.total)}</td><td class="num">${delta(tc.total - tp.total)}</td></tr>
+                <tr><td>Dotation HP (h)</td><td class="num">${fmt(dp)}</td><td class="num">${fmt(dc)}</td><td class="num">${delta(dc - dp)}</td></tr>
+                <tr><td>Dotation HSA (h)</td><td class="num">${fmt(sp)}</td><td class="num">${fmt(sc)}</td><td class="num">${delta(sc - sp)}</td></tr></tbody></table>`
+        });
+    }
+
+    if (o.svc) {
+        const keys = Array.from(new Set(Object.keys(cur.services).concat(Object.keys(prev.services))));
+        const lvlIdx = l => { const i = levels.indexOf(l.split(', ')[0]); return i === -1 ? 999 : i; };
+        const items = keys.map(k => ({ p: prev.services[k], c: cur.services[k] })).map(x => Object.assign(x, { ref: x.c || x.p }))
+            .sort((a, b) => lvlIdx(a.ref.level) - lvlIdx(b.ref.level) || a.ref.name.localeCompare(b.ref.name, 'fr'))
+            .filter(x => !o.onlyChanges || !x.p || !x.c || Math.abs(x.c.classes - x.p.classes) > 0.004 || Math.abs(x.c.volume - x.p.volume) > 0.004);
+        sections.push({
+            title: 'Services par niveau' + (o.onlyChanges ? ' (modifications)' : ''),
+            head: '<tr><th>Niveau</th><th>Service</th><th class="num">Classes N-1</th><th class="num">Classes N</th><th class="num">Écart</th><th class="num">Volume N-1</th><th class="num">Volume N</th><th class="num">Écart</th></tr>',
+            rows: items.map(x => {
+                const pc = x.p ? x.p.classes : 0, cc = x.c ? x.c.classes : 0, pv = x.p ? x.p.volume : 0, cv = x.c ? x.c.volume : 0;
+                const tag = !x.p ? ' (nouveau)' : (!x.c ? ' (supprimé)' : '');
+                return `<tr><td>${esc(x.ref.level)}</td><td><strong>${esc(x.ref.name)}</strong>${tag}</td><td class="num">${x.p ? fmt(pc) : '—'}</td><td class="num">${x.c ? fmt(cc) : '—'}</td><td class="num">${delta(cc - pc)}</td><td class="num">${x.p ? fmt(pv) : '—'}</td><td class="num">${x.c ? fmt(cv) : '—'}</td><td class="num">${delta(cv - pv)}</td></tr>`;
+            }),
+            empty: 'Aucune différence.'
+        });
+    }
+
+    if (o.teach) {
+        const names = Array.from(new Set(Object.keys(cur.teachers).concat(Object.keys(prev.teachers))));
+        const status = n => !prev.teachers[n] ? 0 : (!cur.teachers[n] ? 1 : 2);
+        names.sort((a, b) => status(a) - status(b) || a.localeCompare(b, 'fr'));
+        sections.push({
+            title: 'Enseignants',
+            head: '<tr><th>Enseignant</th><th>Situation</th><th>Discipline(s)</th><th class="num">Total N-1</th><th class="num">Total N</th><th class="num">HSA N-1</th><th class="num">HSA N</th><th class="num">Écart</th></tr>',
+            rows: names.map(n => {
+                const p = prev.teachers[n], c = cur.teachers[n], st = status(n);
+                const discs = Array.from(new Set((c ? c.discs : []).concat(p ? p.discs : [])));
+                return `<tr><td><strong>${esc(n)}</strong></td><td>${st === 0 ? 'Nouveau' : (st === 1 ? 'Absent cette année' : 'Présent')}</td><td>${discs.map(esc).join(', ')}</td>
+                    <td class="num">${p ? fmt(p.total) : '—'}</td><td class="num">${c ? fmt(c.total) : '—'}</td><td class="num">${p ? fmt(p.hsa) : '—'}</td><td class="num">${c ? fmt(c.hsa) : '—'}</td><td class="num">${delta((c ? c.hsa : 0) - (p ? p.hsa : 0))}</td></tr>`;
+            })
+        });
+    }
+
+    // pagination (mesure hors écran)
+    const pages = [];
+    sections.forEach(sec => {
+        if (sec.rows.length === 0) { pages.push({ title: sec.title, head: sec.head, rows: [], empty: sec.empty || '', part: 1, parts: 1, intro: sec.intro }); return; }
+        const mb = document.createElement('div');
+        mb.className = 'pres-measure';
+        document.body.appendChild(mb);
+        mb.innerHTML = `${sec.intro || ''}<table class="pres-table"><thead>${sec.head}</thead><tbody>${sec.rows.join('')}</tbody></table>`;
+        const introH = sec.intro ? mb.querySelector('table').offsetHeight + 20 : 0;
+        const tables = mb.querySelectorAll('table');
+        const mainT = tables[tables.length - 1];
+        const theadH = mainT.querySelector('thead').offsetHeight;
+        const hs = Array.from(mainT.querySelectorAll('tbody tr')).map(tr => tr.offsetHeight);
+        document.body.removeChild(mb);
+        const chunks = [];
+        let cur2 = [], used = 0, avail = PAGE_INNER_PX - TITLE_RESERVE - theadH - introH;
+        sec.rows.forEach((r, i) => {
+            if (cur2.length > 0 && used + hs[i] > avail) { chunks.push(cur2); cur2 = []; used = 0; avail = PAGE_INNER_PX - TITLE_RESERVE - theadH; }
+            cur2.push(r); used += hs[i];
+        });
+        if (cur2.length) chunks.push(cur2);
+        chunks.forEach((rows, i) => pages.push({ title: sec.title, head: sec.head, rows, part: i + 1, parts: chunks.length, intro: i === 0 ? sec.intro : '' }));
+    });
+
+    const total = pages.length;
+    const footerLabel = `${esc(epleName)}${epleName ? ' · ' : ''}Comparaison N-1 - ${dateStr}`;
+    const sub = `Fichier N-1 : ${esc(compareData.file)}${compareData.name ? ' (' + esc(compareData.name) + ')' : ''}`;
+    const container = document.getElementById('presentationPrint');
+    container.innerHTML = pages.map((pg, i) => `
+        <section class="pres-page">
+            <h1 class="pres-title">Comparaison N-1 - ${esc(pg.title)}${pg.parts > 1 ? ` <small>(suite ${pg.part}/${pg.parts})</small>` : ''}</h1>
+            <p style="margin: 0 0 4mm; font-size: 9pt; color: #555;">${sub}</p>
+            ${pg.intro || ''}
+            ${pg.rows.length ? `<table class="pres-table"><thead>${pg.head}</thead><tbody>${pg.rows.join('')}</tbody></table>` : `<p>${pg.empty || 'Aucune donnée.'}</p>`}
+            <div class="pres-footer"><span>${footerLabel}</span><span>${i + 1}/${total}</span></div>
+        </section>`).join('');
+
+    document.body.classList.add('printing-presentation');
+    const cleanup = () => {
+        document.body.classList.remove('printing-presentation');
+        container.innerHTML = '';
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    triggerPrint();
+}
+
+
+// Fichier › Exporter › Exporter la comparaison N-1 : ouvre la comparaison sur l'onglet d'export
+// (si le fichier N-1 n'est pas encore chargé, il est demandé d'abord)
+function openCompareExport() {
+    compareTab = 'export';
+    openCompareModal();
+}
+
+
+// ============================================================
+// 🚦 Tableau des alertes : contrôles de cohérence de la ventilation
+// ============================================================
+let alertFilter = 'all';        // all | err | warn | info
+let alertHsaThreshold = 2;      // seuil d'HSA par enseignant au-delà duquel une alerte est levée
+
+function computeAlerts() {
+    const out = [];
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const add = (sev, disc, obj, msg) => out.push({ sev, disc, obj, msg });
+    const discs = Object.keys(dataStore);
+    let grandTotal = 0;
+    const coordAll = Array.isArray(coordinators) ? coordinators : [];
+    const coordByDisc = {};
+    coordAll.forEach(e => (e.coords || (e.teacher ? [{ teacher: e.teacher }] : [])).forEach(c => { if (c.teacher) (e.discs || []).forEach(d => { coordByDisc[d] = true; }); }));
+
+    discs.forEach(disc => {
+        const d = dataStore[disc];
+        const services = d.services || [];
+        const teachers = d.teachers || [];
+        if (!d.apports) d.apports = {};
+        if (teachers.length === 0 && services.some(sv => (parseFloat(sv.classes) || 0) * (parseFloat(sv.hours) || 0) > 0)) {
+            add('err', disc, 'Discipline', "Aucun enseignant dans cette discipline alors que des services existent.");
+        }
+        services.forEach(sv => {
+            const label = (sv.name || '').trim();
+            const level = sv.level || '';
+            const target = (parseFloat(sv.classes) || 0) * (parseFloat(sv.hours) || 0);
+            if (!label) add('warn', disc, `Service (${level || 'sans niveau'})`, "Intitulé du service non renseigné.");
+            if (sv.isCoEnseignement) return;
+            let done = 0;
+            Object.values(sv.allocations || {}).forEach(v => { done += parseFloat(v) || 0; });
+            const diff = Math.round((target - done) * 100) / 100;
+            const obj = `${label || '(sans intitulé)'}${level ? ' (' + level + ')' : ''}`;
+            if (target > 0 && done === 0) add('err', disc, obj, `Aucune heure ventilée : ${fmt(target)} h à attribuer.`);
+            else if (diff > 0.004) add('err', disc, obj, `Il reste ${fmt(diff)} h à ventiler (${fmt(done)} h attribuées sur ${fmt(target)} h).`);
+            else if (diff < -0.004) add('err', disc, obj, `Sur-ventilé de ${fmt(-diff)} h (${fmt(done)} h attribuées pour ${fmt(target)} h).`);
+            if (multiSiteActive()) {
+                const split = getServiceSiteSplit(sv);
+                if (!split) {
+                    if ((parseFloat(sv.classes) || 0) > 0) add('info', disc, obj, "Aucun site précisé (Édition › Gestion des sites).");
+                } else {
+                    const sum = Object.values(split).reduce((a, b) => a + b, 0);
+                    if (Math.abs(sum - (parseFloat(sv.classes) || 0)) > 0.004) add('err', disc, obj, `La somme des classes par site (${fmt(sum)}) diffère du nombre de classes (${fmt(parseFloat(sv.classes) || 0)}).`);
+                }
+            }
+        });
+        teachers.forEach(t => {
+            const sm = computeTeacherSummary(disc, t);
+            grandTotal += sm.total;
+            if (sm.total < 0.004) add('warn', disc, t, "Aucune heure attribuée à cet enseignant.");
+            else if (sm.hsa < -0.004) add('warn', disc, t, `Sous son ORS : ${fmt(sm.total)} h pour ${fmt(sm.apport)} h d'ORS (${fmt(sm.hsa)} h).`);
+            else if (sm.hsa > alertHsaThreshold + 0.004) add('warn', disc, t, `HSA élevées : +${fmt(sm.hsa)} h (seuil ${fmt(alertHsaThreshold)} h).`);
+        });
+        if (teachers.length > 0 && coordAll.length > 0 && !coordByDisc[disc]) add('info', disc, 'Discipline', "Aucun coordonnateur désigné.");
+    });
+
+    const dhg = (parseFloat(dotationGlobal.hp) || 0) + (parseFloat(dotationGlobal.hsa) || 0);
+    if (dhg > 0) {
+        const norv = dhg - grandTotal;
+        if (norv < -0.004) add('err', 'EPLE', 'Dotation', `Dépassement de la dotation : ${fmt(grandTotal)} h ventilées pour ${fmt(dhg)} h (Norvégien ${fmt(norv)} h).`);
+    }
+    return out;
+}
+
+function openAlertsModal() {
+    renderAlertsContent();
+    document.getElementById('alertsModal').classList.add('active');
+}
+
+function closeAlertsModal() {
+    document.getElementById('alertsModal').classList.remove('active');
+}
+
+function setAlertFilter(f) { alertFilter = f; renderAlertsContent(); }
+function setAlertThreshold(v) { alertHsaThreshold = Math.max(0, parseFloat(v) || 0); renderAlertsContent(); }
+
+function gotoAlertDiscipline(disc) {
+    const i = Object.keys(dataStore).indexOf(disc);
+    if (i < 0) return;
+    currentActiveTabIndex = i;
+    closeAlertsModal();
+    renderApp();
+}
+
+function renderAlertsContent() {
+    const esc = escapeStructureHtml;
+    const box = document.getElementById('alertsContent');
+    const all = computeAlerts();
+    const count = sev => all.filter(a => a.sev === sev).length;
+    const meta = { err: ['🔴', 'Erreur'], warn: ['🟠', 'À vérifier'], info: ['🔵', 'Information'] };
+    const shown = all.filter(a => alertFilter === 'all' || a.sev === alertFilter);
+    const chip = (f, label, n) => `<button class="level-tab-btn ${alertFilter === f ? 'active' : ''}" onclick="setAlertFilter('${f}')">${label} <strong>(${n})</strong></button>`;
+    const discs = Object.keys(dataStore);
+    const rows = shown.map(a => `<tr class="alert-${a.sev}">
+        <td class="alert-sev" title="${meta[a.sev][1]}">${meta[a.sev][0]}</td>
+        <td>${esc(a.disc)}</td><td><strong>${esc(a.obj)}</strong></td><td>${esc(a.msg)}</td>
+        <td>${discs.includes(a.disc) ? `<button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" data-d="${esc(a.disc)}" onclick="gotoAlertDiscipline(this.dataset.d)">Voir</button>` : ''}</td></tr>`).join('');
+    box.innerHTML = `
+        <div class="alert-head">
+            <div class="level-tabs-nav">${chip('all', 'Toutes', all.length)}${chip('err', '🔴 Erreurs', count('err'))}${chip('warn', '🟠 À vérifier', count('warn'))}${chip('info', '🔵 Informations', count('info'))}</div>
+            <label class="alert-threshold">Seuil d'HSA par enseignant (h)
+                <input type="number" min="0" step="0.5" value="${alertHsaThreshold}" onchange="setAlertThreshold(this.value)"></label>
+        </div>
+        ${all.length === 0
+            ? '<p class="empty-state">✅ Aucune alerte : la ventilation est cohérente.</p>'
+            : (rows ? `<table class="are-list-table alert-table"><thead><tr><th></th><th>Discipline</th><th>Objet</th><th>Alerte</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="empty-state">Aucune alerte de ce type.</p>')}`;
+}
+
+
+// 👁 Services d'un enseignant : uniquement ceux où il a des heures (> 0)
+function openTeacherServicesModal(disc, tIndex) {
+    const data = dataStore[disc];
+    const t = data && data.teachers[tIndex];
+    if (!t) return;
+    const esc = escapeStructureHtml;
+    const fmt = n => String(Math.round(n * 100) / 100).replace('.', ',');
+    const sm = computeTeacherSummary(disc, t);
+    document.getElementById('teacherServicesTitle').textContent = `👁 Services de ${t} - ${disc}`;
+    const body = sm.rows.length
+        ? `<table class="are-list-table"><thead><tr><th>Niveau</th><th>Service</th><th class="num">Heures</th></tr></thead>
+            <tbody>${sm.rows.map(r => `<tr><td style="white-space:nowrap;">${esc(r.level)}</td><td style="white-space:nowrap;"><strong>${esc((r.name || '').trim() || '(sans intitulé)')}</strong></td><td class="num">${fmt(r.hours)} h</td></tr>`).join('')}</tbody>
+            <tfoot><tr class="are-list-total"><td colspan="2" style="text-align:right;">Total ventilé</td><td class="num">${fmt(sm.raw)} h</td></tr></tfoot></table>
+           <p class="settings-tab-hint" style="margin-top:10px;">Total ${esc(totalLabelSuffix())} : <strong>${fmt(sm.total)} h</strong> · ORS : <strong>${fmt(sm.apport)} h</strong> · HSA : <strong>${sm.hsa > 0 ? '+' : ''}${fmt(sm.hsa)} h</strong></p>`
+        : '<p class="empty-state">Aucun service avec des heures pour cet enseignant.</p>';
+    document.getElementById('teacherServicesContent').innerHTML = body;
+    document.getElementById('teacherServicesModal').classList.add('active');
+}
+
+function closeTeacherServicesModal() {
+    document.getElementById('teacherServicesModal').classList.remove('active');
+}
+
+
+/* ===== Post-it par discipline ===== */
+let postitDisc = null;
+function openPostitModal(disc) {
+    if (!dataStore[disc]) return;
+    postitDisc = disc;
+    document.getElementById('postitTitle').textContent = disc;
+    const ta = document.getElementById('postitText');
+    ta.value = dataStore[disc].note || '';
+    document.getElementById('postitModal').classList.add('active');
+    setTimeout(() => ta.focus(), 30);
+}
+function savePostitNote() {
+    if (!postitDisc || !dataStore[postitDisc]) return;
+    const v = document.getElementById('postitText').value;
+    if (v.trim()) dataStore[postitDisc].note = v; else delete dataStore[postitDisc].note;
+    document.querySelectorAll('.postit-btn').forEach(b => {
+        if (b.dataset.disc === postitDisc) b.classList.toggle('has-note', !!v.trim());
+    });
+}
+function closePostitModal() {
+    savePostitNote();
+    document.getElementById('postitModal').classList.remove('active');
+    const d = postitDisc;
+    postitDisc = null;
+    if (typeof renderApp === 'function') { try { renderApp(); } catch (e) {} }
 }

@@ -24,47 +24,96 @@
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Fichier</button>
                 <div class="menu-panel">
                     <button class="menu-item" type="button" onclick="newEmptyProject()">📄 Nouveau</button>
-                    <label class="menu-item"><span>📂 Ouvrir</span><input type="file" id="jsonFileInput" accept=".json"></label>
-                    <button class="menu-item" type="button" onclick="saveState()">💾 Enregistrer</button>
+                    <button class="menu-item" id="btnOpenPicker" type="button" style="display:none;" onclick="openWithPicker()"><span>📂 Ouvrir</span></button>
+                    <label class="menu-item" id="openFallbackLabel"><span>📂 Ouvrir</span><input type="file" id="jsonFileInput" accept=".json"></label>
+                    <button class="menu-item" type="button" onclick="saveState()"><span>💾 Enregistrer</span> <span class="menu-hint" id="currentFileLabel"></span></button>
+                    <button class="menu-item" id="btnSaveAs" type="button" style="display:none;" onclick="saveState(true)">💾 Enregistrer sous…</button>
                     <label class="menu-item" title="Format : Nom Prénom Discipline ORS"><span>📊 Importer</span> <span class="menu-hint">Nom Prénom Discipline ORS</span><input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv"></label>
                     <div class="menu-sep"></div>
-                    <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📤 Exporter <span class="menu-caret">▸</span></button>
-                    <div class="menu-group">
-                        <button class="menu-item menu-sub-item" type="button" onclick="openTableExportModal()">🗂️ Exporter par discipline</button>
-                        <button class="menu-item menu-sub-item" type="button" onclick="openTeacherExportModal()">📄 Exporter les services des enseignants</button>
-                        <button class="menu-item menu-sub-item" type="button" onclick="openPresentationExportModal()">🖥️ Exporter pour la présentation</button>
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📤 Exporter <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" type="button" onclick="openTableExportModal()">🗂️ Exporter par discipline</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openTeacherExportModal()">📄 Exporter les services des enseignants</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openPresentationExportModal()">🖥️ Exporter pour la présentation</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openCompareExport()">📈 Exporter la comparaison N-1</button>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="menu" id="menuEdition">
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Édition</button>
                 <div class="menu-panel">
+                    <button class="menu-item" type="button" onclick="openCoordinatorsModal()">👤 Coordonnateurs</button>
+                    <button class="menu-item" type="button" onclick="openEnrollmentModal()">👥 Prévision d'effectifs</button>
                     <button class="menu-item" type="button" onclick="openStructureModal()">🏗️ Construire les services avec la structure de l'EPLE</button>
-                    <button class="menu-item" id="btnOptionnels" type="button" style="display: none;" onclick="openOptionnelModal()">🎨 Options</button>
-                    <button class="menu-item" id="btnEditionHint" type="button" onclick="openSettingsModal()" style="color: var(--text-muted); font-style: italic;">Aucune option activée — Paramètres › Identité EPLE</button>
-                    <button class="menu-item" id="btnCoEnseignement" type="button" style="display: none;" onclick="openCoEnseignementModal()">🤝 Co-enseignement</button>
+                    <button class="menu-item" id="btnGestionSites" type="button" style="display: none;" onclick="openSiteModal()">🏫 Gestion des sites</button>
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" id="btnServicesParticuliers" type="button" style="display: none;" onclick="toggleMenuGroup(event, this)">🧩 Services particuliers <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" id="btnOptionnels" type="button" style="display: none;" onclick="openOptionnelModal()">🎨 Options</button>
+                            <button class="menu-item menu-sub-item" id="btnCoEnseignement" type="button" style="display: none;" onclick="openCoEnseignementModal()">🤝 Co-enseignement</button>
+                        </div>
+                    </div>
+                    <button class="menu-item" id="btnEditionHint" type="button" onclick="openSettingsModal('features')" style="color: var(--text-muted); font-style: italic;">Aucun service particulier activé — Paramètres › Établissement › Fonctionnalités</button>
                 </div>
             </div>
             <div class="menu">
-                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Autonomie de l'EPLE</button>
+                <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Synthèse</button>
                 <div class="menu-panel">
-                    <button class="menu-item" id="btnSpecialites" type="button" style="display: none;" onclick="openSpecialiteModal()">🎓 Spécialités</button>
-                    <button class="menu-item" type="button" onclick="openTrmdModal()">📊 TRMD</button>
-                    <button class="menu-item" type="button" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
-                    <button class="menu-item" type="button" onclick="openAutonomieModal()">🏛️ <span id="autonomieBtnLabel" class="autonomie-btn-label">Utilisation de la marge d'autonomie</span></button>
-                    <button class="menu-item" type="button" onclick="openAreListModal()">🧾 Synthèse des ARE</button>
+                    <button class="menu-item" type="button" onclick="openAlertsModal()">🚦 Tableau des alertes</button>
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📊 Dotation et pilotage <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" type="button" onclick="openTrmdModal()">📊 TRMD</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openAutonomieModal()"><span>🏛️ <span id="autonomieBtnLabel" class="autonomie-btn-label">Utilisation de la marge d'autonomie</span></span></button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openStatsModal()">📊 Statistiques de la DHG</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openCompareModal()">📈 Comparaison N-1</button>
+                        </div>
+                    </div>
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">🔀 Ventilation et services <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" type="button" onclick="openLevelVentilationModal()">🔀 Ventilation / Niveau</button>
+                            <button class="menu-item menu-sub-item" id="btnSpecialites" type="button" style="display: none;" onclick="openSpecialiteModal()">🎓 Spécialités</button>
+                            <button class="menu-item menu-sub-item" id="btnSyntheseSites" type="button" style="display: none;" onclick="openSiteSynthesisModal()">🏫 Synthèse par site</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openAreListModal()">🧾 Synthèse des ARE</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="menu">
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Paramètres</button>
                 <div class="menu-panel">
-                    <button class="menu-item" type="button" onclick="openSettingsModal()">⚙️ Paramètres généraux</button>
-                    <button class="menu-item" type="button" onclick="openHistoryModal()">🕒 Historique</button>
-                    <button class="menu-item" type="button" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
-                    <button class="menu-item" type="button" onclick="openHelpModal()">💡 Notice &amp; Aides</button>
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">🏫 Établissement <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" type="button" onclick="openSettingsModal('eple')">🆔 Identité EPLE</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openSettingsModal('features')">🧩 Fonctionnalités à activer</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openSettingsModal('levels')">🎓 Niveaux</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openSettingsModal('disciplines')">📚 Disciplines</button>
+                        </div>
+                    </div>
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">🗂️ Données <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" type="button" onclick="openN1Modal()">📅 À partir de l'année N-1</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openHistoryModal()">🕒 Historique</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openSettingsModal('tools')">🧪 Jeu de test &amp; contribution</button>
+                        </div>
+                    </div>
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📖 Aide et références <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" type="button" onclick="openHorairesRegModal()">📐 Horaires réglementaires</button>
+                            <button class="menu-item menu-sub-item" type="button" onclick="openHelpModal()">💡 Notice &amp; Aides</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </nav>
+
+        <div id="norvBar" class="norv-bar" style="display:none;" onclick="this.classList.toggle('open')" title="Norvégien : cliquer pour le détail"></div>
 
         <div id="tabsContainer" class="tabs-nav"></div>
         <div id="contentsContainer"></div>
@@ -81,7 +130,10 @@
         <div class="modal-card">
             <div class="modal-header" style="justify-content: space-between;">
                 <h2>🎓 Suivi des Spécialités</h2>
-                <button class="modal-close" onclick="closeSpecialiteModal()">&times;</button>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button class="btn-secondary" type="button" onclick="exportSpecialitesPdf()">📄 Exporter en PDF</button>
+                    <button class="modal-close" onclick="closeSpecialiteModal()">&times;</button>
+                </div>
             </div>
             <div id="speTabsContainer" class="level-tabs-nav"></div>
             <div id="speContentsContainer"></div>
@@ -166,7 +218,9 @@
                             <li><strong>Ouvrir</strong> : recharge une sauvegarde <strong>.json</strong> créée avec l'application.</li>
                             <li><strong>Importer</strong> : charge un fichier <strong>.xlsx</strong> contenant la liste des enseignants avec impérativement les colonnes <strong>Nom</strong>, <strong>Prénom</strong>, <strong>Discipline</strong> et <strong>ORS</strong>.</li>
                             <li><strong>Enregistrer</strong> : télécharge la sauvegarde <strong>.json</strong>, nommée automatiquement <em>AAAA_MM_JJ_DHG_Nom de l'EPLE</em>. Pensez à enregistrer régulièrement.</li>
-                            <li>Pour découvrir l'outil, <strong>Paramètres › Aide &amp; données</strong> permet de charger un <strong>jeu de test</strong>.</li>
+                            <li><strong>Paramètres › Données › À partir de l'année N-1</strong> : activez l'option puis chargez la sauvegarde (.json) de l'année précédente. L'application reprend l'EPLE, les options activées, les niveaux et les intitulés des services ; ces intitulés vous sont ensuite proposés, par niveau, quand vous saisissez un service.</li>
+                            <li><strong>Paramètres › Établissement › Fonctionnalités à activer › gestion multi-site</strong> : pour un établissement sur plusieurs sites, indiquez le nombre de sites, leur nom et un libellé court. Une entrée Édition › Gestion des sites apparaît alors : un onglet par discipline, où vous cliquez sur le ou les sites concernés (chaque site a sa couleur, définie dans les paramètres ; un bandeau de cette couleur apparaît au début du service dans les tableaux des disciplines, hachuré s'il y a plusieurs sites) par chaque service et, s'il y en a plusieurs, le nombre de classes de chacun (leur somme doit égaler le nombre de classes). La répartition s'affiche sous le total dans Synthèse › Ventilation / Niveau.</li>
+                            <li>Pour découvrir l'outil, <strong>Paramètres › Données › Jeu de test &amp; contribution</strong> permet de charger un <strong>jeu de test</strong>.</li>
                         </ul>
                     </div>
                 </div>
@@ -195,7 +249,9 @@
                     <div class="help-step-content">
                         Les menus <strong>Édition</strong> et <strong>Paramètres</strong> vous aident à créer les services :
                         <ul style="margin-top: 6px; padding-left: 20px;">
-                            <li><strong>Paramètres › Horaires réglementaires</strong> : tableaux de référence du collège (CLG), du lycée général et technologique (LGT) et du lycée professionnel (LP).</li>
+                            <li><strong>Paramètres › Aide et références › Horaires réglementaires</strong> : tableaux de référence du collège (CLG), du lycée général et technologique (LGT) et du lycée professionnel (LP).</li>
+                            <li><strong>Édition › Coordonnateurs</strong> : désignez un coordonnateur par discipline (ou pour deux disciplines associées), renseignez son adresse mail et exportez la liste en PDF.</li>
+                            <li><strong>Édition › Prévision d'effectifs</strong> : saisissez, par niveau, les effectifs annoncés par la DSDEN et le nombre de divisions prévu pour la rentrée suivante. L'application calcule l'évolution, le nombre d'élèves par division, l'écart avec les classes de la ventilation (✓ / ⚠) et le nombre d'heures par élève (H/E). Un bouton <strong>📄 Exporter en PDF</strong> produit la page au style de la présentation ; cette rubrique peut aussi être cochée dans l'<strong>export pour la présentation</strong>, où elle ouvre le document (avant la dotation). Les données sont enregistrées avec le fichier.</li>
                             <li><strong>Édition › Construire les services avec la structure de l'EPLE</strong> : indiquez le nombre de classes ou de groupes par enseignement et la discipline concernée ; l'application crée les services avec le niveau, l'intitulé, l'horaire plancher, le nombre de classes et le volume par classe.</li>
                         </ul>
                     </div>
@@ -212,6 +268,7 @@
                             <li>Les cases <strong>Spé</strong> et <strong>Co-E</strong> marquent un service de spécialité ou en co-enseignement (si ces fonctions sont activées).</li>
                             <li>Une matière <strong>partagée entre deux enseignants ou disciplines sans co-enseignement</strong> se saisit en fractions de classe (par exemple 0,5 + 0,5) pour ne pas compter deux fois les groupes.</li>
                             <li>Boutons de la discipline : <strong>Ajouter un service</strong>, <strong>Ajouter un enseignant</strong>, <strong>Vider les heures ventilées</strong>, <strong>Heures décimales / sexagésimales</strong> et <strong>Suppression / Modification</strong> (qui permet aussi de renommer un enseignant).</li>
+                            <li>Le bouton <strong>📝</strong> (à côté de la baguette magique) ouvre un <strong>post-it</strong> pour noter librement ce que vous voulez sur la discipline ; il est enregistré avec le fichier.</li>
                             <li>En haut à droite, un résumé affiche le <strong>volume ventilé</strong>, les <strong>HSA</strong> et le <strong>total</strong> de la discipline.</li>
                         </ul>
                     </div>
@@ -241,12 +298,18 @@
                     <div class="help-step-content">
                         Utilisez les fonctions de pilotage selon vos besoins :
                         <ul style="margin-top: 6px; padding-left: 20px;">
-                            <li><strong>Autonomie de l'EPLE › Spécialités</strong> : bilan par niveau (matière, nombre de groupes, enseignants).</li>
-                            <li><strong>Autonomie de l'EPLE › TRMD</strong> : répartition des moyens par discipline (nombre d'enseignants, HP, volume ventilé, HSA, total) avec le rappel de la dotation et le <strong>Norvégien</strong> (DHG moins total).</li>
-                            <li><strong>Autonomie de l'EPLE › Ventilation / Niveau</strong> : analyse croisée des affectations par niveau d'enseignement.</li>
-                            <li><strong>Autonomie de l'EPLE › Utilisation de la marge d'autonomie</strong> : calcul et suivi des heures d'autonomie, par niveau, par matière, par discipline et en synthèse.</li>
-                            <li><strong>Autonomie de l'EPLE › Synthèse des ARE</strong> : tous les ARE regroupés par volume horaire, avec leurs totaux et un export PDF.</li>
-                            <li><strong>Édition › Options</strong> et <strong>Co-enseignement</strong> : gestion des enseignements optionnels (heures financées par la dotation, marge utilisée) et association des enseignants en co-enseignement.</li>
+                            <li>Le menu <strong>Synthèse</strong> regroupe ses rubriques en deux catégories à dérouler : <strong>Dotation et pilotage</strong> (TRMD, marge d'autonomie, statistiques, comparaison N-1) et <strong>Ventilation et services</strong> (ventilation par niveau, spécialités, synthèse par site, ARE). Le tableau des alertes reste en tête.</li>
+                            <li><strong>Synthèse › Tableau des alertes</strong> : contrôle de cohérence en un clic (services non ventilés ou sur-ventilés, enseignants sous leur ORS ou avec beaucoup de HSA, discipline sans enseignant, dépassement de la dotation, sites non précisés…), avec un bouton « Voir » pour aller à la discipline concernée.</li>
+                            <li><strong>Synthèse › Spécialités</strong> : bilan par niveau (matière, nombre de groupes, enseignants avec leurs heures), avec un export PDF.</li>
+                            <li><strong>Cartouche Norvégien</strong> : en haut à droite de l'écran, elle reste affichée quelle que soit la discipline et se met à jour à chaque saisie : dotation (DHG), heures ventilées dans toutes les disciplines (pondérations et ARE compris) et Norvégien (dotation − heures ventilées ; vert s'il reste des heures, rouge en cas de dépassement). Un clic déplie le détail (dotation, heures ventilées, lien vers le TRMD).</li>
+                            <li><strong>Synthèse › TRMD</strong> : répartition des moyens par discipline (nombre d'enseignants, HP, volume ventilé, HSA, total) avec le rappel de la dotation et le <strong>Norvégien</strong> (DHG moins total).</li>
+                            <li><strong>Synthèse › Ventilation / Niveau</strong> : analyse croisée des affectations par niveau d'enseignement.</li>
+                            <li><strong>Synthèse › Utilisation de la marge d'autonomie</strong> : calcul et suivi des heures d'autonomie, par niveau, par matière, par discipline et en synthèse.</li>
+                            <li><strong>Synthèse › Synthèse par site</strong> (si la gestion multi-site est activée) : un onglet par site puis un sous-onglet par niveau, avec les services attribués au site (intitulé, nombre de classes, discipline).</li>
+                            <li><strong>Synthèse › Synthèse des ARE</strong> : tous les ARE regroupés par volume horaire, avec leurs totaux et un export PDF.</li>
+                            <li><strong>Synthèse › Comparaison N-1</strong> : chargez la sauvegarde (.json) de l'année précédente pour la comparer à vos données actuelles : dotation et disciplines (enseignants, total, HSA), services par niveau (classes et volumes), arrivées et départs d'enseignants. Le fichier N-1 n'est ni modifié ni conservé. L'onglet <strong>Exporter</strong> (ou <strong>Fichier › Exporter › Exporter la comparaison N-1</strong>) génère un PDF de la comparaison.</li>
+                            <li><strong>Synthèse › Statistiques de la DHG</strong> : découpage de la DHG en pourcentage (HP / HSA, utilisation de la dotation, parts par discipline et par niveau), avec barres de répartition et <strong>export PDF</strong>. Ces pages peuvent aussi être intégrées à l'<strong>export pour la présentation</strong> (case à cocher) : elles s'insèrent juste après le TRMD, sans chapitre à part.</li>
+                            <li><strong>Édition › Services particuliers › Options</strong> et <strong>Co-enseignement</strong> : gestion des enseignements optionnels (heures financées par la dotation, marge utilisée) et association des enseignants en co-enseignement.</li>
                         </ul>
                     </div>
                 </div>
@@ -259,7 +322,7 @@
                     <div class="help-step-content">
                         Le menu <strong>Fichier › Exporter</strong> propose trois exports :
                         <ul style="margin-top: 6px; padding-left: 20px;">
-                            <li><strong>Exporter par discipline</strong> : fichier tableur <strong>.xlsx</strong> ou <strong>.ods</strong>, en un seul fichier ou un fichier par discipline, avec le TRMD en option.</li>
+                            <li><strong>Exporter par discipline</strong> : fichier tableur <strong>.xlsx</strong> ou <strong>.ods</strong>, en un seul fichier ou un fichier par discipline, avec le TRMD en option. Les feuilles sont mises en forme (tableaux encadrés, en-têtes colorés, totaux et ARE distincts, volet figé, impression paysage) et fonctionnent sans connexion internet.</li>
                             <li><strong>Exporter les services des enseignants</strong> : PDF d'une page par enseignant, avec les informations de votre choix (services, pondérations, ARE, total, HSA…).</li>
                             <li><strong>Exporter pour la présentation</strong> : PDF paysage avec couverture, sommaire et rubriques au choix (rappel de la dotation, TRMD, ventilation par discipline, autonomie par niveau et par discipline, focus sur les spécialités et sur les options).</li>
                             <li>Pour les PDF, choisissez <strong>Enregistrer au format PDF</strong> dans la fenêtre d'impression de votre navigateur.</li>
@@ -270,10 +333,27 @@
                 <div class="help-step-card">
                     <div class="help-step-header">
                         <div class="help-step-number">8</div>
+                        <div class="help-step-title">Travailler avec Nuage (Apps Éducation) ou un autre Nextcloud</div>
+                    </div>
+                    <div class="help-step-content">
+                        L'application ne se connecte pas directement à Nuage (le serveur ne l'autorise pas depuis une page web), mais le fichier de sauvegarde (.json) peut y vivre très simplement.
+                        <ul>
+                            <li><strong>Sur ordinateur</strong> : installez le <em>client de synchronisation Nextcloud</em> et connectez-le à Nuage (adresse du serveur et mot de passe d'application, à créer dans Nuage › Paramètres › Sécurité). Placez votre sauvegarde dans le dossier synchronisé.</li>
+                            <li>Avec <strong>Chrome ou Edge</strong> : <strong>Fichier › Ouvrir</strong> mémorise le fichier choisi ; <strong>Fichier › Enregistrer</strong> (ou Ctrl+S) le met ensuite à jour <em>sur place</em>, sans nouveau téléchargement : Nuage le synchronise tout seul. Le nom du fichier s'affiche dans le menu. <strong>Enregistrer sous…</strong> permet de changer d'emplacement. Le premier enregistrement d'un nouveau projet demande où placer le fichier. Le navigateur peut demander d'autoriser l'écriture à la réouverture.</li>
+                            <li>Avec les <strong>autres navigateurs</strong> (Safari, Firefox) : <strong>Enregistrer</strong> télécharge un nouveau fichier ; déplacez-le dans le dossier synchronisé en remplaçant l'ancien.</li>
+                            <li><strong>Sur iPhone</strong> : installez l'application <em>Nextcloud</em> et connectez-la à Nuage ; les fichiers apparaissent alors dans l'app Fichiers. Dans <strong>VectisDHG Compagnon</strong>, <em>Fichier › Ouvrir un fichier</em> vous permet de choisir la sauvegarde dans Nuage. Après modification des post-it, <em>Exporter le fichier mis à jour</em> et enregistrez-le dans Nuage en remplaçant l'ancien.</li>
+                            <li>Évitez d'ouvrir et de modifier le même fichier sur deux appareils en même temps : la dernière version enregistrée remplace l'autre.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="help-step-card">
+                    <div class="help-step-header">
+                        <div class="help-step-number">9</div>
                         <div class="help-step-title">Conseils</div>
                     </div>
                     <div class="help-step-content">
-                        Pensez à <strong>enregistrer</strong> votre travail avant de fermer la page : il n'est pas conservé automatiquement. Le menu <strong>Paramètres › Historique</strong> garde, à chaque enregistrement, un résumé des modifications effectuées depuis la sauvegarde précédente ; il est conservé dans le fichier de sauvegarde.
+                        Pensez à <strong>enregistrer</strong> votre travail avant de fermer la page : il n'est pas conservé automatiquement (<strong>Ctrl+S</strong> avec Chrome ou Edge). Le menu <strong>Paramètres › Données › Historique</strong> garde, à chaque enregistrement, un résumé des modifications effectuées depuis la sauvegarde précédente ; il est conservé dans le fichier de sauvegarde.
                     </div>
                 </div>
 
@@ -296,7 +376,7 @@
             <div class="modal-header">
                 <div class="modal-actions">
                     <button class="btn-header" onclick="exportTrmdToExcel()">📊 Export Excel</button>
-                    <button class="btn-header" onclick="exportTrmdToPdf()">📄 Impression / Export PDF</button>
+                    <button class="btn-header" onclick="exportTrmdToPdf()">📄 Exporter en PDF</button>
                     <button class="modal-close" onclick="closeTrmdModal()">&times;</button>
                 </div>
             </div>
@@ -311,6 +391,16 @@
                 <button class="modal-close" onclick="closeHorairesRegModal()">&times;</button>
             </div>
             <div id="horairesRegContent"></div>
+        </div>
+    </div>
+
+    <div id="enrollmentModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 1150px; width: 95vw;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>👥 Prévision d'effectifs</h2>
+                <button class="modal-close" onclick="closeEnrollmentModal()">&times;</button>
+            </div>
+            <div id="enrollmentContent"></div>
         </div>
     </div>
 
@@ -345,6 +435,122 @@
                 <button class="modal-close" onclick="closeMagicModal()">&times;</button>
             </div>
             <div id="magicContent"></div>
+        </div>
+    </div>
+
+    <div id="coordinatorsModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 1100px; width: 94vw;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>👤 Coordonnateurs de discipline</h2>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button class="btn-secondary" type="button" onclick="openCoordMailModal()">✉️ Envoyer un email</button>
+                    <button class="btn-secondary" type="button" onclick="exportCoordinatorsPdf()">📄 Exporter en PDF</button>
+                    <button class="modal-close" onclick="closeCoordinatorsModal()">&times;</button>
+                </div>
+            </div>
+            <div id="coordinatorsContent"></div>
+        </div>
+    </div>
+
+    <div id="coordMailModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 620px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>✉️ Envoyer un email aux coordonnateurs</h2>
+                <button class="modal-close" onclick="closeCoordMailModal()">&times;</button>
+            </div>
+            <p id="coordMailInfo" class="settings-tab-hint"></p>
+            <p class="settings-tab-hint">Un lien de messagerie ne peut pas joindre de fichier. Plusieurs possibilités :</p>
+            <div class="coord-mail-actions">
+                <button class="btn-primary" type="button" onclick="coordMailShare()">📤 Partager avec pièce jointe</button>
+                <small>Ouvre le partage du système (Mac, iPhone, ou Windows avec Edge ou Chrome) : choisissez votre application de messagerie ; le message et le classeur Excel de la DHG sont déjà joints. Les adresses sont copiées dans le presse-papiers : collez-les dans le champ « À ».</small>
+                <button class="btn-secondary" type="button" onclick="coordMailDownloadDraft()">📎 Brouillon avec pièce jointe (.eml)</button>
+                <small>Télécharge un brouillon (destinataires, message et classeur joints), à ouvrir dans Outlook (Windows) ou Thunderbird.</small>
+                <button class="btn-secondary" type="button" onclick="coordMailOpenClient()">✉️ Ouvrir ma messagerie (sans pièce jointe)</button>
+                <small>Destinataires et message pré-remplis ; joignez ensuite vous-même le fichier exporté depuis Fichier › Exporter.</small>
+                <button class="btn-secondary" type="button" onclick="coordMailCopyEmails()">📋 Copier les adresses</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="compareModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 1200px; width: 95vw;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📈 Comparaison N-1</h2>
+                <button class="modal-close" onclick="closeCompareModal()">&times;</button>
+            </div>
+            <div id="compareContent"></div>
+        </div>
+    </div>
+
+    <div id="statsModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 1100px; width: 95vw;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📊 Statistiques de la DHG</h2>
+                <button class="modal-close" onclick="closeStatsModal()">&times;</button>
+            </div>
+            <div id="statsContent"></div>
+        </div>
+    </div>
+
+    <div id="n1Modal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 720px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📅 Construire la ventilation à partir des données de l'année N-1</h2>
+                <button class="modal-close" onclick="closeN1Modal()">&times;</button>
+            </div>
+            <div id="n1Content"></div>
+        </div>
+    </div>
+
+    <div id="siteModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 1000px; width: 94vw;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🏫 Gestion des sites</h2>
+                <button class="modal-close" onclick="closeSiteModal()">&times;</button>
+            </div>
+            <div id="siteTabsContainer" class="level-tabs-nav"></div>
+            <div id="siteContentsContainer"></div>
+        </div>
+    </div>
+
+    <div id="siteSynthesisModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 1000px; width: 94vw;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🏫 Synthèse par site</h2>
+                <button class="modal-close" onclick="closeSiteSynthesisModal()">&times;</button>
+            </div>
+            <div id="siteSynthTabs" class="level-tabs-nav"></div>
+            <div id="siteSynthLevels" class="level-tabs-nav" style="margin-top: 8px;"></div>
+            <div id="siteSynthContent"></div>
+        </div>
+    </div>
+
+    <div id="alertsModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 1100px; width: 94vw;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🚦 Tableau des alertes</h2>
+                <button class="modal-close" onclick="closeAlertsModal()">&times;</button>
+            </div>
+            <div id="alertsContent"></div>
+        </div>
+    </div>
+
+    <div id="postitModal" class="modal-overlay" onclick="if(event.target===this)closePostitModal()">
+        <div class="postit-card">
+            <button class="postit-close" type="button" onclick="closePostitModal()" aria-label="Fermer">&times;</button>
+            <div class="postit-title" id="postitTitle"></div>
+            <textarea id="postitText" class="postit-text" placeholder="Vos notes libres…" oninput="savePostitNote()"></textarea>
+            <div class="postit-foot">Enregistré automatiquement avec le fichier</div>
+        </div>
+    </div>
+
+    <div id="teacherServicesModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 960px; width: fit-content; min-width: 520px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2 id="teacherServicesTitle">👁 Services</h2>
+                <button class="modal-close" onclick="closeTeacherServicesModal()">&times;</button>
+            </div>
+            <div id="teacherServicesContent"></div>
         </div>
     </div>
 
@@ -483,8 +689,8 @@
     <!-- Modale Autonomie EPLE -->
     <div id="autonomieModal" class="modal-overlay">
         <div class="modal-card">
-            <div class="modal-header">
-                <h2><span>🏛️</span> <span id="autonomieModalTitle">Utilisation de la marge d'autonomie</span></h2>
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🏛️ <span id="autonomieModalTitle">Utilisation de la marge d'autonomie</span></h2>
                 <button class="modal-close" onclick="closeAutonomieModal()">&times;</button>
             </div>
             <div class="mode-selector">
@@ -507,9 +713,10 @@
             </div>
             <div class="mode-selector">
                 <button id="btnSettingsEple" class="mode-btn active" onclick="switchSettingsTab('eple')">Identité EPLE</button>
+                <button id="btnSettingsFeatures" class="mode-btn" onclick="switchSettingsTab('features')">Fonctionnalités</button>
                 <button id="btnSettingsLevels" class="mode-btn" onclick="switchSettingsTab('levels')">Niveaux</button>
                 <button id="btnSettingsDisc" class="mode-btn" onclick="switchSettingsTab('disciplines')">Disciplines</button>
-                <button id="btnSettingsTools" class="mode-btn" onclick="switchSettingsTab('tools')">Aide &amp; données</button>
+                <button id="btnSettingsTools" class="mode-btn" onclick="switchSettingsTab('tools')">Outils</button>
             </div>
 
             <!-- Onglet Identité EPLE -->
@@ -524,7 +731,12 @@
                 </div>
                 <div id="epleSearchResults" class="eple-search-results" style="display: none;"></div>
 
-                <div style="margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px;">
+            </div>
+
+            <!-- Onglet Fonctionnalités -->
+            <div id="settingsFeaturesTab" class="tab-content" style="padding: 0; box-shadow: none; background: transparent;">
+                <p class="settings-tab-hint" style="margin-top: 0;">Activez uniquement ce dont votre établissement a besoin : chaque option ajoute des colonnes, des menus et des synthèses.</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
                     <label class="settings-item" style="align-items: flex-start; cursor: pointer;">
                         <div style="display: flex; align-items: flex-start; gap: 10px;">
                             <input type="checkbox" id="toggleSpecialitesInput" style="width: auto; margin-top: 2px;" onchange="toggleSpecialitesGlobal(this.checked)">
@@ -584,6 +796,19 @@
                             </div>
                         </div>
                     </label>
+
+                    <label class="settings-item" style="align-items: flex-start; cursor: pointer;">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox" id="toggleMultiSiteInput" style="width: auto; margin-top: 2px;" onchange="toggleMultiSiteGlobal(this.checked)">
+                            <div>
+                                <div>Activer la gestion multi-site</div>
+                                <div style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 2px;">
+                                    Pour les établissements répartis sur plusieurs sites (annexe, par exemple). Vous indiquez le nombre de sites, leur nom et un libellé court ; dans les services, vous précisez ensuite le ou les sites concernés et le nombre de classes de chacun.
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                    <div id="multiSiteConfig"></div>
                 </div>
             </div>
 
@@ -606,7 +831,7 @@
                 <ul id="disciplinesList" class="settings-list"></ul>
             </div>
 
-            <!-- Onglet Aide & données -->
+            <!-- Onglet Outils -->
             <div id="settingsToolsTab" class="tab-content" style="padding: 0; box-shadow: none; background: transparent;">
                 <div class="settings-tools">
                     <div class="settings-tool-item">
