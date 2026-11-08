@@ -29,6 +29,7 @@
                     <button class="menu-item" type="button" onclick="saveState()"><span>💾 Enregistrer</span> <span class="menu-hint" id="currentFileLabel"></span></button>
                     <button class="menu-item" id="btnSaveAs" type="button" style="display:none;" onclick="saveState(true)">💾 Enregistrer sous…</button>
                     <label class="menu-item" title="Format : Nom Prénom Discipline ORS"><span>📊 Importer</span> <span class="menu-hint">Nom Prénom Discipline ORS</span><input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv"></label>
+                    <label class="menu-item" title="Fichier de modifications exporté par VectisDHG Compagnon (iPhone)"><span>📱 Modifications du téléphone</span><input type="file" id="deltaFileInput" accept=".json"></label>
                     <div class="menu-sep"></div>
                     <div class="menu-sub">
                         <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📤 Exporter <span class="menu-caret">▸</span></button>
@@ -341,7 +342,8 @@
                             <li><strong>Sur ordinateur</strong> : installez le <em>client de synchronisation Nextcloud</em> et connectez-le à Nuage (adresse du serveur et mot de passe d'application, à créer dans Nuage › Paramètres › Sécurité). Placez votre sauvegarde dans le dossier synchronisé.</li>
                             <li>Avec <strong>Chrome ou Edge</strong> : <strong>Fichier › Ouvrir</strong> mémorise le fichier choisi ; <strong>Fichier › Enregistrer</strong> (ou Ctrl+S) le met ensuite à jour <em>sur place</em>, sans nouveau téléchargement : Nuage le synchronise tout seul. Le nom du fichier s'affiche dans le menu. <strong>Enregistrer sous…</strong> permet de changer d'emplacement. Le premier enregistrement d'un nouveau projet demande où placer le fichier. Le navigateur peut demander d'autoriser l'écriture à la réouverture.</li>
                             <li>Avec les <strong>autres navigateurs</strong> (Safari, Firefox) : <strong>Enregistrer</strong> télécharge un nouveau fichier ; déplacez-le dans le dossier synchronisé en remplaçant l'ancien.</li>
-                            <li><strong>Sur iPhone</strong> : installez l'application <em>Nextcloud</em> et connectez-la à Nuage ; les fichiers apparaissent alors dans l'app Fichiers. Dans <strong>VectisDHG Compagnon</strong>, <em>Fichier › Ouvrir un fichier</em> vous permet de choisir la sauvegarde dans Nuage. Après modification des post-it, <em>Exporter le fichier mis à jour</em> et enregistrez-le dans Nuage en remplaçant l'ancien.</li>
+                            <li><strong>Sur iPhone</strong> : installez l'application <em>Nextcloud</em> et connectez-la à Nuage ; les fichiers apparaissent alors dans l'app Fichiers. Dans <strong>VectisDHG Compagnon</strong>, <em>Fichier › Ouvrir un fichier</em> vous permet de choisir la sauvegarde dans Nuage. Les modifications faites sur le téléphone (post-it, heures ventilées, ajout ou modification d'enseignants) sont rassemblées dans un petit fichier : <em>Fichier › Exporter les modifications</em>, à enregistrer par exemple dans Nuage.</li>
+                            <li><strong>Reprendre les modifications du téléphone</strong> : dans VectisDHG Autonomie, <strong>Fichier › Modifications du téléphone</strong>, choisissez ce fichier. Chaque modification est listée et comparée à vos données actuelles : celles qui s'appliquent sont cochées ; celles qui sont en <em>conflit</em> (valeur modifiée à la fois sur l'ordinateur et sur le téléphone) restent décochées, avec la valeur actuelle affichée. Rien n'est modifié avant que vous cliquiez sur <em>Appliquer</em>. Une fois importées, videz la liste dans le Compagnon.</li>
                             <li>Évitez d'ouvrir et de modifier le même fichier sur deux appareils en même temps : la dernière version enregistrée remplace l'autre.</li>
                         </ul>
                     </div>
@@ -391,6 +393,16 @@
                 <button class="modal-close" onclick="closeHorairesRegModal()">&times;</button>
             </div>
             <div id="horairesRegContent"></div>
+        </div>
+    </div>
+
+    <div id="deltaModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 760px; width: 95vw;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📱 Modifications du téléphone</h2>
+                <button class="modal-close" onclick="closeDeltaModal()">&times;</button>
+            </div>
+            <div id="deltaContent"></div>
         </div>
     </div>
 

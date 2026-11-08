@@ -477,6 +477,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderApp();
     document.getElementById('excelFileInput').addEventListener('change', handleFileUpload);
     document.getElementById('jsonFileInput').addEventListener('change', handleJsonLoad);
+    document.getElementById('deltaFileInput').addEventListener('change', handleDeltaFile);
     initFeedbackModal();
     initFileMenu();
 
@@ -3126,9 +3127,8 @@ function createActionBar(disc) {
         const name = prompt("Nom et Prénom de l'enseignant :");
         if (name && name.trim()) {
             const trimmed = name.trim();
-            dataStore[disc].teachers.push(trimmed);
-            if (!dataStore[disc].apports) dataStore[disc].apports = {};
-            dataStore[disc].apports[trimmed] = 18;
+            if (dataStore[disc].teachers.includes(trimmed)) { alert(`Un enseignant nommé « ${trimmed} » existe déjà dans cette discipline.`); return; }
+            applyTeacherAdd(disc, trimmed, 18);
             renderApp();
         }
     };
@@ -5466,19 +5466,11 @@ function deleteService(disc, sIndex) {
     }
 }
 
-function renameTeacher(disc, tIndex) {
+// Noyau du renommage (sans boîte de dialogue ni rendu) : utilisé par l'interface et l'import des modifications du téléphone
+function applyTeacherRename(disc, oldName, newName) {
     const data = dataStore[disc];
-    const oldName = data.teachers[tIndex];
-    const input = prompt("Nouveau nom de l'enseignant :", oldName);
-    if (input === null) return;
-    const newName = input.trim();
-    if (!newName || newName === oldName) return;
-    if (data.teachers.includes(newName)) {
-        alert(`Un enseignant nommé « ${newName} » existe déjà dans cette discipline.`);
-        return;
-    }
-
-    data.teachers[tIndex] = newName;
+    if (!data || !data.teachers.includes(oldName) || data.teachers.includes(newName)) return false;
+    data.teachers[data.teachers.indexOf(oldName)] = newName;
     if (data.ares && data.ares[oldName] !== undefined) {
         data.ares[newName] = data.ares[oldName];
         delete data.ares[oldName];
@@ -5516,8 +5508,209 @@ function renameTeacher(disc, tIndex) {
             if (m.disc === disc && m.teacher === oldName) m.teacher = newName;
         });
     });
+    return true;
+}
 
+function applyTeacherAdd(disc, name, ors) {
+    const data = dataStore[disc];
+    if (!data || !name || data.teachers.includes(name)) return false;
+    data.teachers.push(name);
+    if (!data.apports) data.apports = {};
+    data.apports[name] = (ors === undefined || ors === null || isNaN(parseFloat(ors))) ? 18 : parseFloat(ors);
+    return true;
+}
+
+function renameTeacher(disc, tIndex) {
+    const data = dataStore[disc];
+    const oldName = data.teachers[tIndex];
+    const input = prompt("Nouveau nom de l'enseignant :", oldName);
+    if (input === null) return;
+    const newName = input.trim();
+    if (!newName || newName === oldName) return;
+    if (data.teachers.includes(newName)) {
+        alert(`Un enseignant nommé « ${newName} » existe déjà dans cette discipline.`);
+        return;
+    }
+    applyTeacherRename(disc, oldName, newName);
     renderApp();
+}
+
+// ============================================================
+// Import des modifications faites sur le téléphone (VectisDHG Compagnon)
+// Le Compagnon exporte un petit fichier de modifications ; ici, chaque modification est
+// comparée à l'état actuel (détection des conflits) puis appliquée après validation.
+// ============================================================
+let pendingDelta = null;   // { meta, items: [{ op, status, current, checked, text, detail }] }
+
+function deltaNum(v) { return parseFloat(v) || 0; }
+function deltaOrs(data, t) { return (data.apports && data.apports[t] !== undefined) ? deltaNum(data.apports[t]) : 18; }
+function deltaFmt(v) { return (Math.round(deltaNum(v) * 100) / 100).toLocaleString('fr-FR'); }
+
+function deltaFindService(op) {
+    const list = (dataStore[op.disc] && dataStore[op.disc].services) || [];
+    const same = sv => (sv.name || '') === (op.svc || '') && (sv.level || '') === (op.level || '');
+    if (list[op.sIndex] && same(list[op.sIndex])) return { index: op.sIndex, svc: list[op.sIndex] };
+    const idx = list.findIndex(same);
+    return idx >= 0 ? { index: idx, svc: list[idx] } : null;
+}
+
+function evaluateDelta(ops) {
+    const v2r = {};   // disc -> { nomVirtuel: nomRéel | null (nouvel enseignant) }
+    const virt = d => {
+        if (!v2r[d]) {
+            v2r[d] = {};
+            ((dataStore[d] && dataStore[d].teachers) || []).forEach(t => { v2r[d][t] = t; });
+        }
+        return v2r[d];
+    };
+    // Si un enseignant a été renommé plus loin dans la même liste (cas d'un fichier déjà importé), on suit le nouveau nom
+    const resolveName = (d, name, fromIdx) => {
+        const m = virt(d);
+        let cur = name;
+        for (let n = 0; n < 10 && !Object.prototype.hasOwnProperty.call(m, cur); n++) {
+            const rn = ops.slice(fromIdx + 1).find(o => o.k === 'trename' && o.disc === d && o.from === cur);
+            if (!rn) break;
+            cur = rn.to;
+        }
+        return cur;
+    };
+    return ops.map((op, opIdx) => {
+        const it = { op, status: 'ok', current: null, text: '', detail: '' };
+        const data = dataStore[op.disc];
+        const disc = op.disc;
+        if (!data) { it.status = 'missing'; it.text = `Discipline « ${disc} »`; it.detail = 'Discipline introuvable'; return it; }
+        if (op.k === 'note') {
+            it.text = `📝 Post-it — ${disc}`;
+            const cur = data.note || '';
+            it.current = cur;
+            if (cur === (op.to || '')) it.status = 'done';
+            else if (cur !== (op.from || '')) it.status = 'conflict';
+            it.detail = (op.to || '').trim() ? `« ${(op.to || '').trim().slice(0, 90)}${(op.to || '').length > 90 ? '…' : ''} »` : 'Post-it vidé';
+        } else if (op.k === 'alloc') {
+            const found = deltaFindService(op);
+            it.text = `⏱️ ${disc} › ${op.svc || '(sans intitulé)'}${op.level ? ' (' + op.level + ')' : ''} — ${op.teacher}`;
+            const real = virt(disc)[resolveName(disc, op.teacher, opIdx)];
+            if (!found) { it.status = 'missing'; it.detail = 'Service introuvable'; return it; }
+            if (real === undefined) { it.status = 'missing'; it.detail = 'Enseignant introuvable'; return it; }
+            const cur = real === null ? 0 : deltaNum(found.svc.allocations && found.svc.allocations[real]);
+            it.current = cur;
+            it.detail = `${deltaFmt(op.from)} h → ${deltaFmt(op.to)} h`;
+            if (Math.abs(cur - deltaNum(op.to)) < 0.001) it.status = 'done';
+            else if (Math.abs(cur - deltaNum(op.from)) >= 0.001) it.status = 'conflict';
+        } else if (op.k === 'tadd') {
+            it.text = `➕ Nouvel enseignant — ${disc}`;
+            it.detail = `${op.name} (ORS ${deltaFmt(op.ors)} h)`;
+            if (Object.prototype.hasOwnProperty.call(virt(disc), op.name)) it.status = 'done';
+            else virt(disc)[op.name] = null;
+        } else if (op.k === 'trename') {
+            it.text = `✏️ Enseignant renommé — ${disc}`;
+            it.detail = `${op.from} → ${op.to}`;
+            const m = virt(disc);
+            if (Object.prototype.hasOwnProperty.call(m, op.to) && !Object.prototype.hasOwnProperty.call(m, op.from)) it.status = 'done';
+            else if (!Object.prototype.hasOwnProperty.call(m, op.from)) { it.status = 'missing'; it.detail += ' (enseignant introuvable)'; }
+            else if (Object.prototype.hasOwnProperty.call(m, op.to)) { it.status = 'conflict'; it.detail += ' (ce nom existe déjà)'; it.current = op.to; }
+            else { m[op.to] = m[op.from]; delete m[op.from]; }
+        } else if (op.k === 'tors') {
+            it.text = `🎓 ORS — ${disc} › ${op.teacher}`;
+            it.detail = `${deltaFmt(op.from)} h → ${deltaFmt(op.to)} h`;
+            const real = virt(disc)[resolveName(disc, op.teacher, opIdx)];
+            if (real === undefined) { it.status = 'missing'; it.detail += ' (enseignant introuvable)'; return it; }
+            const cur = real === null ? 18 : deltaOrs(data, real);
+            it.current = cur;
+            if (Math.abs(cur - deltaNum(op.to)) < 0.001) it.status = 'done';
+            else if (Math.abs(cur - deltaNum(op.from)) >= 0.001) it.status = 'conflict';
+        } else { it.status = 'missing'; it.text = 'Modification inconnue'; }
+        return it;
+    });
+}
+
+function handleDeltaFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        try {
+            const o = JSON.parse(ev.target.result);
+            if (!o || o.format !== 'vectis-modifications' || !Array.isArray(o.ops)) throw new Error('format');
+            pendingDelta = { meta: o, items: evaluateDelta(o.ops) };
+            pendingDelta.items.forEach(it => { it.checked = it.status === 'ok'; });
+            renderDeltaModal();
+            document.getElementById('deltaModal').classList.add('active');
+        } catch (err) {
+            alert("Ce fichier n'est pas un fichier de modifications du Compagnon.");
+        }
+    };
+    reader.readAsText(file);
+}
+
+function closeDeltaModal() { document.getElementById('deltaModal').classList.remove('active'); pendingDelta = null; }
+
+function renderDeltaModal() {
+    const esc = escapeStructureHtml;
+    const box = document.getElementById('deltaContent');
+    if (!pendingDelta) { box.innerHTML = ''; return; }
+    const { meta, items } = pendingDelta;
+    const cnt = st => items.filter(i => i.status === st).length;
+    const nChecked = items.filter(i => i.checked).length;
+    const myName = (epleIdentity.name || '').trim(), theirName = ((meta.eple && meta.eple.name) || '').trim();
+    const warnEple = myName && theirName && myName !== theirName
+        ? `<div class="delta-warn">⚠ Ce fichier provient de « ${esc(theirName)} », le projet ouvert est « ${esc(myName)} ».</div>` : '';
+    const label = { ok: '', done: 'Déjà appliquée', conflict: 'Conflit', missing: 'Impossible' };
+    const rows = items.map((it, i) => {
+        const can = it.status === 'ok' || it.status === 'conflict';
+        let extra = '';
+        if (it.status === 'conflict') {
+            if (it.op.k === 'note') extra = `Valeur actuelle : « ${esc((it.current || '').slice(0, 80))} »`;
+            else if (it.op.k === 'trename') extra = 'Le nouveau nom existe déjà';
+            else extra = `Valeur actuelle sur l'ordinateur : ${esc(deltaFmt(it.current))} h (le téléphone partait de ${esc(deltaFmt(it.op.from))} h)`;
+        }
+        return `<label class="delta-row delta-${it.status}">
+            <input type="checkbox" ${it.checked ? 'checked' : ''} ${can ? '' : 'disabled'} onchange="pendingDelta.items[${i}].checked = this.checked; renderDeltaModal();">
+            <span class="delta-main"><strong>${esc(it.text)}</strong><br><span class="delta-detail">${esc(it.detail)}</span>${extra ? `<br><span class="delta-extra">${extra}</span>` : ''}</span>
+            ${label[it.status] ? `<span class="delta-tag delta-tag-${it.status}">${label[it.status]}</span>` : ''}
+        </label>`;
+    }).join('');
+    const when = meta.createdAt ? new Date(meta.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    box.innerHTML = `${warnEple}
+        <p class="delta-intro">${items.length} modification${items.length > 1 ? 's' : ''} préparée${items.length > 1 ? 's' : ''} sur le téléphone${when ? ` (${esc(when)})` : ''}. Vérifiez avant d'appliquer : ${cnt('ok')} à appliquer${cnt('conflict') ? `, <strong>${cnt('conflict')} en conflit</strong> (non cochée${cnt('conflict') > 1 ? 's' : ''} par défaut)` : ''}${cnt('done') ? `, ${cnt('done')} déjà appliquée${cnt('done') > 1 ? 's' : ''}` : ''}${cnt('missing') ? `, ${cnt('missing')} impossible${cnt('missing') > 1 ? 's' : ''}` : ''}.</p>
+        <div class="delta-list">${rows}</div>
+        <div class="delta-actions"><button class="btn-secondary" onclick="closeDeltaModal()">Annuler</button><button class="btn-primary" ${nChecked ? '' : 'disabled'} onclick="applyDelta()">Appliquer ${nChecked} modification${nChecked > 1 ? 's' : ''}</button></div>`;
+}
+
+function applyDelta() {
+    if (!pendingDelta) return;
+    let applied = 0, failed = 0;
+    pendingDelta.items.forEach(it => {
+        if (!it.checked) return;
+        const op = it.op, data = dataStore[op.disc];
+        let okk = false;
+        if (data) {
+            if (op.k === 'note') {
+                if ((op.to || '').trim()) data.note = op.to; else delete data.note;
+                okk = true;
+            } else if (op.k === 'alloc') {
+                const f = deltaFindService(op);
+                if (f && data.teachers.includes(op.teacher)) {
+                    if (!f.svc.allocations) f.svc.allocations = {};
+                    f.svc.allocations[op.teacher] = deltaNum(op.to);
+                    okk = true;
+                }
+            } else if (op.k === 'tadd') okk = applyTeacherAdd(op.disc, op.name, op.ors);
+            else if (op.k === 'trename') okk = applyTeacherRename(op.disc, op.from, op.to);
+            else if (op.k === 'tors') {
+                if (data.teachers.includes(op.teacher)) {
+                    if (!data.apports) data.apports = {};
+                    data.apports[op.teacher] = deltaNum(op.to);
+                    okk = true;
+                }
+            }
+        }
+        if (okk) applied++; else failed++;
+    });
+    closeDeltaModal();
+    renderApp();
+    showAppToast(failed ? `${applied} modification(s) appliquée(s), ${failed} ignorée(s)` : `✓ ${applied} modification${applied > 1 ? 's' : ''} appliquée${applied > 1 ? 's' : ''}`, failed > 0);
 }
 
 function deleteTeacher(disc, tIndex) {
