@@ -1268,9 +1268,11 @@ table.header-out .teacher-name-row { display: table-row; }
 .lockall-btn.some-locked { background: #ffedd5; border-color: #fb923c; }
 
 /* Cartouche Norvégien (reste à utiliser) : petite pastille fixe en haut à droite */
-.norv-bar { position: fixed; top: 38px; right: 17%; z-index: 45; min-width: 0; padding: 5px 12px 5px 10px; background: var(--surface, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 999px; box-shadow: 0 4px 14px rgba(15,23,42,0.18); cursor: pointer; font-size: 0.82rem; transition: box-shadow .15s; }
+.pill-wrap { position: fixed; top: 38px; right: 17%; z-index: 45; display: flex; align-items: flex-start; gap: 8px; }
+.pill-wrap.raised { z-index: 70; }
+.norv-bar { position: relative; min-width: 0; padding: 5px 12px 5px 10px; background: var(--surface, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 999px; box-shadow: 0 4px 14px rgba(15,23,42,0.18); cursor: pointer; font-size: 0.82rem; transition: box-shadow .15s; }
 .norv-bar:hover { box-shadow: 0 6px 18px rgba(15,23,42,0.26); }
-.norv-bar.open { z-index: 70; border-radius: 14px; padding: 8px 14px 10px; min-width: 210px; }
+.norv-bar.open { border-radius: 14px; padding: 8px 14px 10px; min-width: 210px; }
 .norv-head { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .norv-dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; flex: none; }
 .norv-over .norv-dot { background: #dc2626; } .norv-zero .norv-dot { background: #2563eb; }
@@ -1284,10 +1286,12 @@ table.header-out .teacher-name-row { display: table-row; }
 .norv-over .norv-track i { background: #dc2626; } .norv-zero .norv-track i { background: #2563eb; }
 .norv-line { display: flex; justify-content: space-between; gap: 14px; color: var(--text-muted, #64748b); font-size: 0.8rem; }
 .norv-line b { color: var(--text, #0f172a); font-variant-numeric: tabular-nums; }
+.norv-total { border-top: 1px solid var(--border, #e5e7eb); margin-top: 3px; padding-top: 3px; font-weight: 700; color: var(--text, #0f172a); }
+.norv-note { margin-top: 5px; font-size: 0.7rem; color: var(--text-muted, #64748b); line-height: 1.3; max-width: 230px; white-space: normal; }
 .norv-link { margin-top: 7px; width: 100%; border: 0; background: #e8eefc; color: #1d4ed8; border-radius: 8px; padding: 5px; font-weight: 700; font-size: 0.78rem; cursor: pointer; }
-@media (max-width: 900px) { .norv-bar { right: 8%; } }
-@media (max-width: 640px) { .norv-bar { top: 8px; right: 10px; } }
-@media print { .norv-bar { display: none !important; } }
+@media (max-width: 900px) { .pill-wrap { right: 8%; } }
+@media (max-width: 640px) { .pill-wrap { top: 8px; right: 10px; } }
+@media print { .pill-wrap, .norv-bar { display: none !important; } }
 
 .app-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 9px 18px; border-radius: 999px; font-size: 0.88rem; z-index: 300; opacity: 0; pointer-events: none; transition: opacity .25s; }
 .app-toast.show { opacity: .95; }

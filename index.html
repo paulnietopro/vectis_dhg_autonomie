@@ -114,7 +114,10 @@
             </div>
         </nav>
 
-        <div id="norvBar" class="norv-bar" style="display:none;" onclick="this.classList.toggle('open')" title="Norvégien : cliquer pour le détail"></div>
+        <div id="pillWrap" class="pill-wrap">
+            <div id="ventBar" class="norv-bar vent-bar" style="display:none;" onclick="togglePill(this)" title="Heures à ventiler : cliquer pour le détail"></div>
+            <div id="norvBar" class="norv-bar" style="display:none;" onclick="togglePill(this)" title="Norvégien : cliquer pour le détail"></div>
+        </div>
 
         <div id="tabsContainer" class="tabs-nav"></div>
         <div id="contentsContainer"></div>

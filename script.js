@@ -3392,6 +3392,7 @@ function toggleLockAllServices(disc) {
 
 function updateService(disc, sIndex, key, value, inputEl) {
     dataStore[disc].services[sIndex][key] = value;
+    updateNorvegienBar();
     if (key === 'level' && !dataStore[disc].services[sIndex].isOptionnel) {
         dataStore[disc].services[sIndex].levels = [value];
     }
@@ -3472,14 +3473,33 @@ function updateAllocation(anchorDisc, sIndex, teacher, value, inputEl, viewDisc)
     refreshDisciplineTotals(table, data, disc);
 }
 
-// Bandeau « Norvégien » : dotation − heures ventilées (toutes disciplines), mis à jour en direct
+function togglePill(el) {
+    el.classList.toggle('open');
+    const w = document.getElementById('pillWrap');
+    if (w) w.classList.toggle('raised', !!w.querySelector('.norv-bar.open'));
+}
+
+// Pastilles « Norvégien » (dotation − heures ventilées aux enseignants) et « À ventiler »
+// (somme des volumes des services créés, sans ventilation nécessaire), mises à jour en direct
 function updateNorvegienBar() {
-    const bar = document.getElementById('norvBar');
+    const bar = document.getElementById('norvBar'), vbar = document.getElementById('ventBar');
     if (!bar) return;
     const discs = Object.keys(dataStore);
-    if (discs.length === 0) { bar.style.display = 'none'; return; }
-    let used = 0;
-    discs.forEach(d => { used += getDisciplineTotals(d).grand; });
+    if (discs.length === 0) { bar.style.display = 'none'; if (vbar) vbar.style.display = 'none'; return; }
+    let used = 0, usedRaw = 0, vol = 0, nServ = 0, pondReal = 0, pondEst = 0, areTot = 0;
+    const pondOn = pondEnabled();
+    discs.forEach(d => {
+        const gt = getDisciplineTotals(d); used += gt.grand; usedRaw += gt.raw; pondReal += gt.pond; areTot += gt.are;
+        (dataStore[d].services || []).forEach(sv => {
+            const v = (parseFloat(sv.classes) || 0) * (parseFloat(sv.hours) || 0);
+            vol += v; nServ++;
+            if (pondOn && sv.ponderationActive) {
+                let al = 0; Object.values(sv.allocations || {}).forEach(x => { al += parseFloat(x) || 0; });
+                pondEst += Math.max(0, v - al) * ((sv.ponderationFactor || 1.1) - 1);
+            }
+        });
+    });
+    const pondTot = pondReal + pondEst, ventTot = vol + pondTot + areTot;
     const dgh = (parseFloat(dotationGlobal.hp) || 0) + (parseFloat(dotationGlobal.hsa) || 0);
     const norv = dgh - used;
     const f = v => v.toFixed(2).replace('.', ',');
@@ -3495,6 +3515,27 @@ function updateNorvegienBar() {
             <button type="button" class="norv-link" onclick="event.stopPropagation(); openTrmdModal()">Ouvrir le TRMD ›</button>
         </div>`;
     bar.style.display = 'block';
+    if (!vbar) return;
+    const rest = dgh - ventTot, vcls = Math.abs(rest) < 0.005 ? 'zero' : (rest > 0 ? 'ok' : 'over');
+    const vopen = vbar.classList.contains('open');
+    vbar.className = 'norv-bar vent-bar norv-' + vcls + (vopen ? ' open' : '');
+    const vpct = dgh > 0 ? Math.min(100, Math.max(0, ventTot / dgh * 100)) : 0;
+    const toVent = Math.max(0, vol - usedRaw);
+    vbar.innerHTML = `<div class="norv-head"><span class="norv-dot"></span><span class="norv-lbl">À ventiler</span><strong class="norv-val">${f(ventTot)} h</strong></div>
+        <div class="norv-detail">
+            <div class="norv-track" aria-hidden="true"><i style="width:${vpct}%"></i></div>
+            <div class="norv-line"><span>Services créés (${nServ})</span><b>${f(vol)} h</b></div>
+            ${pondOn ? `<div class="norv-line" title="Pondérations des heures ventilées + estimation sur les heures non encore ventilées (${f(pondEst)} h)"><span>+ Pondérations</span><b>${f(pondTot)} h</b></div>` : ''}
+            <div class="norv-line"><span>+ ARE</span><b>${f(areTot)} h</b></div>
+            <div class="norv-line norv-total"><span>Total à ventiler</span><b>${f(ventTot)} h</b></div>
+            <div class="norv-line"><span>Dotation</span><b>${f(dgh)} h</b></div>
+            <div class="norv-line"><span>Dotation − total</span><b>${rest > 0.004 ? '+' : ''}${f(rest)} h</b></div>
+            <div class="norv-line"><span>Heures de services déjà ventilées</span><b>${f(usedRaw)} h</b></div>
+            <div class="norv-line"><span>Heures de services restantes</span><b>${f(toVent)} h</b></div>
+            ${pondOn && pondEst > 0.004 ? `<div class="norv-note">Pondérations : dont ${f(pondEst)} h estimées sur les heures non ventilées.</div>` : ''}
+            <button type="button" class="norv-link" onclick="event.stopPropagation(); openTrmdModal()">Ouvrir le TRMD ›</button>
+        </div>`;
+    vbar.style.display = 'block';
 }
 
 function refreshDisciplineTotals(table, data, disc) {
@@ -6703,13 +6744,15 @@ window.addEventListener('resize', updateTeacherNameReminders);
 // Récapitulatif de la discipline (mêmes valeurs que dans le TRMD)
 function getDisciplineTotals(disc) {
     const data = dataStore[disc];
-    const totals = { raw: 0, hsa: 0, grand: 0 };
+    const totals = { raw: 0, hsa: 0, grand: 0, pond: 0, are: 0 };
     if (!data) return totals;
     data.teachers.forEach(t => {
         const sm = computeTeacherSummary(disc, t);
         totals.raw += sm.raw;
         totals.hsa += sm.hsa;
         totals.grand += sm.total;
+        totals.pond += sm.pond;
+        totals.are += sm.are;
     });
     return totals;
 }
