@@ -1268,8 +1268,10 @@ table.header-out .teacher-name-row { display: table-row; }
 .lockall-btn.some-locked { background: #ffedd5; border-color: #fb923c; }
 
 /* Cartouche Norvégien (reste à utiliser) : petite pastille fixe en haut à droite */
-.pill-wrap { position: fixed; top: 38px; right: 17%; z-index: 45; display: flex; align-items: flex-start; gap: 8px; }
+.pill-wrap { position: fixed; top: 38px; right: 17%; z-index: 55; display: flex; align-items: flex-start; gap: 8px; }
 .pill-wrap.raised { z-index: 70; }
+/* un menu déroulant ouvert repasse devant les pastilles */
+body:has(.menu.open) .pill-wrap { z-index: 40; }
 .norv-bar { position: relative; min-width: 0; padding: 5px 12px 5px 10px; background: var(--surface, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 999px; box-shadow: 0 4px 14px rgba(15,23,42,0.18); cursor: pointer; font-size: 0.82rem; transition: box-shadow .15s; }
 .norv-bar:hover { box-shadow: 0 6px 18px rgba(15,23,42,0.26); }
 .norv-bar.open { border-radius: 14px; padding: 8px 14px 10px; min-width: 210px; }
@@ -1317,3 +1319,7 @@ table.header-out .teacher-name-row { display: table-row; }
 .delta-tag-conflict { background: #fef3c7; color: #b45309; }
 .delta-tag-missing { background: #fee2e2; color: #b91c1c; }
 .delta-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
+.norv-bar { touch-action: none; user-select: none; }
+.norv-bar .norv-head { cursor: grab; }
+.norv-bar.dragging, .norv-bar.dragging .norv-head { cursor: grabbing; box-shadow: 0 10px 28px rgba(15,23,42,.25); }

@@ -3473,8 +3473,62 @@ function updateAllocation(anchorDisc, sIndex, teacher, value, inputEl, viewDisc)
     refreshDisciplineTotals(table, data, disc);
 }
 
+// ── Pastilles déplaçables (position mémorisée dans le navigateur, double-clic pour replacer) ──
+const PILL_KEY = 'vectis.pills.v1';
+function pillLoad() { try { return JSON.parse(localStorage.getItem(PILL_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function pillSave(o) { try { localStorage.setItem(PILL_KEY, JSON.stringify(o)); } catch (e) { } }
+function pillClamp(el) {
+    if (el.style.position !== 'fixed') return;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.min(Math.max(0, parseFloat(el.style.left) || 0), Math.max(0, window.innerWidth - w)) + 'px';
+    el.style.top = Math.min(Math.max(0, parseFloat(el.style.top) || 0), Math.max(0, window.innerHeight - Math.min(h, 60))) + 'px';
+}
+function pillPlace(el, pos) {
+    if (!pos) { el.style.position = el.style.left = el.style.top = ''; return; }
+    el.style.position = 'fixed'; el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px'; pillClamp(el);
+}
+function initPillDrag() {
+    const saved = pillLoad();
+    ['ventBar', 'norvBar'].forEach(id => {
+        const el = document.getElementById(id); if (!el) return;
+        if (saved[id]) pillPlace(el, saved[id]);
+        el.setAttribute('title', (el.getAttribute('title') || '') + ' — glisser pour déplacer, double-clic pour replacer');
+        let st = null;
+        el.addEventListener('pointerdown', e => {
+            if (e.button !== 0 || e.target.closest('button')) return;
+            const r = el.getBoundingClientRect();
+            st = { x: e.clientX, y: e.clientY, l: r.left, t: r.top, drag: false, id: e.pointerId };
+            try { el.setPointerCapture(e.pointerId); } catch (x) { }
+        });
+        el.addEventListener('pointermove', e => {
+            if (!st) return;
+            const dx = e.clientX - st.x, dy = e.clientY - st.y;
+            if (!st.drag) {
+                if (Math.hypot(dx, dy) < 6) return;
+                st.drag = true; el.classList.add('dragging');
+                el.style.position = 'fixed';
+            }
+            el.style.left = (st.l + dx) + 'px'; el.style.top = (st.t + dy) + 'px'; pillClamp(el);
+        });
+        const end = () => {
+            if (!st) return;
+            if (st.drag) {
+                el.classList.remove('dragging'); el._moved = true; setTimeout(() => { el._moved = false; }, 0);
+                const o = pillLoad(); o[id] = { x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0 }; pillSave(o);
+            }
+            st = null;
+        };
+        el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+        el.addEventListener('dblclick', () => { pillPlace(el, null); const o = pillLoad(); delete o[id]; pillSave(o); });
+    });
+    window.addEventListener('resize', () => ['ventBar', 'norvBar'].forEach(id => { const el = document.getElementById(id); if (el) pillClamp(el); }));
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPillDrag); else initPillDrag();
+
 function togglePill(el) {
+    if (el._moved) return;
     el.classList.toggle('open');
+    setTimeout(() => pillClamp(el), 0);
     const w = document.getElementById('pillWrap');
     if (w) w.classList.toggle('raised', !!w.querySelector('.norv-bar.open'));
 }
