@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ventilation DHG</title>
+    <script>try { var t = localStorage.getItem('vectis_theme') || 'light'; document.documentElement.setAttribute('data-theme', t === 'dark' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'); } catch (e) { }</script>
     <!-- Préconnexion au CDN de la librairie Excel (chargée à la demande, voir script.js) -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <!-- Feuille de style externe -->
@@ -26,10 +27,17 @@
                     <button class="menu-item" type="button" onclick="newEmptyProject()">📄 Nouveau</button>
                     <button class="menu-item" id="btnOpenPicker" type="button" style="display:none;" onclick="openWithPicker()"><span>📂 Ouvrir</span></button>
                     <label class="menu-item" id="openFallbackLabel"><span>📂 Ouvrir</span><input type="file" id="jsonFileInput" accept=".json"></label>
+                    <label class="menu-item" title="Format : Nom Prénom Discipline ORS"><span>📊 Importer</span> <span class="menu-hint">Nom Prénom Discipline ORS</span><input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv"></label>
                     <button class="menu-item" type="button" onclick="saveState()"><span>💾 Enregistrer</span> <span class="menu-hint" id="currentFileLabel"></span></button>
                     <button class="menu-item" id="btnSaveAs" type="button" style="display:none;" onclick="saveState(true)">💾 Enregistrer sous…</button>
-                    <label class="menu-item" title="Format : Nom Prénom Discipline ORS"><span>📊 Importer</span> <span class="menu-hint">Nom Prénom Discipline ORS</span><input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv"></label>
-                    <label class="menu-item" title="Fichier de modifications exporté par VectisDHG Compagnon (iPhone)"><span>📱 Modifications du téléphone</span><input type="file" id="deltaFileInput" accept=".json"></label>
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📱 App Compagnon <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" type="button" title="Affiche un code QR que VectisDHG Compagnon scanne : aucun réseau" onclick="openQrSendModal()">📲 Envoyer au téléphone (QR)</button>
+                            <button class="menu-item menu-sub-item" type="button" title="Reçoit les modifications du Compagnon en filmant l'écran du téléphone avec la webcam : aucun réseau" onclick="openQrRecvModal()">📷 Modifications du téléphone (QR)</button>
+                            <label class="menu-item menu-sub-item" title="Fichier de modifications exporté par VectisDHG Compagnon (iPhone)"><span>📱 Modifications du téléphone (fichier)</span><input type="file" id="deltaFileInput" accept=".json"></label>
+                        </div>
+                    </div>
                     <div class="menu-sep"></div>
                     <div class="menu-sub">
                         <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📤 Exporter <span class="menu-caret">▸</span></button>
@@ -63,6 +71,7 @@
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Synthèse</button>
                 <div class="menu-panel">
                     <button class="menu-item" type="button" onclick="openAlertsModal()">🚦 Tableau des alertes</button>
+                    <button class="menu-item" type="button" onclick="openRetroModal()">🗓️ Rétroplanning</button>
                     <div class="menu-sub">
                         <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">📊 Dotation et pilotage <span class="menu-caret">▸</span></button>
                         <div class="menu-group">
@@ -86,6 +95,14 @@
             <div class="menu">
                 <button class="menu-btn" type="button" onclick="toggleMenu(event, this)">Paramètres</button>
                 <div class="menu-panel">
+                    <div class="menu-sub">
+                        <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">🎨 Apparence <span class="menu-caret">▸</span></button>
+                        <div class="menu-group">
+                            <button class="menu-item menu-sub-item" type="button" data-theme-btn="light" onclick="setTheme('light')">☀️ Mode clair</button>
+                            <button class="menu-item menu-sub-item" type="button" data-theme-btn="dark" onclick="setTheme('dark')">🌙 Mode sombre</button>
+                            <button class="menu-item menu-sub-item" type="button" data-theme-btn="auto" onclick="setTheme('auto')">🖥️ Automatique (réglage du système)</button>
+                        </div>
+                    </div>
                     <div class="menu-sub">
                         <button class="menu-item menu-group-toggle" type="button" onclick="toggleMenuGroup(event, this)">🏫 Établissement <span class="menu-caret">▸</span></button>
                         <div class="menu-group">
@@ -209,7 +226,12 @@
                 <h2>💡 Notice d'utilisation & Conseils</h2>
                 <button class="modal-close" onclick="closeHelpModal()">&times;</button>
             </div>
-            <div class="help-guide-container">
+            <div class="help-tabs">
+                <button type="button" class="help-tab active" id="helpTabSlides" onclick="helpTab('slides')">🎞️ Diaporama</button>
+                <button type="button" class="help-tab" id="helpTabGuide" onclick="helpTab('guide')">📖 Notice détaillée</button>
+            </div>
+            <div id="helpSlides" class="help-slides"></div>
+            <div class="help-guide-container" id="helpGuide" style="display:none;">
                 <div class="help-step-card">
                     <div class="help-step-header">
                         <div class="help-step-number">1</div>
@@ -440,6 +462,60 @@
                 </div>
             </div>
             <div id="historyContent"></div>
+        </div>
+    </div>
+
+    <div id="retroModal" class="modal-overlay">
+        <div class="modal-card modal-lg" style="max-width: 1250px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>🗓️ Rétroplanning</h2>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="printRetro()">🖨️ Export PDF</button>
+                    <button class="modal-close" onclick="closeRetroModal()">&times;</button>
+                </div>
+            </div>
+            <div id="retroEditor"></div>
+        </div>
+    </div>
+
+    <div id="qrxModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: min(940px, 96vw);">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📲 Envoyer au téléphone</h2>
+                <button class="modal-close" onclick="closeQrSendModal()">&times;</button>
+            </div>
+            <ol class="qrx-steps">
+                <li>Sur l'iPhone, ouvrez <b>VectisDHG Compagnon</b> puis touchez <b>📷 Recevoir depuis l'ordinateur</b>.</li>
+                <li>Pointez l'appareil vers le code (écran à pleine luminosité). Un seul code suffit ; si le fichier est trop gros, plusieurs images défilent et il faut attendre qu'elles soient toutes reçues.</li>
+            </ol>
+            <div class="qrx-stage"><canvas id="qrxCanvas"></canvas></div>
+            <div class="qrx-count" id="qrxCount"></div>
+            <div class="qrx-status" id="qrxStatus"></div>
+            <details class="qrx-adv"><summary>Réglages (si la lecture échoue)</summary><div class="qrx-ctl" id="qrxCtl">
+                <label>Taille des images
+                    <select onchange="qrxSetChunk(this.value)"><option value="350">Petites (plus fiables)</option><option value="600" selected>Moyennes</option><option value="900">Grandes (moins d'images)</option></select></label>
+                <label>Vitesse
+                    <select onchange="qrxSetFps(this.value)"><option value="2">Lente</option><option value="4" selected>Normale</option><option value="6">Rapide</option></select></label>
+                <button class="btn-secondary" id="qrxPause" onclick="qrxTogglePause()">⏸ Pause</button>
+            </div></details>
+            <p class="qrx-note">Le transfert se fait uniquement entre les deux applications, sans réseau ni serveur. Sens ordinateur → téléphone. Pour le retour : Fichier › Modifications du téléphone (QR) ici, ou fichier exporté depuis Compagnon.</p>
+        </div>
+    </div>
+
+    <div id="rxqModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 680px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📷 Modifications du téléphone</h2>
+                <button class="modal-close" onclick="closeQrRecvModal()">&times;</button>
+            </div>
+            <ol class="qrx-steps">
+                <li>Sur l'iPhone, dans <b>VectisDHG Compagnon › Fichier</b>, touchez <b>📲 Envoyer à l'ordinateur (QR)</b>.</li>
+                <li>Placez l'écran du téléphone (luminosité maximale) devant la webcam, bien cadré, et patientez jusqu'à ce que toutes les images soient reçues.</li>
+            </ol>
+            <div class="rxq-stage"><video id="rxqVideo" playsinline muted autoplay></video><canvas id="rxqCanvas" style="display:none"></canvas></div>
+            <div class="qrx-count" id="rxqInfo"></div>
+            <div class="rxq-bar" id="rxqBar"></div>
+            <p class="qrx-note">Aucune donnée ne quitte votre appareil. Vous pourrez vérifier chaque modification avant de l'appliquer.</p>
         </div>
     </div>
 
@@ -979,6 +1055,7 @@
     <!-- Contenu imprimé : services par enseignant -->
     <div id="teacherPdfPrint"></div>
     <div id="presentationPrint"></div>
+    <div id="retroPrint"></div>
 
     <!-- Script externe -->
     <script src="script.js"></script>

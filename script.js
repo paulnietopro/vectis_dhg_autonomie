@@ -1511,8 +1511,51 @@ function autoAdjustLevelSelect(selectEl) {
     selectEl.style.width = `calc(${charCount}ch + 32px)`;
 }
 
+// ── Notice : diaporama de présentation des étapes ──
+const HELP_SLIDES = [
+    { ic: '🧭', t: 'Le principe en 4 temps', l: ['<b>Structurer</b> : niveaux, disciplines, enseignants, effectifs', '<b>Construire</b> les services (classes × heures)', '<b>Ventiler</b> les heures sur les enseignants', '<b>Piloter</b> : dotation, alertes, exports'], n: 'Chaque étape peut se refaire à tout moment : tout se met à jour en direct.' },
+    { ic: '📂', t: '1 · Démarrer', l: ['Menu <b>Fichier</b> : Nouveau, Ouvrir, Enregistrer', 'Avec Chrome ou Edge, « Enregistrer » met à jour le fichier sur place', 'Jeu de test : Paramètres › Données › Jeu de test', 'Importer une liste Nom Prénom Discipline ORS'], n: 'Pensez à enregistrer régulièrement : le fichier .json contient tout votre travail.' },
+    { ic: '🏫', t: '2 · Paramétrer l\'établissement', l: ['<b>Paramètres › Établissement</b> : identité, niveaux, disciplines', '<b>Fonctionnalités à activer</b> : spécialités, options, co-enseignement…', 'Saisie de la dotation globale (HP et HSA)', 'Prévision d\'effectifs : élèves et divisions par niveau'], n: 'Seules les fonctionnalités utiles sont affichées : l\'écran reste simple.' },
+    { ic: '🏗️', t: '3 · Construire les services', l: ['<b>Édition › Construire les services avec la structure</b>', 'Choisir les niveaux et le nombre de divisions', 'Les services sont créés avec les horaires réglementaires', 'Ajustements possibles : groupes, options, co-enseignement'], n: 'On peut créer les services sans ventiler : la pastille « À ventiler » montre la consommation de la DHG.' },
+    { ic: '🧩', t: '4 · Saisir et ventiler', l: ['Un service = classes × heures ; ajoutez-le à une discipline', 'Répartissez les heures entre les enseignants de la discipline', '<b>Verrouillage</b> d\'un service ou d\'une discipline entière', 'Ventilation par niveau pour garder une vue d\'ensemble'], n: 'Un cadenas évite de modifier par erreur un service validé.' },
+    { ic: '🔴', t: 'Les deux pastilles', l: ['<b>Norvégien</b> : dotation − heures ventilées aux enseignants', '<b>À ventiler</b> : total des services + pondérations + ARE', 'Cliquer pour le détail ; glisser pour les déplacer', 'Double-clic pour les replacer'], n: 'Vert : marge ; rouge : dépassement de la dotation.' },
+    { ic: '➕', t: '5 · Pondérations, HSA et ARE', l: ['Pondérations calculées selon les règles de la discipline', '<b>HSA</b> = total de l\'enseignant − ORS', '<b>ARE</b> : allègements et missions ajoutés au total', 'Synthèse des ARE dans Synthèse › Ventilation et services'], n: 'Les totaux par enseignant sont visibles dans le tableau et dans le TRMD.' },
+    { ic: '📊', t: '6 · Piloter', l: ['<b>TRMD</b> : dotation, ventilation et marges', '<b>Tableau des alertes</b> : incohérences à corriger', '<b>Statistiques</b> de la DHG, taux H/E, comparaison N-1', 'Autonomie : marges d\'autonomie de l\'EPLE'], n: 'Le menu Synthèse regroupe tous les tableaux de pilotage.' },
+    { ic: '🗓️', t: 'Rétroplanning', l: ['<b>Synthèse › Rétroplanning</b> : flèche temporelle', 'Étapes paramétrables : dates, périodes, responsables', 'Modèle indicatif à adapter au calendrier de l\'académie', 'Export PDF prêt à présenter'], n: 'Les étapes sont enregistrées dans le fichier projet.' },
+    { ic: '📤', t: '7 · Exporter', l: ['<b>Par discipline</b> et <b>services des enseignants</b> (Excel / PDF)', '<b>Pour la présentation</b> : pages prêtes pour le conseil d\'administration', 'Comparaison N-1 en export', 'Historique des modifications consultable et imprimable'], n: 'Les exports reprennent les données affichées à l\'écran.' },
+    { ic: '☁️', t: '8 · Nuage et Compagnon', l: ['Dossier <b>Nuage</b> synchronisé : enregistrement direct dans le fichier', '<b>VectisDHG Compagnon</b> (iPhone) : consulter et modifier les post-it', 'Les modifications du téléphone s\'importent via Fichier › Modifications du téléphone', 'Les conflits sont signalés avant fusion'], n: 'Les données restent sur vos appareils.' },
+    { ic: '💡', t: '9 · Conseils', l: ['Enregistrer souvent et garder des copies datées', 'Verrouiller les services validés', 'Consulter les alertes avant chaque export', 'Utiliser l\'historique pour retrouver une modification'], n: 'Le détail de chaque étape est dans l\'onglet « Notice détaillée ».' }
+];
+let helpSlideIdx = 0;
+function renderHelpSlide() {
+    const box = document.getElementById('helpSlides'); if (!box) return;
+    const n = HELP_SLIDES.length, s = HELP_SLIDES[helpSlideIdx];
+    box.innerHTML = `<div class="hs-progress"><i style="width:${(helpSlideIdx + 1) / n * 100}%"></i></div>
+        <div class="hs-stage"><div class="hs-icon">${s.ic}</div>
+            <div class="hs-body"><h3>${s.t}</h3><ul>${s.l.map(x => `<li>${x}</li>`).join('')}</ul><p class="hs-note">${s.n}</p></div></div>
+        <div class="hs-nav"><button type="button" class="btn-secondary" onclick="helpSlideGo(-1)" ${helpSlideIdx === 0 ? 'disabled' : ''}>◀ Précédent</button>
+            <div class="hs-dots">${HELP_SLIDES.map((x, i) => `<button type="button" class="hs-dot ${i === helpSlideIdx ? 'on' : ''}" onclick="helpSlideSet(${i})" title="${x.t.replace(/"/g, '')}"></button>`).join('')}</div>
+            <button type="button" class="btn-primary" onclick="helpSlideGo(1)" ${helpSlideIdx === n - 1 ? 'disabled' : ''}>Suivant ▶</button></div>
+        <div class="hs-count">${helpSlideIdx + 1} / ${n}</div>`;
+}
+function helpSlideSet(i) { helpSlideIdx = Math.max(0, Math.min(HELP_SLIDES.length - 1, i)); renderHelpSlide(); }
+function helpSlideGo(d) { helpSlideSet(helpSlideIdx + d); }
+function helpTab(w) {
+    document.getElementById('helpSlides').style.display = w === 'slides' ? '' : 'none';
+    document.getElementById('helpGuide').style.display = w === 'guide' ? '' : 'none';
+    document.getElementById('helpTabSlides').classList.toggle('active', w === 'slides');
+    document.getElementById('helpTabGuide').classList.toggle('active', w === 'guide');
+    if (w === 'slides') renderHelpSlide();
+}
+document.addEventListener('keydown', e => {
+    const m = document.getElementById('helpModal');
+    if (!m || !m.classList.contains('active') || document.getElementById('helpSlides').style.display === 'none') return;
+    if (e.key === 'ArrowRight') helpSlideGo(1); else if (e.key === 'ArrowLeft') helpSlideGo(-1);
+});
+
 function openHelpModal() {
     document.getElementById('helpModal').classList.add('active');
+    helpTab('slides');
 }
 
 function closeHelpModal() {
@@ -2739,6 +2782,7 @@ function buildSaveJson() {
         coordinators: coordinators,
         n1Reference: n1Reference,
         enrollment: enrollmentForecast,
+        retroplanning: retroplanning,
         changeHistory: changeHistory
     };
     return JSON.stringify(exportObject, null, 2);
@@ -2859,6 +2903,7 @@ function applyLoadedData(loadedData) {
             ? Object.assign({ enabled: false, file: '', epleName: '', levels: [], names: {}, flags: {} }, loadedData.n1Reference)
             : { enabled: false, file: '', epleName: '', levels: [], names: {}, flags: {} };
         changeHistory = Array.isArray(loadedData.changeHistory) ? loadedData.changeHistory : [];
+        retroplanning = normalizeRetro(loadedData.retroplanning);
         if (loadedData.epleIdentity) {
             epleIdentity = loadedData.epleIdentity;
             if (epleIdentity.enableSpecialites === undefined) {
@@ -5719,23 +5764,25 @@ function evaluateDelta(ops) {
     });
 }
 
+function openDeltaFromText(text) {
+    try {
+        const o = JSON.parse(text);
+        if (!o || o.format !== 'vectis-modifications' || !Array.isArray(o.ops)) throw new Error('format');
+        pendingDelta = { meta: o, items: evaluateDelta(o.ops) };
+        pendingDelta.items.forEach(it => { it.checked = it.status === 'ok'; });
+        renderDeltaModal();
+        document.getElementById('deltaModal').classList.add('active');
+    } catch (err) {
+        alert("Ce fichier n'est pas un fichier de modifications du Compagnon.");
+    }
+}
+
 function handleDeltaFile(e) {
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => {
-        try {
-            const o = JSON.parse(ev.target.result);
-            if (!o || o.format !== 'vectis-modifications' || !Array.isArray(o.ops)) throw new Error('format');
-            pendingDelta = { meta: o, items: evaluateDelta(o.ops) };
-            pendingDelta.items.forEach(it => { it.checked = it.status === 'ok'; });
-            renderDeltaModal();
-            document.getElementById('deltaModal').classList.add('active');
-        } catch (err) {
-            alert("Ce fichier n'est pas un fichier de modifications du Compagnon.");
-        }
-    };
+    reader.onload = ev => openDeltaFromText(ev.target.result);
     reader.readAsText(file);
 }
 
@@ -6743,6 +6790,772 @@ function generateTeacherServicesPdf() {
     window.addEventListener('afterprint', cleanup);
     triggerPrint();
 }
+
+
+// ============================================================
+// Rétroplanning de la préparation de rentrée (flèche temporelle, paramétrable, export PDF)
+// ============================================================
+const RETRO_CATS = [
+    ['Remontées', '#2563eb'], ['Dotation', '#7c3aed'], ['Instances', '#db2777'],
+    ['Ventilation', '#059669'], ['Équipes', '#d97706'], ['Rentrée', '#0f766e'], ['Autre', '#64748b']
+];
+const retroColor = c => (RETRO_CATS.find(x => x[0] === c) || RETRO_CATS[RETRO_CATS.length - 1])[1];
+let retroplanning = { title: 'Rétroplanning de la préparation de rentrée', items: [] };
+
+function normalizeRetro(r) {
+    const base = { title: 'Rétroplanning de la préparation de rentrée', items: [] };
+    if (!r || typeof r !== 'object') return base;
+    base.title = typeof r.title === 'string' && r.title ? r.title : base.title;
+    base.items = (Array.isArray(r.items) ? r.items : []).map((it, i) => ({
+        id: it.id || ('r' + Date.now().toString(36) + i),
+        label: String(it.label || ''), start: String(it.start || ''), end: String(it.end || ''),
+        owner: String(it.owner || ''), cat: String(it.cat || 'Autre'), done: !!it.done, note: String(it.note || '')
+    }));
+    return base;
+}
+const rDate = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); if (!m) return null; const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d) ? null : d; };
+const rFmt = (d, withYear) => d.toLocaleDateString('fr-FR', withYear ? { day: '2-digit', month: '2-digit', year: 'numeric' } : { day: '2-digit', month: '2-digit' });
+const rIso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+function openRetroModal() {
+    document.getElementById('retroModal').classList.add('active');
+    renderRetroModal();
+}
+function closeRetroModal() { document.getElementById('retroModal').classList.remove('active'); }
+
+function renderRetroModal() {
+    const esc = escapeStructureHtml;
+    const box = document.getElementById('retroEditor');
+    const items = retroplanning.items.slice().sort((a, b) => (a.start || '9').localeCompare(b.start || '9'));
+    const rows = items.map(it => `<tr data-id="${it.id}">
+        <td><input type="date" class="retro-in" value="${esc(it.start)}" onchange="retroSet('${it.id}','start',this.value)"></td>
+        <td><input type="date" class="retro-in" value="${esc(it.end)}" onchange="retroSet('${it.id}','end',this.value)" title="Facultatif : pour une période"></td>
+        <td><input type="text" class="retro-in retro-label" value="${esc(it.label)}" placeholder="Étape" oninput="retroSet('${it.id}','label',this.value,true)"></td>
+        <td><input type="text" class="retro-in" value="${esc(it.owner)}" placeholder="Responsable" oninput="retroSet('${it.id}','owner',this.value,true)"></td>
+        <td><select class="retro-in" onchange="retroSet('${it.id}','cat',this.value)">${RETRO_CATS.map(c => `<option ${c[0] === it.cat ? 'selected' : ''}>${c[0]}</option>`).join('')}</select></td>
+        <td style="text-align:center"><input type="checkbox" ${it.done ? 'checked' : ''} onchange="retroSet('${it.id}','done',this.checked)"></td>
+        <td><input type="text" class="retro-in" value="${esc(it.note)}" placeholder="Remarque" oninput="retroSet('${it.id}','note',this.value,true)"></td>
+        <td><button class="btn-secondary" style="padding:3px 8px" onclick="retroDelete('${it.id}')" title="Supprimer">🗑️</button></td></tr>`).join('');
+    box.innerHTML = `<div class="retro-bar">
+            <input type="text" class="retro-in retro-title" value="${esc(retroplanning.title)}" oninput="retroplanning.title=this.value;renderRetroPreview()" placeholder="Titre du rétroplanning">
+            <button class="btn-secondary" onclick="retroAdd()">➕ Ajouter une étape</button>
+            <button class="btn-secondary" onclick="retroLoadTemplate()">📋 Modèle indicatif</button>
+        </div>
+        <div id="retroPreview" class="retro-preview"></div>
+        <div style="overflow-x:auto"><table class="retro-table"><thead><tr><th>Début / jalon</th><th>Fin</th><th>Étape</th><th>Responsable</th><th>Catégorie</th><th>Fait</th><th>Remarque</th><th></th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:18px">Aucune étape. Ajoutez-en une, ou chargez le modèle indicatif.</td></tr>'}</tbody></table></div>`;
+    renderRetroPreview();
+}
+function retroSet(id, key, value, noRerender) {
+    const it = retroplanning.items.find(x => x.id === id); if (!it) return;
+    it[key] = value;
+    if (key === 'start' && it.end && it.end < value) it.end = '';
+    if (noRerender) renderRetroPreview(); else renderRetroModal();
+}
+function retroAdd() {
+    const last = retroplanning.items.map(i => i.start).filter(Boolean).sort().pop();
+    retroplanning.items.push({ id: 'r' + Date.now().toString(36), label: '', start: last || rIso(new Date()), end: '', owner: '', cat: 'Autre', done: false, note: '' });
+    renderRetroModal();
+    const inputs = document.querySelectorAll('#retroEditor .retro-label'); if (inputs.length) { const el = Array.from(inputs).find(i => !i.value) || inputs[inputs.length - 1]; el.focus(); }
+}
+function retroDelete(id) { retroplanning.items = retroplanning.items.filter(x => x.id !== id); renderRetroModal(); }
+function retroLoadTemplate() {
+    if (retroplanning.items.length && !confirm('Remplacer les étapes actuelles par le modèle indicatif ?')) return;
+    let y = parseInt(String(enrollmentForecast && enrollmentForecast.rentree || '').match(/20\d\d/)) || null;
+    const ans = prompt('Année de la rentrée concernée (ex. 2027) :', y || (new Date().getFullYear() + (new Date().getMonth() > 6 ? 1 : 0)));
+    if (ans === null) return;
+    y = parseInt(ans); if (!y || y < 2000 || y > 2100) { alert('Année invalide.'); return; }
+    const P = y - 1, d = (yr, m, j) => yr + '-' + String(m).padStart(2, '0') + '-' + String(j).padStart(2, '0');
+    const T = [
+        ['Prévisions d\'effectifs de la rentrée', d(P, 10, 15), d(P, 11, 30), 'Direction', 'Remontées'],
+        ['Remontée des prévisions au rectorat', d(P, 12, 15), '', 'Direction', 'Remontées'],
+        ['Notification de la DHG', d(y, 1, 31), '', 'Rectorat', 'Dotation'],
+        ['Dialogue de gestion', d(y, 2, 1), d(y, 2, 28), 'Direction / rectorat', 'Dotation'],
+        ['Fiches de vœux des enseignants', d(y, 3, 1), d(y, 3, 22), 'Équipes', 'Équipes'],
+        ['Construction des services et ventilation', d(y, 3, 23), d(y, 4, 30), 'Direction', 'Ventilation'],
+        ['Conseil d\'administration : structure et répartition', d(y, 3, 31), '', 'Direction', 'Instances'],
+        ['Résultats du mouvement', d(y, 6, 30), '', 'Rectorat', 'Dotation'],
+        ['Ajustements de la ventilation (TZR, contractuels)', d(y, 7, 1), d(y, 7, 10), 'Direction', 'Ventilation'],
+        ['Construction des emplois du temps', d(y, 7, 1), d(y, 8, 25), 'Direction', 'Équipes'],
+        ['Rentrée des enseignants', d(y, 9, 1), '', 'Direction', 'Rentrée']
+    ];
+    retroplanning.items = T.map((t, i) => ({ id: 'r' + Date.now().toString(36) + i, label: t[0], start: t[1], end: t[2], owner: t[3], cat: t[4], done: false, note: '' }));
+    renderRetroModal();
+    showAppToast('Modèle indicatif chargé : adaptez les dates au calendrier de votre académie.');
+}
+
+// Flèche temporelle (SVG) : jalons et périodes proportionnels au temps, étiquettes sur plusieurs niveaux pour éviter les chevauchements
+function buildRetroSvg() {
+    const esc = escapeStructureHtml;
+    const its = retroplanning.items.map(it => ({ it, s: rDate(it.start), e: rDate(it.end) })).filter(x => x.s);
+    if (!its.length) return '<div class="retro-empty">Ajoutez des étapes avec une date pour voir la flèche temporelle.</div>';
+    its.forEach(x => { if (x.e && x.e < x.s) x.e = null; });
+    its.sort((a, b) => a.s - b.s);
+    const W = 1100, L = 40, R = 1050, DAY = 86400000;
+    let t0 = new Date(Math.min(...its.map(x => x.s))), t1 = new Date(Math.max(...its.map(x => (x.e || x.s))));
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    t0 = new Date(t0.getFullYear(), t0.getMonth(), 1);                       // début du mois
+    t1 = new Date(t1.getFullYear(), t1.getMonth() + 1, 1);                   // début du mois suivant
+    const span = Math.max(DAY, t1 - t0), X = d => L + (d - t0) / span * (R - L);
+    const BW = 150, BH = 54, LANE = 62, ax = [], below = [];
+    const lanesA = [], lanesB = [];
+    const place = (lanes, x) => {
+        let k = lanes.findIndex(r => r + 8 <= x - BW / 2);
+        if (k < 0) { if (lanes.length < 4) { k = lanes.length; lanes.push(-1e9); } else k = lanes.indexOf(Math.min(...lanes)); }
+        lanes[k] = x + BW / 2; return k;
+    };
+    its.forEach((o, i) => {
+        o.x = X(o.s); o.cx = Math.min(Math.max(o.e ? (o.x + X(o.e)) / 2 : o.x, L + BW / 2 - 20), R - BW / 2 + 20);
+        const up = i % 2 === 0; o.up = up;
+        o.lane = place(up ? lanesA : lanesB, o.cx);
+    });
+    const nA = Math.max(1, lanesA.length), nB = Math.max(1, lanesB.length);
+    const axisY = 30 + nA * LANE + 10, H = axisY + 40 + nB * LANE + 10;
+    let g = '';
+    // flèche
+    g += `<line x1="${L - 20}" y1="${axisY}" x2="${R + 22}" y2="${axisY}" stroke="#334155" stroke-width="3"/><polygon points="${R + 40},${axisY} ${R + 20},${axisY - 9} ${R + 20},${axisY + 9}" fill="#334155"/>`;
+    // mois
+    const mois = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    for (let d = new Date(t0); d < t1; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+        const x = X(d), nx = X(new Date(d.getFullYear(), d.getMonth() + 1, 1));
+        g += `<line x1="${x}" y1="${axisY - 6}" x2="${x}" y2="${axisY + 6}" stroke="#94a3b8"/>`;
+        if (nx - x > 26) g += `<text x="${(x + Math.min(nx, R)) / 2}" y="${axisY + 20}" text-anchor="middle" font-size="10.5" fill="#64748b">${mois[d.getMonth()]}${d.getMonth() === 0 || d === t0 ? ' ' + d.getFullYear() : ''}</text>`;
+    }
+    // aujourd'hui
+    if (today >= t0 && today <= t1) { const x = X(today); g += `<line x1="${x}" y1="${axisY - nA * LANE - 8}" x2="${x}" y2="${axisY + 30 + nB * LANE}" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="4 3"/><text x="${x}" y="${axisY + 36}" text-anchor="middle" font-size="9.5" fill="#ef4444" font-weight="700">Aujourd'hui</text>`; }
+    // étapes
+    const wrap = (txt, n) => { const w = String(txt).split(/\s+/), out = []; let cur = ''; w.forEach(x => { if ((cur + ' ' + x).trim().length > n) { if (cur) out.push(cur); cur = x; } else cur = (cur + ' ' + x).trim(); }); if (cur) out.push(cur); return out.slice(0, 3); };
+    its.forEach(o => {
+        const it = o.it, over = !it.done && (o.e || o.s) < today, soon = !it.done && !over && (o.s - today) / DAY <= 14 && o.s >= today;
+        const col = it.done ? '#16a34a' : (over ? '#dc2626' : (soon ? '#ea580c' : retroColor(it.cat)));
+        const y0 = o.up ? axisY - 14 - (o.lane + 1) * LANE + (LANE - BH) : axisY + 40 + o.lane * LANE;
+        const bx = o.cx - BW / 2, anchorY = o.up ? y0 + BH : y0;
+        if (o.e) g += `<rect x="${o.x}" y="${axisY - 5}" width="${Math.max(4, X(o.e) - o.x)}" height="10" rx="5" fill="${col}" opacity="0.85"/>`;
+        else g += `<circle cx="${o.x}" cy="${axisY}" r="7" fill="${col}" stroke="#fff" stroke-width="2"/>`;
+        g += `<line x1="${o.cx}" y1="${anchorY}" x2="${o.e ? o.cx : o.x}" y2="${axisY + (o.up ? -6 : 6)}" stroke="${col}" stroke-width="1.2"/>`;
+        const lines = wrap((it.done ? '✓ ' : '') + (it.label || '(sans titre)'), 26);
+        const date = o.e ? rFmt(o.s) + ' → ' + rFmt(o.e) : rFmt(o.s, true);
+        g += `<g><rect x="${bx}" y="${y0}" width="${BW}" height="${BH}" rx="7" fill="#fff" stroke="${col}" stroke-width="1.6"/>
+            <rect x="${bx}" y="${y0}" width="5" height="${BH}" rx="2" fill="${col}"/>
+            <text x="${bx + 11}" y="${y0 + 13}" font-size="10.5" font-weight="700" fill="#0f172a">${lines.map((l, i) => `<tspan x="${bx + 11}" dy="${i ? 12 : 0}">${esc(l)}</tspan>`).join('')}</text>
+            <text x="${bx + 11}" y="${y0 + BH - 5}" font-size="9.5" fill="${col}" font-weight="700">${esc(date)}${it.owner ? '<tspan fill="#64748b" font-weight="400"> · ' + esc(it.owner.slice(0, 11)) + '</tspan>' : ''}</text></g>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" class="retro-svg" font-family="Inter, Segoe UI, Arial, sans-serif">${g}</svg>`;
+}
+function retroLegend() {
+    return `<div class="retro-legend">${RETRO_CATS.map(c => `<span><i style="background:${c[1]}"></i>${c[0]}</span>`).join('')}<span><i style="background:#16a34a"></i>Fait</span><span><i style="background:#ea580c"></i>Dans moins de 15 jours</span><span><i style="background:#dc2626"></i>En retard</span></div>`;
+}
+function renderRetroPreview() {
+    const p = document.getElementById('retroPreview'); if (p) p.innerHTML = buildRetroSvg() + retroLegend();
+}
+function printRetro() {
+    const esc = escapeStructureHtml, items = retroplanning.items.filter(i => i.start).sort((a, b) => a.start.localeCompare(b.start));
+    if (!items.length) { alert('Ajoutez au moins une étape datée.'); return; }
+    const eple = (epleIdentity && epleIdentity.name) ? esc(epleIdentity.name) : '';
+    const rows = items.map(it => { const s = rDate(it.start), e = rDate(it.end); return `<tr><td class="num">${s ? rFmt(s, true) : ''}${e ? ' → ' + rFmt(e, true) : ''}</td><td><strong>${esc(it.label)}</strong>${it.note ? '<br><small>' + esc(it.note) + '</small>' : ''}</td><td>${esc(it.owner)}</td><td>${esc(it.cat)}</td><td style="text-align:center">${it.done ? '✓' : ''}</td></tr>`; }).join('');
+    const c = document.getElementById('retroPrint');
+    c.innerHTML = `<section class="tpdf-page"><div class="tpdf-meta">${eple}${eple ? ' · ' : ''}Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
+        <h1>${esc(retroplanning.title)}</h1>${buildRetroSvg()}${retroLegend()}</section>
+        <section class="tpdf-page"><h1 style="font-size:16pt">Détail des étapes</h1><table class="tpdf-table"><thead><tr><th>Date</th><th>Étape</th><th>Responsable</th><th>Catégorie</th><th>Fait</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+    closeRetroModal();
+    document.body.classList.add('printing-retro');
+    const cleanup = () => { document.body.classList.remove('printing-retro'); c.innerHTML = ''; window.removeEventListener('afterprint', cleanup); };
+    window.addEventListener('afterprint', cleanup);
+    triggerPrint();
+}
+
+// ============================================================
+// Codes QR (encodeur maison, sans bibliothèque)
+// ============================================================
+// ── QR : constantes et fonctions communes (versions 1 à 40, correction L/M/Q/H) ──
+const QR_ECC = { L: 0, M: 1, Q: 2, H: 3 };
+const QR_ECC_FORMAT_BITS = [1, 0, 3, 2];                       // L, M, Q, H
+const QR_EC_PER_BLOCK = [
+    [-1, 7, 10, 15, 20, 26, 18, 20, 24, 30, 18, 20, 24, 26, 30, 22, 24, 28, 30, 28, 28, 28, 28, 30, 30, 26, 28, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30],
+    [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28],
+    [-1, 13, 22, 18, 26, 18, 24, 18, 22, 20, 24, 28, 26, 24, 20, 30, 24, 28, 28, 26, 30, 28, 30, 30, 30, 30, 28, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30],
+    [-1, 17, 28, 22, 16, 22, 28, 26, 26, 24, 28, 24, 28, 22, 24, 24, 30, 28, 28, 26, 28, 30, 24, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
+];
+const QR_BLOCKS = [
+    [-1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 4, 6, 6, 6, 6, 7, 8, 8, 9, 9, 10, 12, 12, 12, 13, 14, 15, 16, 17, 18, 19, 19, 20, 21, 22, 24, 25],
+    [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31, 33, 35, 37, 38, 40, 43, 45, 47, 49],
+    [-1, 1, 1, 2, 2, 4, 4, 6, 6, 8, 8, 8, 10, 12, 16, 12, 17, 16, 18, 21, 20, 23, 23, 25, 27, 29, 34, 34, 35, 38, 40, 43, 45, 48, 51, 53, 56, 59, 62, 65, 68],
+    [-1, 1, 1, 2, 4, 4, 4, 5, 6, 8, 8, 11, 11, 16, 16, 18, 16, 19, 21, 25, 25, 25, 34, 30, 32, 35, 37, 40, 42, 45, 48, 51, 54, 57, 60, 63, 66, 70, 74, 77, 81]
+];
+function qrNumRawModules(ver) {
+    let r = (16 * ver + 128) * ver + 64;
+    if (ver >= 2) { const na = Math.floor(ver / 7) + 2; r -= (25 * na - 10) * na - 55; if (ver >= 7) r -= 36; }
+    return r;
+}
+function qrNumDataCodewords(ver, ecl) { return Math.floor(qrNumRawModules(ver) / 8) - QR_EC_PER_BLOCK[ecl][ver] * QR_BLOCKS[ecl][ver]; }
+function qrAlignPositions(ver) {
+    if (ver === 1) return [];
+    const n = Math.floor(ver / 7) + 2, step = ver === 32 ? 26 : Math.ceil((ver * 4 + 4) / (n * 2 - 2)) * 2, size = ver * 4 + 17, r = [6];
+    for (let pos = size - 7; r.length < n; pos -= step) r.splice(1, 0, pos);
+    return r;
+}
+// Masque des modules « fonction » (true = ne porte pas de données)
+function qrFunctionMask(ver) {
+    const size = ver * 4 + 17, m = new Uint8Array(size * size);
+    const fill = (x0, y0, w, h) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (x >= 0 && y >= 0 && x < size && y < size) m[y * size + x] = 1; };
+    fill(0, 0, 9, 9); fill(size - 8, 0, 8, 9); fill(0, size - 8, 9, 8);
+    fill(6, 0, 1, size); fill(0, 6, size, 1);
+    const ap = qrAlignPositions(ver);
+    ap.forEach((cx, i) => ap.forEach((cy, j) => {
+        if ((i === 0 && j === 0) || (i === 0 && j === ap.length - 1) || (i === ap.length - 1 && j === 0)) return;
+        fill(cx - 2, cy - 2, 5, 5);
+    }));
+    if (ver >= 7) { fill(size - 11, 0, 3, 6); fill(0, size - 11, 6, 3); }
+    return m;
+}
+// Corps de Galois GF(256), polynôme 0x11D
+const QR_EXP = new Uint8Array(512), QR_LOG = new Uint8Array(256);
+(function () { let x = 1; for (let i = 0; i < 255; i++) { QR_EXP[i] = x; QR_LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11D; } for (let i = 255; i < 512; i++) QR_EXP[i] = QR_EXP[i - 255]; })();
+const qrMul = (a, b) => (a === 0 || b === 0) ? 0 : QR_EXP[QR_LOG[a] + QR_LOG[b]];
+
+// ── QR : encodeur (mode octets) ──
+function qrRsGenerator(deg) {
+    let r = [1];
+    for (let i = 0; i < deg; i++) { const n = new Array(r.length + 1).fill(0); for (let j = 0; j < r.length; j++) { n[j] ^= r[j]; n[j + 1] ^= qrMul(r[j], QR_EXP[i]); } r = n; }
+    return r.slice(1);
+}
+function qrRsRemainder(data, gen) {
+    const res = new Array(gen.length).fill(0);
+    data.forEach(b => { const f = b ^ res.shift(); res.push(0); gen.forEach((c, i) => { res[i] ^= qrMul(c, f); }); });
+    return res;
+}
+function qrEncodeBytes(bytes, eclName, minVer, forceMask) {
+    const ecl = QR_ECC[eclName || 'M'];
+    let ver = Math.max(1, minVer || 1), bits;
+    for (; ; ver++) {
+        if (ver > 40) throw new Error('trop volumineux');
+        const cap = qrNumDataCodewords(ver, ecl) * 8, cc = ver < 10 ? 8 : 16;
+        if (4 + cc + bytes.length * 8 <= cap) break;
+    }
+    const cc = ver < 10 ? 8 : 16; bits = [];
+    const put = (v, n) => { for (let i = n - 1; i >= 0; i--) bits.push((v >>> i) & 1); };
+    put(4, 4); put(bytes.length, cc); bytes.forEach(b => put(b, 8));
+    const capBits = qrNumDataCodewords(ver, ecl) * 8;
+    put(0, Math.min(4, capBits - bits.length)); put(0, (8 - bits.length % 8) % 8);
+    for (let pad = 0xEC; bits.length < capBits; pad ^= 0xEC ^ 0x11) put(pad, 8);
+    const data = []; for (let i = 0; i < bits.length; i += 8) { let v = 0; for (let j = 0; j < 8; j++) v = (v << 1) | bits[i + j]; data.push(v); }
+    // blocs + correction d'erreurs + entrelacement
+    const nb = QR_BLOCKS[ecl][ver], ecLen = QR_EC_PER_BLOCK[ecl][ver], raw = Math.floor(qrNumRawModules(ver) / 8);
+    const nShort = nb - raw % nb, shortLen = Math.floor(raw / nb), gen = qrRsGenerator(ecLen), blocks = [];
+    for (let i = 0, k = 0; i < nb; i++) {
+        const len = shortLen - ecLen + (i < nShort ? 0 : 1), d = data.slice(k, k + len); k += len;
+        const e = qrRsRemainder(d, gen); if (i < nShort) d.push(0); blocks.push(d.concat(e));
+    }
+    const all = [];
+    for (let i = 0; i < blocks[0].length; i++) blocks.forEach((b, j) => { if (i !== shortLen - ecLen || j >= nShort) all.push(b[i]); });
+    // matrice
+    const size = ver * 4 + 17, mod = new Uint8Array(size * size), fn = new Uint8Array(size * size);
+    const set = (x, y, v) => { if (x >= 0 && y >= 0 && x < size && y < size) { mod[y * size + x] = v ? 1 : 0; fn[y * size + x] = 1; } };
+    for (let i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+    [[3, 3], [size - 4, 3], [3, size - 4]].forEach(([cx, cy]) => { for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const d = Math.max(Math.abs(dx), Math.abs(dy)); set(cx + dx, cy + dy, d !== 2 && d !== 4); } });
+    const ap = qrAlignPositions(ver);
+    ap.forEach((cx, i) => ap.forEach((cy, j) => {
+        if ((i === 0 && j === 0) || (i === 0 && j === ap.length - 1) || (i === ap.length - 1 && j === 0)) return;
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+    }));
+    const drawFormat = mask => {
+        const d = (QR_ECC_FORMAT_BITS[ecl] << 3) | mask; let rem = d;
+        for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+        const bitsF = ((d << 10) | rem) ^ 0x5412, g = i => ((bitsF >>> i) & 1) !== 0;
+        for (let i = 0; i <= 5; i++) set(8, i, g(i)); set(8, 7, g(6)); set(8, 8, g(7)); set(7, 8, g(8));
+        for (let i = 9; i < 15; i++) set(14 - i, 8, g(i));
+        for (let i = 0; i < 8; i++) set(size - 1 - i, 8, g(i));
+        for (let i = 8; i < 15; i++) set(8, size - 15 + i, g(i));
+        set(8, size - 8, true);
+    };
+    drawFormat(0);
+    if (ver >= 7) {
+        let rem = ver; for (let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+        const bitsV = (ver << 12) | rem;
+        for (let i = 0; i < 18; i++) { const a = size - 11 + i % 3, b = Math.floor(i / 3), v = ((bitsV >>> i) & 1) !== 0; set(a, b, v); set(b, a, v); }
+    }
+    // données (zigzag)
+    let bi = 0;
+    for (let right = size - 1; right >= 1; right -= 2) {
+        if (right === 6) right = 5;
+        for (let vert = 0; vert < size; vert++) for (let j = 0; j < 2; j++) {
+            const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - vert : vert;
+            if (!fn[y * size + x] && bi < all.length * 8) { mod[y * size + x] = (all[bi >>> 3] >>> (7 - (bi & 7))) & 1; bi++; }
+        }
+    }
+    // choix du masque (pénalités simplifiées conformes à la norme)
+    const maskFn = [(x, y) => (x + y) % 2 === 0, (x, y) => y % 2 === 0, (x, y) => x % 3 === 0, (x, y) => (x + y) % 3 === 0, (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x, y) => x * y % 2 + x * y % 3 === 0, (x, y) => (x * y % 2 + x * y % 3) % 2 === 0, (x, y) => ((x + y) % 2 + x * y % 3) % 2 === 0];
+    const penalty = m => {
+        let p = 0;
+        for (let t = 0; t < 2; t++) for (let a = 0; a < size; a++) {
+            let run = 1, last = -1;
+            for (let b = 0; b < size; b++) { const v = t ? m[b * size + a] : m[a * size + b]; if (v === last) { run++; if (run === 5) p += 3; else if (run > 5) p++; } else { run = 1; last = v; } }
+        }
+        for (let y = 0; y < size - 1; y++) for (let x = 0; x < size - 1; x++) { const c = m[y * size + x]; if (c === m[y * size + x + 1] && c === m[(y + 1) * size + x] && c === m[(y + 1) * size + x + 1]) p += 3; }
+        let dark = 0; m.forEach(v => { dark += v; }); p += Math.floor(Math.abs(dark * 20 - size * size * 10) / (size * size)) * 10;
+        return p;
+    };
+    let best = 0, bestP = Infinity, bestM = null;
+    for (let k = 0; k < 8; k++) {
+        if (forceMask !== undefined && forceMask !== k) continue;
+        const m = mod.slice();
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y * size + x] && maskFn[k](x, y)) m[y * size + x] ^= 1;
+        const p = penalty(m); if (p < bestP) { bestP = p; best = k; bestM = m; }
+    }
+    const out = bestM, savedFn = fn;
+    // écrire les bits de format du masque retenu dans la matrice finale
+    const d = (QR_ECC_FORMAT_BITS[ecl] << 3) | best; let rem = d; for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+    const bitsF = ((d << 10) | rem) ^ 0x5412, g = i => ((bitsF >>> i) & 1);
+    const w = (x, y, v) => { out[y * size + x] = v; };
+    for (let i = 0; i <= 5; i++) w(8, i, g(i)); w(8, 7, g(6)); w(8, 8, g(7)); w(7, 8, g(8));
+    for (let i = 9; i < 15; i++) w(14 - i, 8, g(i));
+    for (let i = 0; i < 8; i++) w(size - 1 - i, 8, g(i));
+    for (let i = 8; i < 15; i++) w(8, size - 15 + i, g(i));
+    w(8, size - 8, 1);
+    return { size, ver, modules: out };
+}
+// Dessine la matrice dans un canvas (zone silencieuse de 4 modules)
+function qrDraw(canvas, qr, px) {
+    const q = 4, n = qr.size + q * 2, c = canvas.getContext('2d');
+    canvas.width = canvas.height = n * px;
+    c.fillStyle = '#fff'; c.fillRect(0, 0, canvas.width, canvas.height); c.fillStyle = '#000';
+    for (let y = 0; y < qr.size; y++) for (let x = 0; x < qr.size; x++) if (qr.modules[y * qr.size + x]) c.fillRect((x + q) * px, (y + q) * px, px, px);
+}
+
+// ── Transfert par QR animés : en-tête commun (13 octets) ──
+// 'V' 'Q' | drapeaux (bit0 = compressé) | id de session (2) | n° d'image (2) | total (2) | CRC32 des données (4)
+const QRX_HEAD = 13;
+function qrxCrc32(b) {
+    let c, crc = 0xFFFFFFFF;
+    if (!qrxCrc32.t) { qrxCrc32.t = new Uint32Array(256); for (let n = 0; n < 256; n++) { c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; qrxCrc32.t[n] = c >>> 0; } }
+    for (let i = 0; i < b.length; i++) crc = qrxCrc32.t[(crc ^ b[i]) & 255] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+// ============================================================
+// Envoi vers VectisDHG Compagnon par codes QR animés (aucun réseau, aucun serveur)
+// ============================================================
+const QRX = { frames: [], idx: 0, timer: null, chunk: 600, fps: 4, paused: false, info: '' };
+async function qrxDeflate(bytes) {
+    const cs = new CompressionStream('deflate-raw'), w = cs.writable.getWriter();
+    w.write(bytes); w.close();
+    return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+}
+function qrxLiteJson() {
+    const o = JSON.parse(buildSaveJson());
+    delete o.changeHistory; delete o.n1Reference; delete o.retroplanning;     // inutiles sur le téléphone
+    return JSON.stringify(o);
+}
+// Un seul QR code si les données (compressées) tiennent dans la capacité maximale (≈ 2,3 Ko en M, 2,9 Ko en L)
+function qrxSingle(data, flags, crc, sid) {
+    // Un code unique n'est lu de façon fiable que s'il reste peu dense (version ≤ 16, soit ≈ 450 octets compressés)
+    if (data.length + QRX_HEAD > 440) return null;
+    const f = new Uint8Array(QRX_HEAD + data.length);
+    f[0] = 0x56; f[1] = 0x51; f[2] = flags; f[3] = sid >> 8; f[4] = sid & 255; f[7] = 0; f[8] = 1;
+    f[9] = crc >>> 24; f[10] = (crc >>> 16) & 255; f[11] = (crc >>> 8) & 255; f[12] = crc & 255; f.set(data, QRX_HEAD);
+    try { const m = qrEncodeBytes(f, 'M'); return m.ver <= 16 ? m : null; } catch (e) { return null; }
+}
+async function qrxPrepare() {
+    const raw = new TextEncoder().encode(qrxLiteJson());
+    let data = raw, flags = 0;
+    if (typeof CompressionStream !== 'undefined') { data = await qrxDeflate(raw); flags = 1; }
+    const sid = Math.floor(Math.random() * 65535), total = Math.max(1, Math.ceil(data.length / QRX.chunk)), crc = qrxCrc32(data), bufs = [];
+    for (let i = 0; i < total; i++) {
+        const part = data.subarray(i * QRX.chunk, (i + 1) * QRX.chunk), f = new Uint8Array(QRX_HEAD + part.length);
+        f[0] = 0x56; f[1] = 0x51; f[2] = flags; f[3] = sid >> 8; f[4] = sid & 255; f[5] = i >> 8; f[6] = i & 255; f[7] = total >> 8; f[8] = total & 255;
+        f[9] = crc >>> 24; f[10] = (crc >>> 16) & 255; f[11] = (crc >>> 8) & 255; f[12] = crc & 255; f.set(part, QRX_HEAD); bufs.push(f);
+    }
+    QRX.single = false;
+    const one = qrxSingle(data, flags, crc, sid);
+    if (one) { QRX.frames = [one]; QRX.single = true; }
+    else {
+        let ver = 1; const first = bufs.map(b => qrEncodeBytes(b, 'M')); first.forEach(q => { ver = Math.max(ver, q.ver); });
+        QRX.frames = first.map((q, i) => q.ver === ver ? q : qrEncodeBytes(bufs[i], 'M', ver));
+    }
+    QRX.info = `${QRX.single ? 'Un seul code QR' : QRX.frames.length + ' images défilent en boucle : patientez jusqu’à la réception complète'} · ${(raw.length / 1024).toFixed(1).replace('.', ',')} Ko → ${(data.length / 1024).toFixed(1).replace('.', ',')} Ko compressés`;
+}
+function qrxShowFrame() {
+    const cv = document.getElementById('qrxCanvas'); if (!cv || !QRX.frames.length) return;
+    const q = QRX.frames[QRX.idx], dpr = Math.max(1, Math.round(window.devicePixelRatio || 1)), px = Math.max(3, Math.floor(Math.min(QRX.single ? 900 : 560, window.innerWidth - 80, window.innerHeight - 330) * dpr / (q.size + 8)));
+    qrDraw(cv, q, px); cv.style.width = cv.style.height = (cv.width / dpr) + 'px';
+    document.getElementById('qrxCount').textContent = `Image ${QRX.idx + 1} / ${QRX.frames.length}`;
+}
+function qrxTick() {
+    if (QRX.paused || !QRX.frames.length) return;
+    QRX.idx = (QRX.idx + 1) % QRX.frames.length; qrxShowFrame();
+}
+function qrxRestartTimer() { clearInterval(QRX.timer); QRX.timer = setInterval(qrxTick, Math.round(1000 / QRX.fps)); }
+async function openQrSendModal() {
+    document.getElementById('qrxModal').classList.add('active');
+    await qrxRebuild();
+}
+async function qrxRebuild() {
+    const box = document.getElementById('qrxStatus'); box.textContent = 'Préparation…';
+    try {
+        if (!Object.keys(dataStore).length) { box.textContent = 'Aucune donnée à envoyer : ouvrez ou créez un projet.'; QRX.frames = []; return; }
+        await qrxPrepare(); QRX.idx = 0; QRX.paused = false;
+        document.getElementById('qrxPause').textContent = '⏸ Pause';
+        box.textContent = QRX.info; document.getElementById('qrxCount').style.display = QRX.single ? 'none' : ''; qrxShowFrame(); qrxRestartTimer();
+    } catch (e) { console.error(e); box.textContent = 'Préparation impossible : ' + (e && e.message || e); }
+}
+function closeQrSendModal() { clearInterval(QRX.timer); QRX.timer = null; document.getElementById('qrxModal').classList.remove('active'); }
+function qrxSetChunk(v) { QRX.chunk = parseInt(v); qrxRebuild(); }
+function qrxSetFps(v) { QRX.fps = parseInt(v); qrxRestartTimer(); }
+function qrxTogglePause() { QRX.paused = !QRX.paused; document.getElementById('qrxPause').textContent = QRX.paused ? '▶ Reprendre' : '⏸ Pause'; }
+
+// ── Décodeur QR ──
+// ── QR : décodeur d'image (mode octets), pour la caméra ──
+// Entrée : niveaux de gris (Uint8Array w*h). Sortie : Uint8Array des octets décodés, ou null.
+function qrBinarize(gray, w, h) {
+    const r = Math.max(6, Math.round(Math.min(w, h) / 14)), I = new Float64Array((w + 1) * (h + 1));
+    for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += gray[y * w + x]; I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + row; } }
+    const bin = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+        const y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
+        for (let x = 0; x < w; x++) {
+            const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), n = (x1 - x0) * (y1 - y0);
+            const mean = (I[y1 * (w + 1) + x1] - I[y0 * (w + 1) + x1] - I[y1 * (w + 1) + x0] + I[y0 * (w + 1) + x0]) / n;
+            bin[y * w + x] = gray[y * w + x] < mean - 8 ? 1 : 0;
+        }
+    }
+    bin.integral = I; return bin;
+}
+// Détection des motifs de repérage (rapport 1:1:3:1:1)
+function qrFindFinders(bin, w, h) {
+    const cands = [];
+    const check = (runs, tol) => {
+        const total = runs[0] + runs[1] + runs[2] + runs[3] + runs[4]; if (total < 7) return 0;
+        const m = total / 7, t = m * tol;
+        return (Math.abs(runs[0] - m) < t && Math.abs(runs[1] - m) < t && Math.abs(runs[2] - 3 * m) < 3 * t && Math.abs(runs[3] - m) < t && Math.abs(runs[4] - m) < t) ? m : 0;
+    };
+    const crossV = (cx, cy, m) => {   // vérifie la colonne
+        const runs = [0, 0, 0, 0, 0]; let y = cy;
+        while (y >= 0 && bin[y * w + cx]) { runs[2]++; y--; } if (y < 0) return null;
+        while (y >= 0 && !bin[y * w + cx]) { runs[1]++; y--; } if (y < 0) return null;
+        while (y >= 0 && bin[y * w + cx]) { runs[0]++; y--; }
+        y = cy + 1; while (y < h && bin[y * w + cx]) { runs[2]++; y++; } if (y >= h) return null;
+        while (y < h && !bin[y * w + cx]) { runs[3]++; y++; } if (y >= h) return null;
+        while (y < h && bin[y * w + cx]) { runs[4]++; y++; }
+        const mm = check(runs, 0.6); if (!mm) return null;
+        const start = cy - (runs[2] >> 1) - 0; return { m: mm, c: cy - runs[2] / 2 + runs[2] / 2 + (runs[4] - runs[0]) * 0 };
+    };
+    for (let y = 0; y < h; y++) {
+        const runs = [0, 0, 0, 0, 0]; let state = 0, x = 0, start = 0;
+        // balayage par plages
+        let prev = bin[y * w], len = 0, list = [];
+        for (x = 0; x < w; x++) { const v = bin[y * w + x]; if (v === prev) len++; else { list.push([prev, len]); prev = v; len = 1; } }
+        list.push([prev, len]);
+        let pos = 0; const starts = []; list.forEach(([v, l]) => { starts.push(pos); pos += l; });
+        for (let i = 0; i + 4 < list.length; i++) {
+            if (!list[i][0]) continue;
+            const rr = [list[i][1], list[i + 1][1], list[i + 2][1], list[i + 3][1], list[i + 4][1]];
+            const m = check(rr, 0.6); if (!m) continue;
+            const cx = Math.round(starts[i + 2] + list[i + 2][1] / 2 - 0.5);
+            // recherche verticale du centre exact
+            let up = y, dn = y; while (up > 0 && bin[(up - 1) * w + cx]) up--; while (dn < h - 1 && bin[(dn + 1) * w + cx]) dn++;
+            const cy = (up + dn) / 2, v = crossV(cx, Math.round(cy), m); if (!v) continue;
+            // horizontal à la hauteur du centre
+            const yy = Math.round(cy), rowRuns = [0, 0, 0, 0, 0]; let xx = cx;
+            while (xx >= 0 && bin[yy * w + xx]) { rowRuns[2]++; xx--; } while (xx >= 0 && !bin[yy * w + xx]) { rowRuns[1]++; xx--; } while (xx >= 0 && bin[yy * w + xx]) { rowRuns[0]++; xx--; }
+            xx = cx + 1; while (xx < w && bin[yy * w + xx]) { rowRuns[2]++; xx++; } while (xx < w && !bin[yy * w + xx]) { rowRuns[3]++; xx++; } while (xx < w && bin[yy * w + xx]) { rowRuns[4]++; xx++; }
+            const m2 = check(rowRuns, 0.6); if (!m2) continue;
+            const fx = cx + (rowRuns[4] - rowRuns[0]) / 2 * 0 + 0, ms = (m + v.m + m2) / 3;
+            // centre précis : milieu du segment central
+            const x0 = cx - (rowRuns[2] >> 1), cxx = cx;
+            const hit = cands.find(c => Math.hypot(c.x - cxx, c.y - cy) < ms * 3 && Math.abs(c.m - ms) < ms * 0.6);
+            if (hit) { hit.x = (hit.x * hit.n + cxx) / (hit.n + 1); hit.y = (hit.y * hit.n + cy) / (hit.n + 1); hit.m = (hit.m * hit.n + ms) / (hit.n + 1); hit.n++; }
+            else cands.push({ x: cxx, y: cy, m: ms, n: 1 });
+        }
+    }
+    return cands.filter(c => c.n >= 2);
+}
+function qrChooseTriples(c) {
+    const out = [], nmax = Math.max(...c.map(p => p.n)); c = c.filter(p => p.n >= nmax * 0.3);
+    for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) for (let k = j + 1; k < c.length; k++) {
+        const t = [c[i], c[j], c[k]], ms = (t[0].m + t[1].m + t[2].m) / 3;
+        if (t.some(p => Math.abs(p.m - ms) > ms * 0.4)) continue;
+        const d = [Math.hypot(t[0].x - t[1].x, t[0].y - t[1].y), Math.hypot(t[0].x - t[2].x, t[0].y - t[2].y), Math.hypot(t[1].x - t[2].x, t[1].y - t[2].y)];
+        const idx = d.indexOf(Math.max(...d)), corner = [t[2], t[1], t[0]][idx], others = t.filter(p => p !== corner);
+        const a = Math.hypot(corner.x - others[0].x, corner.y - others[0].y), b = Math.hypot(corner.x - others[1].x, corner.y - others[1].y), hyp = Math.max(...d);
+        const dim0 = (a + b) / 2 / ms + 7, dimOk = Math.round((dim0 - 17) / 4) * 4 + 17;
+        if (dimOk < 21 || dimOk > 177 || Math.abs(dim0 - dimOk) > 2.2) continue;
+        const score = Math.abs(a - b) / Math.max(a, b) + Math.abs(hyp - Math.SQRT2 * (a + b) / 2) / hyp + Math.abs(dim0 - dimOk) / 4 - (t[0].n + t[1].n + t[2].n) / (3 * nmax) * 0.2;
+        if (score > 0.5) continue;
+        const cross = (others[0].x - corner.x) * (others[1].y - corner.y) - (others[0].y - corner.y) * (others[1].x - corner.x);
+        out.push({ score, tl: corner, tr: cross > 0 ? others[0] : others[1], bl: cross > 0 ? others[1] : others[0], ms });
+    }
+    return out.sort((x, y) => x.score - y.score).slice(0, 4);
+}
+// Homographie à partir de 4 correspondances (src module -> dst image)
+function qrHomography(s, d) {
+    const n = s.length, A = [], B = [];
+    for (let i = 0; i < n; i++) {
+        A.push([s[i][0], s[i][1], 1, 0, 0, 0, -s[i][0] * d[i][0], -s[i][1] * d[i][0]]); B.push(d[i][0]);
+        A.push([0, 0, 0, s[i][0], s[i][1], 1, -s[i][0] * d[i][1], -s[i][1] * d[i][1]]); B.push(d[i][1]);
+    }
+    // équations normales (moindres carrés si plus de 4 points)
+    const M = Array.from({ length: 8 }, () => new Array(9).fill(0));
+    for (let r = 0; r < A.length; r++) for (let i = 0; i < 8; i++) { for (let j = 0; j < 8; j++) M[i][j] += A[r][i] * A[r][j]; M[i][8] += A[r][i] * B[r]; }
+    for (let i = 0; i < 8; i++) {
+        let p = i; for (let r = i + 1; r < 8; r++) if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r;
+        [M[i], M[p]] = [M[p], M[i]];
+        if (Math.abs(M[i][i]) < 1e-12) return null;
+        for (let r = 0; r < 8; r++) if (r !== i) { const f = M[r][i] / M[i][i]; for (let c = i; c < 9; c++) M[r][c] -= f * M[i][c]; }
+    }
+    const h = M.map((row, i) => row[8] / row[i]);
+    return (x, y) => { const k = h[6] * x + h[7] * y + 1; return [(h[0] * x + h[1] * y + h[2]) / k, (h[3] * x + h[4] * y + h[5]) / k]; };
+}
+// Recherche d'un motif d'alignement autour de (ex, ey) ; renvoie {x, y, s} ou null
+function qrFindAlign(bin, w, h, ex, ey, ms, rad) {
+    let bestS = -1, bx = ex, by = ey, n = 0, sx = 0, sy = 0;
+    const at = (xx, yy, dx, dy) => { const px = Math.round(xx + dx * ms), py = Math.round(yy + dy * ms); return (px < 0 || py < 0 || px >= w || py >= h) ? 0 : bin[py * w + px]; };
+    const ring1 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]], ring2 = [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, -2], [2, -2], [-2, 2], [2, 1], [2, -1], [-2, 1], [-2, -1], [1, 2], [-1, 2], [1, -2], [-1, -2]];
+    const step = Math.max(1, Math.round(ms / 4)), scores = [];
+    for (let yy = Math.floor(ey - rad); yy <= ey + rad; yy += step) for (let xx = Math.floor(ex - rad); xx <= ex + rad; xx += step) {
+        let sc = at(xx, yy, 0, 0) * 2; ring1.forEach(([dx, dy]) => { sc += 1 - at(xx, yy, dx, dy); }); ring2.forEach(([dx, dy]) => { sc += at(xx, yy, dx, dy); });
+        scores.push([xx, yy, sc]); if (sc > bestS) bestS = sc;
+    }
+    if (bestS < 22) return null;
+    scores.forEach(([x, y, sc]) => { if (sc >= bestS - 1) { sx += x; sy += y; n++; } });
+    return { x: sx / n, y: sy / n, s: bestS };
+}
+function qrSample(bin, w, h, P, dim) {
+    const grid = new Uint8Array(dim * dim);
+    for (let y = 0; y < dim; y++) for (let x = 0; x < dim; x++) {
+        let s = 0, n = 0;
+        for (const [ox, oy] of [[0.5, 0.5], [0.3, 0.5], [0.7, 0.5], [0.5, 0.3], [0.5, 0.7]]) {
+            const [px, py] = P(x + ox, y + oy), ix = Math.round(px), iy = Math.round(py);
+            if (ix < 0 || iy < 0 || ix >= w || iy >= h) { n++; continue; } s += bin[iy * w + ix]; n++;
+        }
+        grid[y * dim + x] = s * 2 > n ? 1 : 0;
+    }
+    return grid;
+}
+// Échantillonnage en niveaux de gris : interpolation bilinéaire + seuil local à l'échelle de quelques modules
+function qrSampleGray(gray, w, h, I, P, dim, ms) {
+    const grid = new Uint8Array(dim * dim), r = Math.max(3, Math.round(ms * 4));
+    const bil = (x, y) => {
+        const x0 = Math.floor(x), y0 = Math.floor(y); if (x0 < 0 || y0 < 0 || x0 >= w - 1 || y0 >= h - 1) return -1;
+        const fx = x - x0, fy = y - y0, i = y0 * w + x0;
+        return gray[i] * (1 - fx) * (1 - fy) + gray[i + 1] * fx * (1 - fy) + gray[i + w] * (1 - fx) * fy + gray[i + w + 1] * fx * fy;
+    };
+    for (let y = 0; y < dim; y++) for (let x = 0; x < dim; x++) {
+        const [cx, cy] = P(x + 0.5, y + 0.5);
+        const ix = Math.round(cx), iy = Math.round(cy);
+        if (ix < 0 || iy < 0 || ix >= w || iy >= h) { grid[y * dim + x] = 0; continue; }
+        let v = 0, n = 0;
+        for (const [ox, oy] of [[0.5, 0.5], [0.35, 0.5], [0.65, 0.5], [0.5, 0.35], [0.5, 0.65]]) { const [px, py] = P(x + ox, y + oy), b = bil(px, py); if (b >= 0) { v += b; n++; } }
+        if (!n) { grid[y * dim + x] = 0; continue; }
+        const x0 = Math.max(0, ix - r), x1 = Math.min(w, ix + r + 1), y0 = Math.max(0, iy - r), y1 = Math.min(h, iy + r + 1);
+        const mean = (I[y1 * (w + 1) + x1] - I[y0 * (w + 1) + x1] - I[y1 * (w + 1) + x0] + I[y0 * (w + 1) + x0]) / ((x1 - x0) * (y1 - y0));
+        grid[y * dim + x] = (v / n) < mean ? 1 : 0;
+    }
+    return grid;
+}
+function qrReadFormat(g, dim) {
+    const bit = (x, y) => g[y * dim + x];
+    let a = 0, b = 0;
+    for (let i = 0; i <= 5; i++) a |= bit(8, i) << i; a |= bit(8, 7) << 6; a |= bit(8, 8) << 7; a |= bit(7, 8) << 8; for (let i = 9; i < 15; i++) a |= bit(14 - i, 8) << i;
+    for (let i = 0; i < 8; i++) b |= bit(dim - 1 - i, 8) << i; for (let i = 8; i < 15; i++) b |= bit(8, dim - 15 + i) << i;
+    let best = null, bd = 99;
+    for (let d = 0; d < 32; d++) {
+        let rem = d; for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+        const code = ((d << 10) | rem) ^ 0x5412;
+        for (const v of [a, b]) { let x = code ^ v, c = 0; while (x) { c += x & 1; x >>>= 1; } if (c < bd) { bd = c; best = d; } }
+    }
+    return bd <= 3 ? { eclBits: best >>> 3, mask: best & 7 } : null;
+}
+function qrRsCorrect(block, nEc) {
+    const n = block.length, syn = new Array(nEc).fill(0); let bad = false;
+    for (let i = 0; i < nEc; i++) { let s = 0; for (let j = 0; j < n; j++) s = qrMul(s, QR_EXP[i]) ^ block[j]; syn[i] = s; if (s) bad = true; }
+    if (!bad) return true;
+    // Berlekamp-Massey
+    let C = [1], B = [1], L = 0, m = 1, b = 1;
+    for (let i = 0; i < nEc; i++) {
+        let d = syn[i]; for (let j = 1; j <= L; j++) d ^= qrMul(C[j] || 0, syn[i - j]);
+        if (d === 0) { m++; continue; }
+        const T = C.slice(), coef = qrMul(d, QR_EXP[255 - QR_LOG[b]]);
+        while (C.length < B.length + m) C.push(0);
+        for (let j = 0; j < B.length; j++) C[j + m] ^= qrMul(coef, B[j]);
+        if (2 * L <= i) { L = i + 1 - L; B = T; b = d; m = 1; } else m++;
+    }
+    if (L > nEc / 2) return false;
+    const pos = [];
+    for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j <= L; j++) s ^= qrMul(C[j] || 0, QR_EXP[(255 - (n - 1 - i)) * j % 255]); if (s === 0) pos.push(i); }
+    if (pos.length !== L) return false;
+    // Forney : Omega = S*C mod x^nEc
+    const omega = new Array(nEc).fill(0);
+    for (let i = 0; i < nEc; i++) for (let j = 0; j <= i && j <= L; j++) omega[i] ^= qrMul(C[j] || 0, syn[i - j]);
+    pos.forEach(p => {
+        const xi = QR_EXP[n - 1 - p], xinv = QR_EXP[(255 - (n - 1 - p)) % 255];
+        let num = 0, pw = 1; for (let i = 0; i < nEc; i++) { num ^= qrMul(omega[i], pw); pw = qrMul(pw, xinv); }
+        let den = 0; for (let j = 1; j <= L; j += 2) den ^= qrMul(C[j] || 0, QR_EXP[(255 - (n - 1 - p)) * (j - 1) % 255]);
+        if (!den) return; block[p] ^= qrMul(qrMul(num, xi), QR_EXP[255 - QR_LOG[den]]);
+    });
+    for (let i = 0; i < nEc; i++) { let s = 0; for (let j = 0; j < n; j++) s = qrMul(s, QR_EXP[i]) ^ block[j]; if (s) return false; }
+    return true;
+}
+function qrDecodeGrid(g, dim) {
+    const ver = (dim - 17) / 4, f = qrReadFormat(g, dim); if (!f) return null;
+    const eclMap = [1, 0, 3, 2], ecl = eclMap[f.eclBits];        // bits de format -> L=0,M=1,Q=2,H=3
+    const fnm = qrFunctionMask(ver), maskFn = [(x, y) => (x + y) % 2 === 0, (x, y) => y % 2 === 0, (x, y) => x % 3 === 0, (x, y) => (x + y) % 3 === 0, (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x, y) => x * y % 2 + x * y % 3 === 0, (x, y) => (x * y % 2 + x * y % 3) % 2 === 0, (x, y) => ((x + y) % 2 + x * y % 3) % 2 === 0][f.mask];
+    const raw = []; let cur = 0, nb = 0;
+    for (let right = dim - 1; right >= 1; right -= 2) {
+        if (right === 6) right = 5;
+        for (let vert = 0; vert < dim; vert++) for (let j = 0; j < 2; j++) {
+            const x = right - j, up = ((right + 1) & 2) === 0, y = up ? dim - 1 - vert : vert;
+            if (fnm[y * dim + x]) continue;
+            let v = g[y * dim + x]; if (maskFn(x, y)) v ^= 1;
+            cur = (cur << 1) | v; if (++nb === 8) { raw.push(cur); cur = 0; nb = 0; }
+        }
+    }
+    const nBlocks = QR_BLOCKS[ecl][ver], ecLen = QR_EC_PER_BLOCK[ecl][ver], total = Math.floor(qrNumRawModules(ver) / 8);
+    const nShort = nBlocks - total % nBlocks, shortLen = Math.floor(total / nBlocks), blocks = [];
+    for (let i = 0; i < nBlocks; i++) blocks.push(new Array(shortLen + (i < nShort ? 0 : 1)).fill(0));
+    let k = 0;
+    for (let i = 0; i <= shortLen; i++) for (let j = 0; j < nBlocks; j++) {
+        if (i === shortLen - ecLen && j < nShort) { /* octet de bourrage absent des blocs courts */ }
+        if (i < blocks[j].length) {
+            // les blocs courts n'ont pas d'octet à la position shortLen - ecLen + ... : décalage géré ci-dessous
+        }
+    }
+    // dés-entrelacement explicite
+    k = 0; const dataLens = blocks.map((b, j) => b.length - ecLen);
+    const maxData = Math.max(...dataLens);
+    for (let i = 0; i < maxData; i++) for (let j = 0; j < nBlocks; j++) if (i < dataLens[j]) blocks[j][i] = raw[k++];
+    for (let i = 0; i < ecLen; i++) for (let j = 0; j < nBlocks; j++) blocks[j][dataLens[j] + i] = raw[k++];
+    const data = [];
+    for (let j = 0; j < nBlocks; j++) { if (!qrRsCorrect(blocks[j], ecLen)) return null; for (let i = 0; i < dataLens[j]; i++) data.push(blocks[j][i]); }
+    // segments : on ne gère que le mode octets
+    let bp = 0; const rb = n => { let v = 0; for (let i = 0; i < n; i++) { v = (v << 1) | ((data[bp >>> 3] >>> (7 - (bp & 7))) & 1); bp++; } return v; };
+    const out = [];
+    while (bp + 4 <= data.length * 8) {
+        const mode = rb(4); if (mode === 0) break;
+        if (mode !== 4) return null;
+        const cnt = rb(ver < 10 ? 8 : 16); for (let i = 0; i < cnt; i++) out.push(rb(8));
+    }
+    return Uint8Array.from(out);
+}
+function qrDecodeGray(gray, w, h) {
+    const bin = qrBinarize(gray, w, h), cands = qrFindFinders(bin, w, h);
+    if (cands.length < 3) return null;
+    for (const T of qrChooseTriples(cands)) {
+        const { tl, tr: TR, bl, ms } = T;
+        const dTop = Math.hypot(TR.x - tl.x, TR.y - tl.y), dLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+        const dim0 = Math.round(((dTop + dLeft) / 2 / ms + 7 - 17) / 4) * 4 + 17;
+        for (const dim of [dim0, dim0 - 4, dim0 + 4]) {
+            if (dim < 21 || dim > 177) continue;
+            const ver = (dim - 17) / 4, c = 3.5;
+            const brx = TR.x + bl.x - tl.x, bry = TR.y + bl.y - tl.y;
+            const Pplain = qrHomography([[c, c], [dim - c, c], [c, dim - c], [dim - c, dim - c]], [[tl.x, tl.y], [TR.x, TR.y], [bl.x, bl.y], [brx, bry]]);
+            if (!Pplain) continue;
+            const variants = [];
+            if (ver >= 2) {
+                const ap = qrAlignPositions(ver), src = [[c, c], [dim - c, c], [c, dim - c]], dst = [[tl.x, tl.y], [TR.x, TR.y], [bl.x, bl.y]];
+                let Pc = Pplain;
+                for (let pass = 0; pass < 2; pass++) {
+                    const S = src.slice(), D = dst.slice();
+                    ap.forEach((ai, i) => ap.forEach((aj, j) => {
+                        if ((i === 0 && j === 0) || (i === 0 && j === ap.length - 1) || (i === ap.length - 1 && j === 0)) return;
+                        const [ex, ey] = Pc(ai + 0.5, aj + 0.5), f = qrFindAlign(bin, w, h, ex, ey, ms, pass === 0 ? ms * 4 : ms * 1.5);
+                        if (f) { S.push([ai + 0.5, aj + 0.5]); D.push([f.x, f.y]); }
+                    }));
+                    if (S.length < 4) break;
+                    const P2 = qrHomography(S, D); if (!P2) break; Pc = P2;
+                    if (pass === 1 || S.length === 4 && false) variants.push(P2);
+                }
+                if (Pc !== Pplain && !variants.length) variants.push(Pc);
+            }
+            variants.push(Pplain);
+            for (const P of variants) {
+                let res = qrDecodeGrid(qrSampleGray(gray, w, h, bin.integral, P, dim, ms), dim); if (res) return res;
+                res = qrDecodeGrid(qrSample(bin, w, h, P, dim), dim); if (res) return res;
+            }
+        }
+    }
+    return null;
+}
+
+
+// ============================================================
+// Réception des modifications du téléphone par codes QR animés (webcam)
+// ============================================================
+const RXQ = { stream: null, raf: 0, last: 0, sid: -1, total: 0, got: {}, flags: 0, crc: 0, busy: false, done: false };
+function rxqReset() { RXQ.sid = -1; RXQ.total = 0; RXQ.got = {}; RXQ.done = false; }
+function rxqProgress() {
+    const n = Object.keys(RXQ.got).length, el = document.getElementById('rxqInfo'), bar = document.getElementById('rxqBar');
+    if (!RXQ.total) { el.textContent = 'Montrez l\'écran du téléphone à la webcam…'; bar.innerHTML = ''; return; }
+    el.textContent = `Images reçues : ${n} / ${RXQ.total}`;
+    bar.innerHTML = Array.from({ length: RXQ.total }, (_, i) => `<i class="${RXQ.got[i] ? 'on' : ''}"></i>`).join('');
+}
+async function openQrRecvModal() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert("La webcam n'est pas accessible ici (la page doit être ouverte en https ou en localhost)."); return; }
+    rxqReset(); document.getElementById('rxqModal').classList.add('active'); rxqProgress();
+    try {
+        RXQ.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+        const v = document.getElementById('rxqVideo'); v.srcObject = RXQ.stream; await v.play();
+        RXQ.raf = requestAnimationFrame(rxqLoop);
+    } catch (e) { closeQrRecvModal(); alert("Accès à la webcam refusé ou webcam absente. Utilisez plutôt « Modifications du téléphone (fichier) »."); }
+}
+function closeQrRecvModal() {
+    cancelAnimationFrame(RXQ.raf); RXQ.raf = 0;
+    if (RXQ.stream) { RXQ.stream.getTracks().forEach(t => t.stop()); RXQ.stream = null; }
+    document.getElementById('rxqModal').classList.remove('active');
+}
+function rxqLoop(ts) {
+    RXQ.raf = requestAnimationFrame(rxqLoop);
+    if (RXQ.busy || ts - RXQ.last < 90) return;
+    const v = document.getElementById('rxqVideo'); if (!v.videoWidth) return;
+    RXQ.last = ts; RXQ.busy = true;
+    try {
+        const cv = document.getElementById('rxqCanvas'), W = Math.min(1280, v.videoWidth), H = Math.round(W * v.videoHeight / v.videoWidth);
+        cv.width = W; cv.height = H;
+        const c = cv.getContext('2d', { willReadFrequently: true }); c.drawImage(v, 0, 0, W, H);
+        const d = c.getImageData(0, 0, W, H).data, gray = new Uint8Array(W * H);
+        for (let i = 0, j = 0; i < d.length; i += 4, j++) gray[j] = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
+        const res = qrDecodeGray(gray, W, H);
+        if (res) rxqFrame(res);
+    } catch (e) { /* image illisible : on continue */ }
+    RXQ.busy = false;
+}
+function rxqFrame(b) {
+    if (b.length < QRX_HEAD || b[0] !== 0x56 || b[1] !== 0x51) return;
+    const flags = b[2], sid = (b[3] << 8) | b[4], idx = (b[5] << 8) | b[6], total = (b[7] << 8) | b[8], crc = ((b[9] << 24) | (b[10] << 16) | (b[11] << 8) | b[12]) >>> 0;
+    if (!total || idx >= total) return;
+    if (sid !== RXQ.sid || total !== RXQ.total) { rxqReset(); RXQ.sid = sid; RXQ.total = total; RXQ.flags = flags; RXQ.crc = crc; }
+    if (RXQ.got[idx]) return;
+    RXQ.got[idx] = b.slice(QRX_HEAD); rxqProgress();
+    if (Object.keys(RXQ.got).length === RXQ.total && !RXQ.done) { RXQ.done = true; rxqFinish(); }
+}
+async function rxqFinish() {
+    try {
+        let len = 0; for (let i = 0; i < RXQ.total; i++) len += RXQ.got[i].length;
+        const all = new Uint8Array(len); let p = 0; for (let i = 0; i < RXQ.total; i++) { all.set(RXQ.got[i], p); p += RXQ.got[i].length; }
+        if (qrxCrc32(all) !== RXQ.crc) throw new Error('Données corrompues : recommencez.');
+        let raw = all;
+        if (RXQ.flags & 1) {
+            if (typeof DecompressionStream === 'undefined') throw new Error('Navigateur trop ancien pour décompresser les données.');
+            const ds = new DecompressionStream('deflate-raw'), w = ds.writable.getWriter(); w.write(all); w.close();
+            raw = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+        }
+        const text = new TextDecoder().decode(raw);
+        closeQrRecvModal();
+        openDeltaFromText(text);
+    } catch (e) { rxqReset(); rxqProgress(); document.getElementById('rxqInfo').textContent = (e && e.message) || 'Erreur de réception'; }
+}
+
+// ============================================================
+// Apparence : mode clair / sombre / automatique
+// ============================================================
+function themePref() { try { return localStorage.getItem('vectis_theme') || 'light'; } catch (e) { return 'light'; } }
+function applyTheme() {
+    const pref = themePref(), dark = pref === 'dark' || (pref === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    document.querySelectorAll('[data-theme-btn]').forEach(b => { const on = b.getAttribute('data-theme-btn') === pref; b.classList.toggle('active', on); b.style.fontWeight = on ? '700' : ''; });
+}
+function setTheme(p) { try { localStorage.setItem('vectis_theme', p); } catch (e) { } applyTheme(); }
+if (window.matchMedia) { try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); }); } catch (e) { } }
+document.addEventListener('DOMContentLoaded', applyTheme);
 
 // ============================================================
 // Barre de menus (Fichier, Édition, Autonomie, Structure, Paramètres)
