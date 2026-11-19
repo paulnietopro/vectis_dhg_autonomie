@@ -5824,6 +5824,15 @@ function evaluateDelta(ops) {
             it.current = cur;
             if (Math.abs(cur - deltaNum(op.to)) < 0.001) it.status = 'done';
             else if (Math.abs(cur - deltaNum(op.from)) >= 0.001) it.status = 'conflict';
+        } else if (op.k === 'lock') {
+            const found = deltaFindService(op);
+            it.text = `${op.to ? '🔒 Verrouillage' : '🔓 Déverrouillage'} — ${disc} › ${op.svc || '(sans intitulé)'}${op.level ? ' (' + op.level + ')' : ''}`;
+            if (!found) { it.status = 'missing'; it.detail = 'Service introuvable'; return it; }
+            const cur = !!found.svc.locked;
+            it.current = cur;
+            it.detail = op.to ? 'Le service sera verrouillé' : 'Le service sera déverrouillé';
+            if (cur === !!op.to) it.status = 'done';
+            else if (cur !== !!op.from) it.status = 'conflict';
         } else { it.status = 'missing'; it.text = 'Modification inconnue'; }
         return it;
     });
@@ -5903,6 +5912,9 @@ function applyDelta() {
                     f.svc.allocations[op.teacher] = deltaNum(op.to);
                     okk = true;
                 }
+            } else if (op.k === 'lock') {
+                const f = deltaFindService(op);
+                if (f) { f.svc.locked = !!op.to; okk = true; }
             } else if (op.k === 'tadd') okk = applyTeacherAdd(op.disc, op.name, op.ors);
             else if (op.k === 'trename') okk = applyTeacherRename(op.disc, op.from, op.to);
             else if (op.k === 'tors') {
