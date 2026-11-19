@@ -27,7 +27,7 @@
                     <button class="menu-item" type="button" onclick="newEmptyProject()">📄 Nouveau</button>
                     <button class="menu-item" id="btnOpenPicker" type="button" style="display:none;" onclick="openWithPicker()"><span>📂 Ouvrir</span></button>
                     <label class="menu-item" id="openFallbackLabel"><span>📂 Ouvrir</span><input type="file" id="jsonFileInput" accept=".json"></label>
-                    <label class="menu-item" title="Format : Nom Prénom Discipline ORS"><span>📊 Importer</span> <span class="menu-hint">Nom Prénom Discipline ORS</span><input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv"></label>
+                    <button class="menu-item" type="button" title="Fichier Excel / CSV (clic ou glisser-déposer) ou tableau copié-collé" onclick="openImportModal()"><span>📊 Importer</span></button>
                     <button class="menu-item" type="button" onclick="saveState()"><span>💾 Enregistrer</span> <span class="menu-hint" id="currentFileLabel"></span></button>
                     <button class="menu-item" id="btnSaveAs" type="button" style="display:none;" onclick="saveState(true)">💾 Enregistrer sous…</button>
                     <div class="menu-sub">
@@ -227,7 +227,7 @@
                 <button class="modal-close" onclick="closeHelpModal()">&times;</button>
             </div>
             <div class="help-tabs">
-                <button type="button" class="help-tab active" id="helpTabSlides" onclick="helpTab('slides')">🎞️ Diaporama</button>
+                <button type="button" class="help-tab active" id="helpTabSlides" onclick="helpTab('slides')">🎞️ Notice simplifiée</button>
                 <button type="button" class="help-tab" id="helpTabGuide" onclick="helpTab('guide')">📖 Notice détaillée</button>
             </div>
             <div id="helpSlides" class="help-slides"></div>
@@ -242,7 +242,7 @@
                         <ul style="margin-top: 6px; padding-left: 20px;">
                             <li><strong>Nouveau</strong> : repart d'une base totalement vide (les données actuelles sont effacées après confirmation).</li>
                             <li><strong>Ouvrir</strong> : recharge une sauvegarde <strong>.json</strong> créée avec l'application.</li>
-                            <li><strong>Importer</strong> : charge un fichier <strong>.xlsx</strong> contenant la liste des enseignants avec impérativement les colonnes <strong>Nom</strong>, <strong>Prénom</strong>, <strong>Discipline</strong> et <strong>ORS</strong>.</li>
+                            <li><strong>Importer</strong> : charge la liste des enseignants, soit en glissant-déposant (ou en cherchant) un fichier <strong>.xlsx / .csv</strong>, soit en collant le tableau copié depuis Excel ; colonnes attendues : <strong>Nom</strong>, <strong>Prénom</strong>, <strong>Discipline</strong> et <strong>ORS</strong>.</li>
                             <li><strong>Enregistrer</strong> : télécharge la sauvegarde <strong>.json</strong>, nommée automatiquement <em>AAAA_MM_JJ_DHG_Nom de l'EPLE</em>. Pensez à enregistrer régulièrement.</li>
                             <li><strong>Paramètres › Données › À partir de l'année N-1</strong> : activez l'option puis chargez la sauvegarde (.json) de l'année précédente. L'application reprend l'EPLE, les options activées, les niveaux et les intitulés des services ; ces intitulés vous sont ensuite proposés, par niveau, quand vous saisissez un service.</li>
                             <li><strong>Paramètres › Établissement › Fonctionnalités à activer › gestion multi-site</strong> : pour un établissement sur plusieurs sites, indiquez le nombre de sites, leur nom et un libellé court. Une entrée Édition › Gestion des sites apparaît alors : un onglet par discipline, où vous cliquez sur le ou les sites concernés (chaque site a sa couleur, définie dans les paramètres ; un bandeau de cette couleur apparaît au début du service dans les tableaux des disciplines, hachuré s'il y a plusieurs sites) par chaque service et, s'il y en a plusieurs, le nombre de classes de chacun (leur somme doit égaler le nombre de classes). La répartition s'affiche sous le total dans Synthèse › Ventilation / Niveau.</li>
@@ -516,6 +516,27 @@
             <div class="qrx-count" id="rxqInfo"></div>
             <div class="rxq-bar" id="rxqBar"></div>
             <p class="qrx-note">Aucune donnée ne quitte votre appareil. Vous pourrez vérifier chaque modification avant de l'appliquer.</p>
+        </div>
+    </div>
+
+    <div id="importModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 680px;">
+            <div class="modal-header" style="justify-content: space-between;">
+                <h2>📊 Importer les enseignants</h2>
+                <button class="modal-close" onclick="closeImportModal()">&times;</button>
+            </div>
+            <p class="imp-help">Colonnes attendues : <b>Nom</b>, <b>Prénom</b>, <b>Discipline</b> et <b>ORS</b> (facultatif, 18 par défaut).</p>
+            <div id="impDrop" class="imp-drop" tabindex="0" role="button" aria-label="Choisir un fichier Excel ou CSV">
+                <div class="imp-ico">📥</div>
+                <b>Glissez-déposez un fichier Excel ou CSV ici</b>
+                <span>ou cliquez pour le chercher (.xlsx, .xls, .csv)</span>
+                <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" hidden>
+            </div>
+            <div class="imp-or"><span>ou</span></div>
+            <label for="impPaste" class="imp-lbl">Collez le tableau copié depuis Excel, Calc ou Grist</label>
+            <textarea id="impPaste" class="imp-paste" rows="6" placeholder="Nom&#9;Prénom&#9;Discipline&#9;ORS&#10;DUPONT&#9;Marie&#9;Mathématiques&#9;18"></textarea>
+            <div class="imp-actions"><span id="impMsg" class="imp-msg"></span><button class="btn-primary" type="button" onclick="importFromPaste()">Importer le tableau collé</button></div>
+            <p class="imp-note">L'import remplace les disciplines et enseignants actuels. Aucune donnée ne quitte votre appareil.</p>
         </div>
     </div>
 

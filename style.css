@@ -1401,3 +1401,15 @@ body:has(.menu.open) .pill-wrap { z-index: 40; }
 
 .qrx-adv { margin: 8px 0; font-size: 0.85rem; }
 .qrx-adv summary { cursor: pointer; color: var(--text-light, var(--text-muted)); }
+
+.imp-help, .imp-note { font-size: 0.85rem; color: var(--text-muted); margin: 6px 0 10px; }
+.imp-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 26px 16px; border: 2px dashed var(--border-2); border-radius: 12px; background: var(--surface-2); cursor: pointer; text-align: center; transition: background .15s, border-color .15s; }
+.imp-drop span { font-size: 0.85rem; color: var(--text-muted); }
+.imp-drop:hover, .imp-drop:focus-visible, .imp-drop.over { border-color: var(--primary); background: var(--tint-blue); outline: none; }
+.imp-ico { font-size: 1.8rem; }
+.imp-or { display: flex; align-items: center; gap: 10px; margin: 14px 0 10px; color: var(--text-muted); font-size: 0.85rem; }
+.imp-or::before, .imp-or::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+.imp-lbl { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+.imp-paste { width: 100%; padding: 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--surface); color: var(--text); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.82rem; resize: vertical; }
+.imp-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.imp-msg { color: var(--danger-text); font-size: 0.85rem; }

@@ -475,7 +475,6 @@ let draggedLevelIdx = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     renderApp();
-    document.getElementById('excelFileInput').addEventListener('change', handleFileUpload);
     document.getElementById('jsonFileInput').addEventListener('change', handleJsonLoad);
     document.getElementById('deltaFileInput').addEventListener('change', handleDeltaFile);
     initFeedbackModal();
@@ -2969,52 +2968,118 @@ function loadTestDataset() {
     }
 }
 
-async function handleFileUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+// ============================================================
+// Import des enseignants : fichier Excel/CSV (clic ou glisser-déposer) ou copier-coller du tableau
+// ============================================================
+function openImportModal() {
+    document.getElementById('impPaste').value = '';
+    document.getElementById('impMsg').textContent = '';
+    document.getElementById('importModal').classList.add('active');
+}
+function closeImportModal() { document.getElementById('importModal').classList.remove('active'); }
 
-    try {
-        await ensureXlsxLoaded();
-    } catch (err) {
-        alert(err.message);
+function impNorm(k) { return String(k || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase(); }
+
+// Convertit des lignes (objets) en {Nom, Prénom, Discipline, ORS}, quelle que soit la casse ou l'accentuation des colonnes
+function impNormalizeRows(rows) {
+    return rows.map(r => {
+        const o = {};
+        Object.keys(r).forEach(k => {
+            const n = impNorm(k);
+            if (n === 'nom') o.nom = r[k];
+            else if (n === 'prenom') o.prenom = r[k];
+            else if (n === 'discipline' || n === 'matiere') o.discipline = r[k];
+            else if (n === 'ors' || n === 'apport') o.ors = r[k];
+        });
+        return o;
+    });
+}
+
+function importRows(rawRows) {
+    const rows = impNormalizeRows(rawRows).filter(r => String(r.nom || '').trim() && String(r.discipline || '').trim());
+    if (rows.length === 0) {
+        return "Aucune ligne exploitable : le tableau doit contenir au minimum les colonnes Nom, Prénom et Discipline (ORS facultatif, 18 par défaut).";
+    }
+    const hasData = Object.values(dataStore).some(d => (d.services || []).length > 0 || (d.teachers || []).length > 0);
+    if (hasData && !confirm("L'import remplace les disciplines et enseignants actuels (services et ventilation compris). Continuer ?")) return 'cancel';
+
+    dataStore = {};
+    rows.forEach(r => {
+        const discipline = String(r.discipline || 'Non spécifié').trim();
+        const teacher = `${String(r.nom || '').trim().toUpperCase()} ${String(r.prenom || '').trim()}`.trim();
+        const apportVal = r.ors === undefined || r.ors === '' ? 18 : (parseFloat(String(r.ors).replace(',', '.')) || 0);
+        if (!dataStore[discipline]) {
+            dataStore[discipline] = { deleteMode: false, enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false, sortCol: null, sortAsc: true, teachers: [], apports: {}, services: [] };
+        }
+        if (!dataStore[discipline].teachers.includes(teacher)) {
+            dataStore[discipline].teachers.push(teacher);
+            dataStore[discipline].apports[teacher] = apportVal;
+        }
+    });
+    currentActiveTabIndex = 0;
+    currentAutonomieTabLevelIndex = 0;
+    currentAutonomieTabDiscIndex = 0;
+    currentAutonomieTabDisciplinesIndex = 0;
+    renderApp();
+    return 'ok:' + rows.length;
+}
+
+function impReport(res) {
+    const msg = document.getElementById('impMsg');
+    if (res === 'cancel') return;
+    if (res.startsWith('ok:')) {
+        closeImportModal();
         return;
     }
+    msg.textContent = res;
+}
 
+async function importFromFile(file) {
+    if (!file) return;
+    const msg = document.getElementById('impMsg');
+    msg.textContent = 'Lecture du fichier…';
+    try { await ensureXlsxLoaded(); } catch (err) { msg.textContent = err.message; return; }
     const reader = new FileReader();
     reader.onload = (event) => {
-        const workbook = XLSX.read(event.target.result, { type: 'binary' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(firstSheet);
-
-        if (rows.length === 0 || !rows[0].Discipline || !rows[0].Nom) {
-            alert("Le fichier doit contenir au minimum les colonnes : 'Nom', 'Prénom', 'Discipline'");
-            return;
-        }
-
-        dataStore = {};
-        rows.forEach(r => {
-            const discipline = (r.Discipline || "Non spécifié").trim();
-            const teacher = `${(r.Nom || "").trim().toUpperCase()} ${(r.Prénom || r.Prenom || "").trim()}`;
-            const orsRaw = r.ORS !== undefined ? r.ORS : (r.Ors !== undefined ? r.Ors : (r.ors !== undefined ? r.ors : (r.Apport !== undefined ? r.Apport : (r.apport !== undefined ? r.apport : 18))));
-            const apportVal = parseFloat(orsRaw) || 0;
-            
-            if (!dataStore[discipline]) {
-                dataStore[discipline] = { deleteMode: false, enableSpecialites: false, enableOptionnels: false, enableCoEnseignement: false, enableMultiNiveau: false, sortCol: null, sortAsc: true, teachers: [], apports: {}, services: [] };
-            }
-            if (!dataStore[discipline].teachers.includes(teacher)) {
-                dataStore[discipline].teachers.push(teacher);
-                dataStore[discipline].apports[teacher] = apportVal;
-            }
-        });
-
-        currentActiveTabIndex = 0;
-        currentAutonomieTabLevelIndex = 0;
-        currentAutonomieTabDiscIndex = 0;
-        currentAutonomieTabDisciplinesIndex = 0;
-        renderApp();
+        try {
+            const workbook = XLSX.read(event.target.result, { type: 'binary' });
+            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            impReport(importRows(rows));
+        } catch (err) { msg.textContent = "Fichier illisible : " + ((err && err.message) || err); }
     };
     reader.readAsBinaryString(file);
 }
+
+// Tableau collé depuis Excel / Calc / Grist (tabulations), ou texte séparé par « ; » ou « , »
+function impParsePaste(text) {
+    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim() !== '');
+    if (!lines.length) return [];
+    const first = lines[0];
+    const sep = first.includes('\t') ? '\t' : (first.split(';').length > 1 ? ';' : (first.split(',').length > 1 ? ',' : '\t'));
+    const cut = l => l.split(sep).map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+    let head = cut(lines[0]).map(impNorm);
+    let body = lines.slice(1);
+    if (!(head.includes('nom') && head.includes('discipline'))) { head = ['nom', 'prenom', 'discipline', 'ors']; body = lines; }
+    return body.map(l => { const c = cut(l), o = {}; head.forEach((h, i) => { o[h] = c[i] === undefined ? '' : c[i]; }); return o; });
+}
+
+function importFromPaste() {
+    const txt = document.getElementById('impPaste').value;
+    if (!txt.trim()) { document.getElementById('impMsg').textContent = "Collez d'abord le tableau (avec ou sans ligne d'en-tête)."; return; }
+    impReport(importRows(impParsePaste(txt)));
+}
+
+function initImportDrop() {
+    const z = document.getElementById('impDrop'), inp = document.getElementById('excelFileInput');
+    if (!z || !inp) return;
+    z.addEventListener('click', () => inp.click());
+    z.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inp.click(); } });
+    inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; inp.value = ''; importFromFile(f); });
+    ['dragenter', 'dragover'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.remove('over'); }));
+    z.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; importFromFile(f); });
+}
+document.addEventListener('DOMContentLoaded', initImportDrop);
 
 function deleteDiscipline(disc) {
     if (confirm(`Voulez-vous vraiment supprimer la discipline "${disc}" et l'ensemble de ses données ?`)) {
