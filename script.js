@@ -5759,6 +5759,11 @@ function deltaFindService(op) {
     return idx >= 0 ? { index: idx, svc: list[idx] } : null;
 }
 
+// Un service créé sur le téléphone (sadd) plus tôt dans la même liste : les modifications qui le visent restent applicables
+function deltaPendingSadd(ops, idx, op) {
+    return ops.slice(0, idx).some(o => o.k === 'sadd' && o.disc === op.disc && o.svc === op.svc && (o.level || '') === (op.level || ''));
+}
+
 function evaluateDelta(ops) {
     const v2r = {};   // disc -> { nomVirtuel: nomRéel | null (nouvel enseignant) }
     const virt = d => {
@@ -5792,7 +5797,7 @@ function evaluateDelta(ops) {
             else if (cur !== (op.from || '')) it.status = 'conflict';
             it.detail = (op.to || '').trim() ? `« ${(op.to || '').trim().slice(0, 90)}${(op.to || '').length > 90 ? '…' : ''} »` : 'Post-it vidé';
         } else if (op.k === 'alloc') {
-            const found = deltaFindService(op);
+            const found = deltaFindService(op) || (deltaPendingSadd(ops, opIdx, op) ? { svc: { allocations: {} } } : null);
             it.text = `⏱️ ${disc} › ${op.svc || '(sans intitulé)'}${op.level ? ' (' + op.level + ')' : ''} — ${op.teacher}`;
             const real = virt(disc)[resolveName(disc, op.teacher, opIdx)];
             if (!found) { it.status = 'missing'; it.detail = 'Service introuvable'; return it; }
@@ -5824,8 +5829,12 @@ function evaluateDelta(ops) {
             it.current = cur;
             if (Math.abs(cur - deltaNum(op.to)) < 0.001) it.status = 'done';
             else if (Math.abs(cur - deltaNum(op.from)) >= 0.001) it.status = 'conflict';
+        } else if (op.k === 'sadd') {
+            it.text = `➕ Nouveau service — ${disc} › ${op.svc || '(sans intitulé)'}${op.level ? ' (' + op.level + ')' : ''}`;
+            it.detail = `${deltaFmt(op.classes)} classe(s) × ${deltaFmt(op.hours)} h`;
+            if (deltaFindService(op)) it.status = 'done';
         } else if (op.k === 'lock') {
-            const found = deltaFindService(op);
+            const found = deltaFindService(op) || (deltaPendingSadd(ops, opIdx, op) ? { svc: { locked: false } } : null);
             it.text = `${op.to ? '🔒 Verrouillage' : '🔓 Déverrouillage'} — ${disc} › ${op.svc || '(sans intitulé)'}${op.level ? ' (' + op.level + ')' : ''}`;
             if (!found) { it.status = 'missing'; it.detail = 'Service introuvable'; return it; }
             const cur = !!found.svc.locked;
@@ -5910,6 +5919,13 @@ function applyDelta() {
                 if (f && data.teachers.includes(op.teacher)) {
                     if (!f.svc.allocations) f.svc.allocations = {};
                     f.svc.allocations[op.teacher] = deltaNum(op.to);
+                    okk = true;
+                }
+            } else if (op.k === 'sadd') {
+                if (deltaFindService(op)) okk = true;
+                else {
+                    const lvl = op.level || '';
+                    data.services.push({ level: lvl, levels: [lvl], name: op.svc || '', classes: deltaNum(op.classes), hours: deltaNum(op.hours), ponderationActive: !!op.pond, ponderationFactor: 1.1, isSpecialite: !!op.spe, isOptionnel: false, isCoEnseignement: false, isMultiNiveau: false, locked: false, allocations: {} });
                     okk = true;
                 }
             } else if (op.k === 'lock') {
